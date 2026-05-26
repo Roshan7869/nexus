@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS Retrieval Quality Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px; }
+h1 { font-size: 24px; margin-bottom: 8px; color: #58a6ff; }
+.subtitle { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+.card h3 { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.card .value { font-size: 32px; font-weight: 700; }
+.card .value.green { color: #3fb950; }
+.card .value.yellow { color: #d29922; }
+.card .value.red { color: #f85149; }
+.card .value.blue { color: #58a6ff; }
+.card .detail { font-size: 12px; color: #8b949e; margin-top: 4px; }
+.section { margin-bottom: 24px; }
+.section h2 { font-size: 18px; margin-bottom: 12px; color: #c9d1d9; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 13px; }
+th { color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+tr:hover { background: #1c2128; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge.green { background: #238636; color: #fff; }
+.badge.yellow { background: #9e6a03; color: #fff; }
+.badge.red { background: #da3633; color: #fff; }
+.bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.bar-fill.green { background: #3fb950; }
+.bar-fill.yellow { background: #d29922; }
+.bar-fill.red { background: #f85149; }
+.bar-fill.blue { background: #58a6ff; }
+#status { font-size: 12px; color: #8b949e; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<h1>NEXUS Retrieval Quality Dashboard</h1>
+<p class="subtitle">Real-time metrics from nexus.db — auto-refreshes every 30s</p>
+<div id="status">Loading...</div>
+
+<div class="grid" id="metrics-grid"></div>
+
+<div class="section">
+<h2>Cluster Affinity Scores</h2>
+<table id="cluster-table">
+<thead><tr><th>Cluster</th><th>Total Outcomes</th><th>Correct</th><th>Affinity</th><th></th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section">
+<h2>Top 10 Most Used Skills</h2>
+<table id="skills-table">
+<thead><tr><th>Skill</th><th>Used</th><th>Correct</th><th>Wrong</th><th>Success Rate</th><th></th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section">
+<h2>Recent Failing Queries</h2>
+<table id="failing-table">
+<thead><tr><th>Task</th><th>Skill</th><th>Time</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section">
+<h2>FAISS Index Status</h2>
+<div id="faiss-info" class="card"></div>
+</div>
+
+<script>
+async function loadMetrics() {
+  try {
+    const res = await fetch('/api/metrics');
+    const data = await res.json();
+    render(data);
+    document.getElementById('status').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    document.getElementById('status').textContent = `Error: ${e.message}`;
+  }
+}
+
+function render(d) {
+  const g = document.getElementById('metrics-grid');
+  const oc = d.outcome_coverage;
+  const wd = d['7_day_window'];
+  const rh = d.resource_health;
+  const th = d.thompson;
+
+  g.innerHTML = `
+    <div class="card"><h3>Outcome Close Rate</h3><div class="value ${oc.close_rate >= 80 ? 'green' : oc.close_rate >= 60 ? 'yellow' : 'red'}">${oc.close_rate}%</div><div class="detail">${oc.closed} / ${oc.total_routes} routes closed</div><div class="bar"><div class="bar-fill ${oc.close_rate >= 80 ? 'green' : oc.close_rate >= 60 ? 'yellow' : 'red'}" style="width:${oc.close_rate}%"></div></div></div>
+    <div class="card"><h3>Routing Accuracy</h3><div class="value ${oc.accuracy >= 90 ? 'green' : oc.accuracy >= 70 ? 'yellow' : 'red'}">${oc.accuracy}%</div><div class="detail">${oc.correct} correct / ${oc.correct + oc.wrong} decided</div><div class="bar"><div class="bar-fill ${oc.accuracy >= 90 ? 'green' : oc.accuracy >= 70 ? 'yellow' : 'red'}" style="width:${oc.accuracy}%"></div></div></div>
+    <div class="card"><h3>7-Day Close Rate</h3><div class="value blue">${wd.close_rate}%</div><div class="detail">${wd.closed} / ${wd.total} this week</div><div class="bar"><div class="bar-fill blue" style="width:${wd.close_rate}%"></div></div></div>
+    <div class="card"><h3>Active Resources</h3><div class="value green">${rh.active}</div><div class="detail">${rh.with_usage} with usage data (${rh.coverage}% coverage)</div></div>
+    <div class="card"><h3>Degraded Skills</h3><div class="value ${rh.degraded > 0 ? 'red' : 'green'}">${rh.degraded}</div><div class="detail">${rh.degraded > 0 ? 'Needs attention' : 'All healthy'}</div></div>
+    <div class="card"><h3>Thompson Beliefs</h3><div class="value blue">${th.total_beliefs}</div><div class="detail">${th.high_confidence} high confidence (≥10 samples)</div></div>
+  `;
+
+  // Cluster affinities
+  const ct = document.querySelector('#cluster-table tbody');
+  ct.innerHTML = d.cluster_affinities.map(c => {
+    const pct = (c.affinity * 100).toFixed(1);
+    const cls = c.affinity >= 0.8 ? 'green' : c.affinity >= 0.6 ? 'yellow' : 'red';
+    return `<tr><td><span class="badge ${cls}">${c.cluster}</span></td><td>${c.total}</td><td>${c.correct}</td><td>${pct}%</td><td><div class="bar" style="width:100px"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div></td></tr>`;
+  }).join('');
+
+  // Top skills
+  const st = document.querySelector('#skills-table tbody');
+  st.innerHTML = d.top_skills.map(s => {
+    const cls = s.success_rate >= 80 ? 'green' : s.success_rate >= 60 ? 'yellow' : 'red';
+    return `<tr><td>${s.name}</td><td>${s.times_triggered}</td><td>${s.times_correct}</td><td>${s.times_wrong}</td><td>${s.success_rate}%</td><td><div class="bar" style="width:80px"><div class="bar-fill ${cls}" style="width:${s.success_rate}%"></div></div></td></tr>`;
+  }).join('');
+
+  // Failing queries
+  const ft = document.querySelector('#failing-table tbody');
+  ft.innerHTML = d.failing_queries.map(f => {
+    const time = f.created_at ? new Date(f.created_at + 'Z').toLocaleString() : '';
+    return `<tr><td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.task_summary || '(empty)'}</td><td>${f.skill_name || '-'}</td><td>${time}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" style="color:#8b949e">No recent failures</td></tr>';
+
+  // FAISS info
+  const fi = document.getElementById('faiss-info');
+  if (d.faiss && d.faiss.n_total) {
+    fi.innerHTML = `<h3>FAISS Index</h3><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px"><div><strong>${d.faiss.n_total}</strong> vectors</div><div>Built: <strong>${d.faiss.built_at}</strong></div><div>SHA256: <strong style="font-size:11px">${d.faiss.checksum}</strong></div></div>`;
+  } else {
+    fi.innerHTML = '<h3>FAISS Index</h3><div style="color:#8b949e">No index info available</div>';
+  }
+}
+
+loadMetrics();
+setInterval(loadMetrics, 30000);
+</script>
+</body>
+</html>

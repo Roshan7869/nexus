@@ -1,0 +1,188 @@
+# NEXUS v2 Research Implementation — Algorithm Extraction
+
+## Paper 1: ToolkenGPT (arXiv: 2305.11554)
+
+### Core Algorithm: Toolken Embedding
+
+**Section:** Section 3
+
+**Pseudocode:**
+```
+Input: query, tool_set = {tool_1, tool_2, ..., tool_n}
+Output: selected_tool, arguments
+
+1. FOR each tool in tool_set:
+     toolken[tool] = embedding_lookup(tool)  # Pre-computed via fine-tuning
+2. tool_probs = softmax(LLM(query) @ toolken^T / τ)
+3. selected_tool = argmax(tool_probs)
+4. LLM generates arguments for selected_tool
+5. Execute tool with arguments
+```
+
+**Key Equations:**
+- Tool probability: P(tool_k) = softmax(h · e_k / τ)
+  - h = LLM hidden state
+  - e_k = toolken embedding for tool k
+  - τ = temperature (default: 1.0)
+
+**Implementation Details:**
+- Toolkens learned via gradient descent on tool demonstration data
+- LLM remains frozen; only toolken embeddings trainable
+- Supports N tools by adding N new embedding vectors
+- Tool selection is a single forward pass through softmax
+
+---
+
+## Paper 2: AnyTool (arXiv: 2402.04253)
+
+### Core Algorithm: Hierarchical Tool Retrieval + Self-Reflection
+
+**Section:** Section 3.1, 3.2
+
+**3-Layer Architecture:**
+
+```
+Layer 1 — Category Retriever:
+1. Query embedding = encode(user_query)
+2. category_scores = cosine_similarity(query_emb, category_embeddings)
+3. top_k_categories = argtopk(category_scores, k=3)
+
+Layer 2 — Tool Retriever (per category):
+4. FOR each category in top_k_categories:
+     tool_candidates = fetch_tools_in_category(category)
+     tool_scores = cosine_similarity(query_emb, tool_embeddings[tool_candidates])
+     top_tools[category] = argtopk(tool_scores, k=5)
+
+Layer 3 — Solver + Self-Reflection:
+5. solver_prompt = build_prompt(query, top_tools)
+6. LLM selects tool_from_top_tools
+7. Execute tool
+8. IF execution fails OR response unsatisfying:
+     GOTO step 5 with reflection (max 3 retries)
+```
+
+**Self-Reflection Loop:**
+```
+WHILE attempts < max_retries:
+  result = execute(selected_tool, args)
+  IF result.successful AND result.satisfies(query):
+    RETURN result
+  reflection = LLM.analyze(result, query)
+  selected_tool, args = LLM.select_next_from_candidates(reflection)
+  attempts += 1
+RETURN failure
+```
+
+**Key Metrics:**
+- 16,000+ APIs from Rapid API
+- Hierarchical reduces search space by ~95%
+- Self-reflection achieves +35.4% pass rate vs ToolLLM
+
+---
+
+## Paper 3: Tool-to-Agent Retrieval (arXiv: 2511.01854)
+
+### Core Algorithm: Joint Tool-Agent Vector Space
+
+**Section:** Section 3
+
+**Key Innovation:**
+```
+Standard approach:
+  Query → Agent embeddings only → Agent → (all tools) → Context dilution
+
+Tool-to-Agent approach:
+  Query → Tool embeddings → Metadata traversal → Agent → Joint representation
+```
+
+**Algorithm:**
+```
+1. Encode each tool: tool_emb = encoder(tool_description, tool_schema)
+2. Encode each agent: agent_emb = encoder(agent_capabilities, parent_tools)
+3. Store in joint index: {tool_emb, parent_agent_id, metadata}
+
+Query-time:
+4. query_emb = encode(user_query)
+5. tool_matches = vector_search(query_emb, top_k=10)
+6. FOR each tool_match:
+     agent_id = metadata[tool_match].parent_agent_id
+     agent_emb = lookup(agent_id)
+     combined_score = α * tool_similarity + (1-α) * agent_similarity
+7. Rerank by combined_score
+8. Return top tools with full agent context
+```
+
+**Results:**
+- Recall@5: 0.83 (+19.4% over baseline)
+- nDCG@5: +17.7% improvement
+
+---
+
+## Paper 4: HuggingGPT (arXiv: 2303.17580)
+
+### Core Algorithm: 4-Stage Orchestration
+
+**Section:** Section 3.2
+
+**Workflow:**
+```
+Stage 1 — Task Planning:
+1. Parse user request into structured subtasks
+2. LLM outputs: [{"task": "task_name", "dep": [dep_task_ids], "args": {...}}]
+
+Stage 2 — Model Selection:
+3. FOR each task:
+     available_models = list_from_HF(model_repository)
+     model_desc = get_model_description(model)
+     match_score = LLM.select(model_desc, task.requirements)
+     selected_models[task] = argmax(match_score)
+
+Stage 3 — Task Execution:
+4. FOR each task in dependency_order:
+     model = selected_models[task]
+     inputs = gather_outputs(task.dep)
+     result = model.execute(inputs)
+     store_result(task.id, result)
+
+Stage 4 — Response Synthesis:
+5. LLM aggregates all results into coherent response
+```
+
+---
+
+## Paper 5: ScaleMCP (arXiv: 2505.06416)
+
+### Core Algorithm: TDWA Embedding + Dynamic Sync
+
+**Section:** Section 3.1, 3.2
+
+**Tool Document Weighted Average (TDWA):**
+```
+Standard: emb(tool_doc) = mean(embeddings of all tokens)
+
+TDWA:
+1. Parse tool document into components:
+   - tool_name (highest weight: w1=2.0)
+   - synthetic_questions (high weight: w2=1.5)
+   - description (normal weight: w3=1.0)
+   - parameters (low weight: w4=0.5)
+
+2. emb_components = [encode(component) for each]
+3. weighted_emb = Σ(w_i * emb_components[i]) / Σ(w_i)
+4. final_emb = L2_normalize(weighted_emb)
+```
+
+**CRUD Sync Pipeline:**
+```
+CREATE: new_tool_detected → add to vector index
+READ:   tool_retrieved → merge with MCP server schema
+UPDATE: tool_schema_changed → re-index with new embedding
+DELETE: tool_removed_from_MCP → remove from vector index
+
+Trigger: MCP server change event OR polling interval (configurable)
+```
+
+**Evaluation:**
+- 5,000 financial metric MCP servers
+- 10 LLM models, 5 embedding models, 5 retriever types
+- Significant improvements in tool retrieval and agent invocation

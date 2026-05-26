@@ -1,0 +1,137 @@
+# NEXUS Configuration
+# One-stop config for all AI coding agents
+
+host: "127.0.0.1"
+port: 8000
+log_level: "info"
+ssl_verify: true
+
+# ── LLM Providers ──────────────────────────────────────────────────────────────
+providers:
+  ollama_cloud:
+    base_url: "https://ollama.com/v1"
+    api_key: "${OLLAMA_CLOUD_API_KEY}"
+    timeout: 120
+    models:
+      # T1 Fast
+      - name: gemini-3-flash-preview:cloud
+        role: fast
+      - name: deepseek-v4-flash:cloud
+        role: reasoning
+      # T2 Standard
+      - name: devstral-small-2:24b-cloud
+        role: coding
+      - name: devstral-2:123b-cloud
+        role: coding
+      - name: gemma4:31b-cloud
+        role: general
+      - name: gemma3:27b-cloud
+        role: general
+      # T3 Complex
+      - name: qwen3-coder:480b-cloud
+        role: coding
+      - name: deepseek-v4-pro:cloud
+        role: reasoning
+      - name: cogito-2.1:671b-cloud
+        role: reasoning
+      - name: mistral-large-3:675b-cloud
+        role: architecture
+      - name: qwen3.5:397b-cloud
+        role: general
+      - name: nemotron-3-super:cloud
+        role: general
+      # Vision
+      - name: qwen3-vl:235b-cloud
+        role: vision
+      # Long context
+      - name: minimax-m2.7:cloud
+        role: long_context
+      - name: minimax-m2.5:cloud
+        role: long_context
+      - name: kimi-k2.6:cloud
+        role: coding
+      - name: kimi-k2.5:cloud
+        role: coding
+      - name: glm-5.1:cloud
+        role: agentic
+      - name: glm-5:cloud
+        role: agentic
+
+  nvidia_nim:
+    base_url: "https://integrate.api.nvidia.com/v1"
+    api_key: "${NVIDIA_API_KEY}"
+    timeout: 120
+    models:
+      # Verified working (2026-05-15) — these 4 respond, rest timeout
+      - name: meta/llama-3.3-70b-instruct
+        role: general
+      - name: mistralai/mistral-small-4-119b-2603
+        role: general
+      - name: stepfun-ai/step-3.5-flash
+        role: fast
+      - name: qwen/qwen3-coder-480b-a35b-instruct
+        role: coding
+
+# ── Routing (OPTIONAL - OFF by default) ───────────────────────────────────────
+routing:
+  enabled: true           # Enable smart routing with Thompson Sampling
+  learn_slowly: true       # Require min_samples before changing routing
+  min_samples_before_route: 5
+  benchmarks:
+    - mmlu
+    - humaneval
+    - math500
+    - arc
+
+# ── IDE Connections ────────────────────────────────────────────────────────────
+ide_connections:
+  claude_code:
+    enabled: false
+    mcp_port: 9090
+    api_base: "http://localhost:8000/v1"
+    api_key: "nexus-claude-code-key"
+
+  codex:
+    enabled: false
+    api_base: "http://localhost:8000/v1"
+    # Codex reads OPENAI_API_BASE and OPENAI_API_KEY from env
+
+  opencode:
+    enabled: true
+    api_base: "http://localhost:8000/v1"
+
+  aider:
+    enabled: false
+    api_base: "http://localhost:8000/v1"
+    # Aider reads OPENAI_API_BASE and OPENAI_API_KEY from env
+
+  hermes:
+    enabled: true
+    # Hermes uses its own config system - we generate env vars
+
+# ── OptiLLM Reasoning Approaches (OPTIONAL - OFF by default) ─────────────────
+approaches:
+  enabled: true
+  default: none
+  available:
+    - none
+    - cot_reflection
+    - moa
+    - mcts
+    - bon
+
+# ── Learning Feature Flags ─────────────────────────────────────────────────────
+# Single source of truth for all learning pipeline features.
+# Override via env vars: NEXUS_THOMPSON_ROUTING, NEXUS_CLUSTER_ROUTING, etc.
+# Resolution: YAML value > env var > code default (false).
+learning:
+  thompson_routing: true
+  cluster_routing: true
+  reflection_enabled: true
+  mcp_sync: false
+  auto_invoke_enabled: false
+  min_samples_thompson: 10
+  degraded_threshold: 0.40
+
+# ── Security ───────────────────────────────────────────────────────────────────
+optillm_api_key: "${NEXUS_API_KEY}"

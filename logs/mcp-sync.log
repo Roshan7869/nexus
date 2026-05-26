@@ -1,0 +1,36 @@
+============================================================
+  MCP SYNC DEMO
+============================================================
+
+📦 CREATE tool:
+   Success: True
+
+📖 READ tool:
+   Name: github-issue-creator
+   Server: github-mcp
+
+📝 UPDATE tool:
+   Success: True
+
+🗑️ DELETE tool:
+   Success: True
+
+📊 Sync Status:
+{
+  "total_operations": 7,
+  "by_operation": {
+    "create": 1,
+    "delete": 3,
+    "update": 3
+  },
+  "pending_syncs": 0,
+  "running": false
+}
+Traceback (most recent call last):
+  File "/home/roshan/nexus/server/mcp_sync.py", line 439, in <module>
+    run_daemon(poll)
+  File "/home/roshan/nexus/server/mcp_sync.py", line 424, in run_daemon
+    print(f"[MCP Sync Daemon] Starting (poll_interval={poll_interval}s, PID={os.getpid()})", flush=True)
+                                                                             ^^
+NameError: name 'os' is not defined. Did you forget to import 'os'?
+[MCP Sync Daemon] Starting (poll_interval=60s, PID=56285)

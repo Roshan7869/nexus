@@ -1,0 +1,20 @@
+{
+  "dry_run": false,
+  "backup": "/home/roshan/nexus/db/backups/nexus.db.ph5_pre_gating.20260511_031201.bak",
+  "timestamp": "20260511_031201",
+  "tools_configured": 7,
+  "state_variables": 11,
+  "default_state": {
+    "has_db": false,
+    "has_auth": false,
+    "has_file": false,
+    "has_browser": false,
+    "has_mcp": true,
+    "has_internet": true,
+    "has_api_key": false,
+    "has_git": true,
+    "has_docker": false,
+    "project_initialized": true,
+    "has_tests": false
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "phase": "Phase 1: Data Hygiene",
+  "timestamp": "2026-05-11T02:08:35.960703",
+  "elapsed_seconds": 0.1,
+  "before": {
+    "total": 1097,
+    "null_descriptions": 46,
+    "null_file_paths": 95,
+    "short_descriptions": 80,
+    "no_embedding": 1,
+    "by_type": [
+      {
+        "resource_type": "skill",
+        "total": 459,
+        "null_desc": 0,
+        "null_path": 92
+      },
+      {
+        "resource_type": "command",
+        "total": 184,
+        "null_desc": 0,
+        "null_path": 2
+      },
+      {
+        "resource_type": "design_system",
+        "total": 148,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "agent",
+        "total": 143,
+        "null_desc": 46,
+        "null_path": 0
+      },
+      {
+        "resource_type": "hook",
+        "total": 68,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "cli_tool",
+        "total": 47,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "mcp",
+        "total": 16,
+        "null_desc": 0,
+        "null_path": 1
+      },
+      {
+        "resource_type": "craft",
+        "total": 12,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "doc",
+        "total": 11,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "spec",
+        "total": 9,
+        "null_desc": 0,
+        "null_path": 0
+      }
+    ]
+  },
+  "after": {
+    "total": 1097,
+    "null_descriptions": 0,
+    "null_file_paths": 0,
+    "short_descriptions": 0,
+    "no_embedding": 1,
+    "by_type": [
+      {
+        "resource_type": "skill",
+        "total": 459,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "command",
+        "total": 184,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "design_system",
+        "total": 148,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "agent",
+        "total": 143,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "hook",
+        "total": 68,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "cli_tool",
+        "total": 47,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "mcp",
+        "total": 16,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "craft",
+        "total": 12,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "doc",
+        "total": 11,
+        "null_desc": 0,
+        "null_path": 0
+      },
+      {
+        "resource_type": "spec",
+        "total": 9,
+        "null_desc": 0,
+        "null_path": 0
+      }
+    ]
+  },
+  "improvements": {
+    "null_descriptions_fixed": 46,
+    "null_file_paths_fixed": 95,
+    "short_descriptions_fixed": 80,
+    "no_embedding_fixed": 0
+  },
+  "verdict": "PASS",
+  "verdict_gate": {
+    "requirement": "NULL descriptions = 0 AND NULL file_paths = 0",
+    "actual_null_desc": 0,
+    "actual_null_path": 0
+  }
+}

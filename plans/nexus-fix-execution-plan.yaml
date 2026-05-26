@@ -1,0 +1,159 @@
+plan:
+  id: "plan-nexus-v4-health-restore"
+  goal: "Fix all 8 audit issues + register adaptive-imagining-cat as analyzer_planner default orchestrator"
+  created: "2026-05-12"
+  approved: false
+
+phases:
+  - id: "phase-0-context"
+    type: research
+    name: "Context & State Capture"
+    description: "Snapshot current Nexus state, read all existing cluster configs, capture pre-fix metrics"
+    inputs: []
+    outputs:
+      - "pre-fix-metrics.json"
+      - "state-capture.sqlite"
+    guardrails:
+      - "Must verify all 1,097 resources as-is before ANY mutation"
+      - "Must confirm all 18 server modules import correctly"
+    resources:
+      skills: ["search-first", "iterative-retrieval"]
+      agents: ["researcher"]
+    estimated_tokens: 3000
+    checkpoint: true
+
+  - id: "phase-1-fix-v4-bug"
+    type: implement
+    name: "Fix v4 Tool Attention missing return statement"
+    description: "tool_attention_v4.py:387 — add `return result` to process_turn() method"
+    inputs: ["phase-0-context"]
+    outputs:
+      - "tool_attention_v4.py (patched)"
+    guardrails:
+      - "Verify route_v4() no longer returns None"
+      - "Verify hallucination_gate still works"
+    resources:
+      skills: ["careful"]
+    estimated_tokens: 1000
+    checkpoint: true
+
+  - id: "phase-2-create-orchestrator"
+    type: implement
+    name: "Create Nexus Health Orchestrator (analyzer_planner default)"
+    description: >
+      Build nexus_health_orchestrator.py — a cluster-agnostic repair engine that:
+      1. Uses adaptive-imagining-cat flow to diagnose cluster mapping requirements
+      2. Maps each cluster's trigger keywords to available skills/agents/commands
+      3. Auto-repairs empty body_text for 46 agents
+      4. Recalculates token_count for 73 zero-token resources
+      5. Re-runs ClusterClassifier to fix 285 low-confidence assignments
+      6. Archives 1 stale demo resource
+      7. Generates fresh usage seed data
+    inputs: ["phase-1-fix-v4-bug"]
+    outputs:
+      - "nexus_health_orchestrator.py"
+      - "analyzer_planner registered as default-orchestrator"
+    guardrails:
+      - "Must import without errors"
+      - "Must be callable from MCP server"
+      - "Must expose orchestrate() as single entry point"
+    resources:
+      skills: ["adaptive-imagining-cat", "autopilot"]
+      agents: ["architect", "specification"]
+      commands: ["/plan-eng-review"]
+    estimated_tokens: 12000
+    checkpoint: true
+
+  - id: "phase-3-register-cluster"
+    type: implement
+    name: "Register orchestrator in analyzer_planner cluster + update defaults"
+    description: >
+      Update cluster_config.py:
+      1. Set analyzer_planner default_skill → "adaptive-imagining-cat"
+      2. Set analyzer_planner default_agents → ["nexus-health-orchestrator", "researcher"]
+      3. Add trigger keywords for health/integrity operations
+      4. Ensure all 8 clusters have correct resource_type filters
+    inputs: ["phase-2-create-orchestrator"]
+    outputs:
+      - "cluster_config.py (updated)"
+    guardrails:
+      - "Must not break existing cluster routing"
+      - "Must pass test_v3.py cluster tests (Phase 12)"
+    resources:
+      skills: ["autoplan"]
+      agents: ["architect"]
+    estimated_tokens: 2000
+    checkpoint: true
+
+  - id: "phase-4-auto-repair"
+    type: implement
+    name: "Auto-repair all data integrity issues"
+    description: >
+      Execute repair operations:
+      1. Purge 1 archived demo (github-issue-creator, id=1097)
+      2. Extract body_text for 46 agents from their config files (or mark as stub)
+      3. Recalculate token_count for 73 zero-token resources
+      4. Run ClusterClassifier.classify_all() for 285 low-confidence assignments
+      5. Mark 133 missing-file resources as 'stale' status (don't delete, keep for search)
+    inputs: ["phase-3-register-cluster"]
+    outputs:
+      - "data-repair-log.json"
+      - "cluster-reclassification-report.json"
+    guardrails:
+      - "Must not DELETE resources — only UPDATE status"
+      - "Must preserve FAISS embeddings"
+      - "Must log every mutation"
+    resources:
+      skills: ["careful", "qa"]
+      agents: ["database-admin"]
+    estimated_tokens: 8000
+    checkpoint: true
+
+  - id: "phase-5-test-verify"
+    type: test
+    name: "Run all verification gates"
+    description: >
+      Execute verification suite:
+      1. Run test_v3.py — all 25+ tests must pass
+      2. Verify route_v4() returns proper result (was None bug)
+      3. Verify cluster routing still narrows to 150-200 resources
+      4. Verify all 18 server modules re-import cleanly
+      5. Verify health orchestrator works end-to-end
+    inputs: ["phase-4-auto-repair"]
+    outputs:
+      - "verification-report.json"
+    guardrails:
+      - "Zero regressions from pre-fix state"
+      - "FAISS index must remain at 1097 vectors"
+      - "All routing methods must return non-None results"
+    resources:
+      skills: ["verification-loop", "qa"]
+      agents: ["code-reviewer", "qa-engineer"]
+      commands: ["/review"]
+    parallel: true
+    estimated_tokens: 5000
+    checkpoint: true
+
+  - id: "phase-6-audit"
+    type: audit
+    name: "Generate post-fix audit + register learnings"
+    description: >
+      Compare pre/post metrics:
+      1. Audit all fixes applied
+      2. Update resource health dashboard
+      3. Log learnings to reflection_failures/fixes tables
+      4. Generate AUDIT_REPORT.md
+      5. Update nexus health endpoint with new stats
+    inputs: ["phase-5-test-verify"]
+    outputs:
+      - "POSTFIX_AUDIT.md"
+      - "nexus-health-registry.json"
+    guardrails:
+      - "Post-fix health score must be > pre-fix score"
+      - "All learnings must be persisted"
+    resources:
+      skills: ["skill-stocktake", "retro"]
+      agents: ["auditor"]
+      commands: ["/retro"]
+    estimated_tokens: 3000
+    checkpoint: true

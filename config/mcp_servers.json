@@ -1,0 +1,14 @@
+{
+  "known_servers": [
+    {
+      "name": "github-mcp",
+      "type": "github",
+      "tools": ["create-issue", "list-issues", "create-pr", "review-pr"]
+    },
+    {
+      "name": "filesystem",
+      "type": "filesystem",
+      "tools": ["read-file", "write-file", "list-directory"]
+    }
+  ]
+}

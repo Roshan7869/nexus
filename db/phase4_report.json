@@ -1,0 +1,14 @@
+{
+  "dry_run": false,
+  "backup": "/home/roshan/nexus/db/backups/nexus.db.ph4_pre_embed.20260519_193053.bak",
+  "timestamp": "20260519_193053",
+  "total_embedded": 2463,
+  "dim": 384,
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "index_path": "/home/roshan/nexus/db/faiss/resources.index",
+  "index_vectors": 2463,
+  "embedding_shape": [
+    2463,
+    384
+  ]
+}

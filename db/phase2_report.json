@@ -1,0 +1,190 @@
+{
+  "dry_run": false,
+  "backup": "/home/roshan/nexus/db/backups/nexus.db.ph2_pre_classify.20260511_022840.bak",
+  "timestamp": "20260511_022840",
+  "total_resources": 1097,
+  "tier_changes": 872,
+  "new_tier_distribution": {
+    "1": 832,
+    "2": 225,
+    "3": 40
+  },
+  "rules_applied": {
+    "mcp": 3,
+    "cli_tool": 2,
+    "skill": null,
+    "command": null,
+    "design_system": 1,
+    "agent": null,
+    "hook": 1,
+    "craft": 2,
+    "doc": 1,
+    "spec": 1
+  },
+  "thresholds": {
+    "1": 500,
+    "2": 2000
+  },
+  "changes_sample": [
+    {
+      "id": 1,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 1,
+      "desc_len": 5
+    },
+    {
+      "id": 2,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 4,
+      "desc_len": 12
+    },
+    {
+      "id": 3,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 8
+    },
+    {
+      "id": 4,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 6
+    },
+    {
+      "id": 5,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 8
+    },
+    {
+      "id": 6,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 6,
+      "desc_len": 18
+    },
+    {
+      "id": 7,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 5,
+      "desc_len": 15
+    },
+    {
+      "id": 8,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 6
+    },
+    {
+      "id": 9,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 6
+    },
+    {
+      "id": 10,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 3,
+      "desc_len": 11
+    },
+    {
+      "id": 11,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 4,
+      "desc_len": 14
+    },
+    {
+      "id": 12,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 6
+    },
+    {
+      "id": 13,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 2,
+      "desc_len": 7
+    },
+    {
+      "id": 14,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 1,
+      "desc_len": 5
+    },
+    {
+      "id": 15,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 4,
+      "desc_len": 13
+    },
+    {
+      "id": 16,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 1,
+      "desc_len": 100
+    },
+    {
+      "id": 17,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 3,
+      "desc_len": 10
+    },
+    {
+      "id": 19,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 3,
+      "desc_len": 9
+    },
+    {
+      "id": 20,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 3,
+      "desc_len": 11
+    },
+    {
+      "id": 21,
+      "old_tier": 2,
+      "new_tier": 1,
+      "type": "skill",
+      "token_count": 4,
+      "desc_len": 12
+    }
+  ]
+}

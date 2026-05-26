@@ -1,0 +1,818 @@
+[
+  {
+    "query_id": 1,
+    "task_text": "Complete state analysis + gap identification + fix execution for RUH editorial jewel material/metal migration cleanup. Fixed: types.ts Insert type, validation schema, legacy AdminPage.tsx interface, empty state cleanup. Verified: lint 0 errors, test pass, build success.",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "ruh-editorial-jewel"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 2,
+    "task_text": "Complete homepage redesign with CollectionBands, new ShopPage with filters, collection routing, Navbar+Footer updates. Lint 0 errors, build pass, test pass, Vercel deploy complete.",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "ruh-editorial-jewel"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 3,
+    "task_text": "audit codebase state analysis identify remaining bugs after migration",
+    "expected_resource_names": [
+      "security-scan",
+      "cso",
+      "skill-stocktake",
+      "skill-pptx-html-fidelity-audit",
+      "design-review"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "ruh-editorial-jewel"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 4,
+    "task_text": "E0.2: Created shared_config/signals/, killed 6 duplicate MCP processes, removed empty chromadb_data/ and chromadb.BAK \u2014 canonical ChromaDB is strategy_db/chroma_db/ (648 vectors)",
+    "expected_resource_names": [
+      "investigate"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 5,
+    "task_text": "design: Design Plan",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 6,
+    "task_text": "Completed R3-R6 of Dual-Engine plan: Redis publisher fix, Streamlit subscriber wiring, NEXUS learning loop integration, verification scripts \u2014 9 files modified, all 173 tasks done",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 7,
+    "task_text": "Debug Flowsurface desktop indicator rendering issues - investigate Rust GUI app with iced framework, chart rendering, exchange data flow",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "debug",
+      "hermes-skill-software-development-python-debugpy",
+      "investigate",
+      "claude-cmd-claude-flow-swarm.md-claude-flow-swarm"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 8,
+    "task_text": "outcome tracking routing feedback loop MAB Thompson Sampling",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "ruflo-mcp-sona-tools",
+      "reasoningbank-agentdb",
+      "craft-typography-hierarchy",
+      "scout-explorer"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 9,
+    "task_text": "Remediation progress: 19/19 tasks done",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "remediation_tracker",
+      "qa"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 10,
+    "task_text": "Rust trading indicator development orderflow volume profile flowsurface Iced UI charting",
+    "expected_resource_names": [
+      "hermes-skill-software-development-plan",
+      "hermes-skill-software-development-requesting-code-review",
+      "plugin-development",
+      "design-html",
+      "ds-figma"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 11,
+    "task_text": "Audit dimension: UI/UX Streamlit dashboard. Found runtime crash, zero charts, zero caching, 3 placeholder pages, fragile theming. Score 35/100.",
+    "expected_resource_names": [
+      "design-review"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 12,
+    "task_text": "understand: Understand Task",
+    "expected_resource_names": [
+      "researcher"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 13,
+    "task_text": "successful execution task",
+    "expected_resource_names": [
+      "test-edge-source"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "test_proj"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 14,
+    "task_text": "Multi-dimensional audit of Algotrading: system design (53), execution (50), UI/UX (35), trade execution (48). Overall 47/100. Found 13 critical issues.",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 15,
+    "task_text": "tool routing large scale hierarchical retrieval",
+    "expected_resource_names": [
+      "claude-skill-iterative-retrieval",
+      "adaptive-imagining-cat",
+      "hermes-skill-creative-creative-ideation",
+      "ai-swarm-workspace-cli_tool-open-claude",
+      "ruflo-mcp-swarm-tools"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 16,
+    "task_text": "E0.1: Installed time_machine, datasieve, yfinance, plotly in .venv \u2014 fixed 7 collection errors (was 7, now 0)",
+    "expected_resource_names": [
+      "investigate"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 17,
+    "task_text": "hello world",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 18,
+    "task_text": "Design plan for Flowsurface trading desktop indicator system with on-chart overlays, strategy-aware layouts, and professional trading workstation setup",
+    "expected_resource_names": [
+      "plan-eng-review",
+      "design-html",
+      "design-consultation",
+      "claude-skill-plan-design-review",
+      "plan-design-review"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 19,
+    "task_text": "verify: Verify Output",
+    "expected_resource_names": [
+      "researcher"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 20,
+    "task_text": "TPO VP Strategy 5-variant backtest across 13 pairs - V3 EMA-Stack wins with 38.6% WR, PF 1.55, net +56k. ChromaDB + HEdge research integrated.",
+    "expected_resource_names": [
+      "strategy-kb"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 21,
+    "task_text": "graphify typed DAG plan design with live execution tracking for Algotrading Nexus features",
+    "expected_resource_names": [
+      "plan-design-review"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 22,
+    "task_text": "multidimensional audit Algotrading system design execution UI UX",
+    "expected_resource_names": [
+      "design-html"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 23,
+    "task_text": "Created data_connector.py and wired 7 dashboard pages + app.py to use DataManager with fallback to data_layer. All imports verified working with live data.",
+    "expected_resource_names": [
+      "dashboard-wiring-phase5"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 24,
+    "task_text": "Completed B0-D0: Created 10-feature E2E test (113/113 pass), fixed F7 search term assertion, updated phase_tracker.json with all iteration phases, ran final DAG tracking \u2014 all 53 phases complete",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 25,
+    "task_text": "fix mobile filter overflow UI UX skeleton loading glassmorphism product editor material field",
+    "expected_resource_names": [
+      "security-review",
+      "investigate",
+      "hermes-skill-productivity-teams-meeting-pipeline",
+      "design-html",
+      "hermes-skill-productivity-nano-pdf"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "ruh-editorial-jewel"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 26,
+    "task_text": "Python asyncio subprocess process manager orchestrator docker-compose health checks",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "hermes-skill-software-development-python-debugpy",
+      "health",
+      "researcher",
+      "claude-cmd-sparc-workflow-manager"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "Algotrading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 27,
+    "task_text": "Homepage image performance fix: corrected SmartImage sizes attribute (100vw/50vw/33vw \u2192 50vw/33vw/25vw), added 5 preload links, reduced fade 500ms\u2192200ms, added fetchpriority to hero, narrowed cache-wipe script, added /images/* cache-control 86400s, added prefetch on nav hover",
+    "expected_resource_names": [
+      "frontend-ui-engineering"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 28,
+    "task_text": "fix Algotrading critical bugs and cold system startup UI crash learning loop",
+    "expected_resource_names": [
+      "security-review",
+      "frontend-ui-engineering",
+      "investigate",
+      "design-html",
+      "hermes-skill-software-development-debugging-hermes-tui-commands"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 29,
+    "task_text": "E1: Full verification \u2014 113/113 10-feature E2E, 36/36 MiroShark E2E, 70/70 custom pytest, 0 collection errors across 4925 tests",
+    "expected_resource_names": [
+      "investigate"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 30,
+    "task_text": "Audit dimension: execution pipeline and trade execution quality. Found system cold, Redis down, stale circuit breaker, live entries disabled.",
+    "expected_resource_names": [
+      "qa"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 31,
+    "task_text": "Phase 1 Foundation Cleanup: archived dead strategies (40+52 generated), created config/settings.yaml, config/paths.py, Makefile, .env.example",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 32,
+    "task_text": "Remediation progress: 0/19 tasks done",
+    "expected_resource_names": [
+      "remediation_tracker"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 33,
+    "task_text": "what is the meaning of life",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 34,
+    "task_text": "Build parameter edit UI widgets for 23 indicator panels, Smart Config button for strategy KB integration, and tests for new indicators in flowsurface Rust engine",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "plan-eng-review",
+      "frontend-ui-engineering",
+      "shipping-and-launch",
+      "standard-checkpoint-hooks"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 35,
+    "task_text": "Completed 5 steps: fix Thompson field name bug, verify ranking, clean nexus.db, E2E test suite (70 pass), add regime-aware strategy selection tools to MCP",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 36,
+    "task_text": "frontend performance optimization image loading lazy loading preloading cache control",
+    "expected_resource_names": [
+      "frontend-ui-engineering",
+      "guard",
+      "design-html",
+      "careful",
+      "statusline-hook"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 37,
+    "task_text": "Android Chrome stale version debugging - residual PWA service worker root cause identified and fixed with 5-layer cache invalidation",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 38,
+    "task_text": "browser caching service worker cache invalidation Vercel headers",
+    "expected_resource_names": [
+      "ship",
+      "employee-registry",
+      "skill-last30days",
+      "manage-agent",
+      "instinct-import"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 39,
+    "task_text": "audit: Audit and Learn",
+    "expected_resource_names": [
+      "researcher"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 40,
+    "task_text": "Completed P1-P5 + P8 of Flowsurface indicator overlay plan: trait design, 10 on-chart overlays (VWAP, Bollinger, ALMA, PivotPoints, FVG, OrderBlock, MSS, CVD Divergence, LVN, CandlestickPattern), preset layouts (Classic, Scalping, Swing, OrderFlow, Trend), release build + E2E tests pass",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 41,
+    "task_text": "Executed L12-L21 Nexus features fix: 10 phases, 7 new modules, 42 tests, all verified",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 42,
+    "task_text": "state analysis graphify typed DAG plan for algotrading system",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 43,
+    "task_text": "Fix Admin Billboard cursor-jump: moved FormField/Field sub-components to module level in AdminBillboard.tsx and AdminSettings.tsx, built, tested, deployed to Vercel",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "ruh-editorial-jewel"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 44,
+    "task_text": "1234567890",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 45,
+    "task_text": "the quick brown fox jumps over the lazy dog",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 46,
+    "task_text": "Fix Rust compilation errors: Price API mismatches, missing ta functions, non-exhaustive matches, type errors",
+    "expected_resource_names": [
+      "claude-skill-qa",
+      "api-design",
+      "security-review",
+      "investigate",
+      "skill-dcf-valuation"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "hermes"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 47,
+    "task_text": "audit Rust trading engine for bugs \u2014 indicator math, data pipeline, runtime panics, concurrency, rendering",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "security-scan",
+      "cso",
+      "skill-stocktake",
+      "design-review"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 48,
+    "task_text": "tell me a joke",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 49,
+    "task_text": "write a poem about artificial intelligence",
+    "expected_resource_names": [],
+    "expected_resource_types": [],
+    "tags": [],
+    "difficulty": "adversarial"
+  },
+  {
+    "query_id": 50,
+    "task_text": "fix broken nexus features outcome tracking thompson sampling self-reflection cluster affinity auto-invoke session search skill management memory",
+    "expected_resource_names": [
+      "investigate"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 51,
+    "task_text": "investigate debugging fix errors Algotrading project",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "claude-skill-investigate",
+      "investigate",
+      "hermes-skill-software-development-systematic-debugging",
+      "claude-skill-github-project-management"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 52,
+    "task_text": "Complete state analysis + graphify: mapped all 9 layers, 13,287 code nodes, 17,212 edges, 30 execution phases, all entry points and critical data paths for Algotrading system",
+    "expected_resource_names": [
+      "adaptive-imagining-cat"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 53,
+    "task_text": "multi-armed bandit cold start exploration routing",
+    "expected_resource_names": [
+      "optillm",
+      "coach-session-analysis",
+      "adaptive-imagining-cat",
+      "skilllens-agent",
+      "swarm-advanced"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 54,
+    "task_text": "research: Research Context",
+    "expected_resource_names": [
+      "researcher"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 55,
+    "task_text": "implement: Implement Solution",
+    "expected_resource_names": [
+      "researcher"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "default"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "query_id": 56,
+    "task_text": "Remediation progress: 10/19 tasks done",
+    "expected_resource_names": [
+      "adaptive-imagining-cat",
+      "remediation_tracker",
+      "qa"
+    ],
+    "expected_resource_types": [
+      "skill"
+    ],
+    "tags": [
+      "trading"
+    ],
+    "difficulty": "medium"
+  }
+]
