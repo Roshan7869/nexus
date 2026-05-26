@@ -1,0 +1,12 @@
+{
+  "total_embedded": 1871,
+  "dim": 384,
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "index_path": "/home/roshan/nexus/db/faiss/resources.index",
+  "index_vectors": 1871,
+  "embedding_shape": [
+    1871,
+    384
+  ],
+  "ts": "20260520_211125"
+}

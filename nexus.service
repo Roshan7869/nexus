@@ -1,0 +1,22 @@
+# NEXUS Systemd Service
+[Unit]
+Description=NEXUS Unified LLM Gateway
+After=network.target ollama.service
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/home/%I/nexus
+Environment=HOME=/home/%I
+Environment=PYTHONPATH=/home/%I/nexus
+Environment=NEXUS_MCP_SYNC=true
+Environment=OLLAMA_HOST=localhost:11434
+ExecStart=/home/%I/nexus/venv/bin/python -m uvicorn server.unified:app --host 0.0.0.0 --port 9999 --workers 1
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

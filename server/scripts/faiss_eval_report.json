@@ -1,0 +1,12 @@
+{
+  "dataset": "/home/roshan/nexus/server/scripts/faiss_eval_dataset.json",
+  "total_queries": 100,
+  "non_adversarial": 94,
+  "adversarial": 6,
+  "precision@5": 0.283,
+  "precision@10": 0.283,
+  "recall@5": 0.926,
+  "recall@10": 0.926,
+  "adversarial_pass_rate": 0.0,
+  "failing_queries": []
+}

@@ -1,0 +1,59 @@
+{
+  "nexus": {
+    "version": "3.0",
+    "db_path": "/home/roshan/nexus/db/nexus.db",
+    "faiss_index": "/home/roshan/nexus/db/faiss/resources.index",
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "log_dir": "/home/roshan/nexus/logs",
+    "inbox_dir": "/home/roshan/nexus/inbox",
+    "poll_interval_seconds": 60
+  },
+  "mcp_sync": {
+    "enabled": true,
+    "poll_interval_seconds": 60,
+    "sync_on_startup": true,
+    "server_polling": true
+  },
+  "precondition_gates": {
+    "has_db": true,
+    "has_auth": false,
+    "has_file": true,
+    "has_browser": true,
+    "has_mcp": false,
+    "has_internet": true,
+    "has_api_key": false,
+    "has_git": true,
+    "has_docker": false,
+    "project_initialized": true,
+    "has_tests": false
+  },
+  "lazy_loader": {
+    "max_summary_pool": 512,
+    "max_body_pool": 128,
+    "body_load_timeout_ms": 20
+  },
+  "cross_type_router": {
+    "semantic_weight": 0.7,
+    "type_weight": 0.3,
+    "min_score": 0.45,
+    "invoke_threshold": 0.68,
+    "review_threshold": 0.45
+  },
+  "hallucination_gate": {
+    "score_threshold": 0.45
+  },
+  "cluster_routing": {
+    "enabled": true,
+    "max_clusters_per_query": 2,
+    "min_affinity_threshold": 0.35,
+    "fallback_to_full_search": true,
+    "cluster_definitions_path": "/home/roshan/nexus/server/cluster_config.py",
+    "recompute_centroids_on_start": false,
+    "log_activations": true
+  },
+  "auto_trigger": {
+    "enabled": true,
+    "default_skill": "adaptive-imagining-cat",
+    "max_clusters": 2
+  }
+}
