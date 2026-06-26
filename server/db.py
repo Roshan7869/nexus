@@ -180,7 +180,9 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
             outcome TEXT CHECK(outcome IN ('correct','wrong','partial','pending','routed')),
             skill_name TEXT,
             tokens_used INTEGER DEFAULT 0,
-            ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','unknown','hermes','codex','mcp','auto_invoke')),
+            ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','unknown','hermes','codex','mcp','auto_invoke','http')),
+            action_type TEXT,
+            repeat_count_1h INTEGER DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 

@@ -994,7 +994,7 @@ def nexus_route_to_cluster(task: str) -> str:
 @mcp.tool()
 def route_v4(query: str, resource_types: str = None,
              theta: float = 0.28, top_k: int = 10,
-             use_clusters: bool = False, max_clusters: int = 2) -> str:
+             use_clusters: bool = True, max_clusters: int = 2) -> str:
     """NEXUS v4: Full Tool Attention pipeline per arxiv:2604.21816.
 
     Implements Algorithm 1 exactly:
@@ -1017,7 +1017,7 @@ def route_v4(query: str, resource_types: str = None,
                         or None for all 1097 resources
         theta: ISO score threshold (default 0.28, paper optimal)
         top_k: Active set size (default 10, paper optimal)
-        use_clusters: Enable cluster routing pre-filter (default False)
+        use_clusters: Enable cluster routing pre-filter (default True)
         max_clusters: Max clusters to activate (default 2)
 
     Returns JSON with turn_id, gating decisions, active set,
@@ -1158,6 +1158,74 @@ def get_cluster_affinities() -> str:
                           indent=2)
     finally:
         conn.close()
+
+
+# ── Ruflo Proxy Tools ────────────────────────────────
+
+@mcp.tool()
+def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
+    """Call a ruflo MCP tool through NEXUS proxy.
+
+    NEXUS manages a ruflo subprocess and forwards tool calls.
+    Use this to invoke any of ruflo's 261 tools (agent, swarm, memory,
+    hooks, neural, etc.) without connecting ruflo as a separate MCP server.
+
+    Args:
+        tool_name: Name of the ruflo tool (e.g. 'agent_spawn', 'memory_search', 'swarm_init')
+        arguments_json: JSON string of tool arguments
+
+    Returns:
+        JSON with ruflo_tool, result text, and isError flag
+    """
+    import json
+    from ruflo_proxy import call_ruflo_tool
+    arguments = json.loads(arguments_json) if arguments_json else {}
+    return call_ruflo_tool(tool_name, arguments)
+
+
+@mcp.tool()
+def ruflo_list_tools() -> str:
+    """List all 261 ruflo MCP tools available through the proxy.
+
+    Returns JSON array with tool name, description, and input schema.
+    """
+    import json
+    from ruflo_proxy import get_ruflo_tools
+    tools = get_ruflo_tools()
+    summary = []
+    for t in tools:
+        schema = t.get("inputSchema", {})
+        props = list(schema.get("properties", {}).keys()) if schema else []
+        summary.append({
+            "name": t["name"],
+            "description": t.get("description", "")[:120],
+            "arguments": props,
+        })
+    return json.dumps({"total": len(summary), "tools": summary}, indent=2)
+
+
+@mcp.tool()
+def ruflo_proxy_status() -> str:
+    """Check the ruflo proxy connection status.
+
+    Returns whether the proxy is initialized, tool count, and health.
+    """
+    import json
+    try:
+        from ruflo_proxy import get_proxy
+        proxy = get_proxy()
+        tools = proxy.get_tools()
+        return json.dumps({
+            "status": "connected",
+            "initialized": proxy._initialized,
+            "tool_count": len(tools),
+            "proxy_type": "subprocess (ruflo mcp start)",
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "status": "error",
+            "error": str(e),
+        }, indent=2)
 
 
 # ── Coach MCP Tools ──────────────────────────────────

@@ -20,7 +20,6 @@ from typing import Optional
 from collections import OrderedDict
 
 import numpy as np
-import faiss
 from sentence_transformers import SentenceTransformer
 
 # ── Reuse existing Nexus infrastructure ──────────────────────────
@@ -32,6 +31,7 @@ for _d in [_SELF_DIR, _PARENT_DIR]:
 from precondition import GLOBAL_GATES, StateVariable, TOOL_PRECONDITIONS
 from lazy_loader import LazyLoader, get_loader
 from server.router import find_matching_skills
+from server.numpy_router import NumpyRouter
 
 # ── Constants from paper ─────────────────────────────────────────
 DB_PATH = Path.home() / "nexus/db/nexus.db"
@@ -43,7 +43,9 @@ MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
 THETA = 0.28       # ISO score threshold — default, adapted per-turn
 TOP_K = 10         # Active set size — k=8-12 recommended
 SUMMARY_MAX_TOKENS = 60  # Compact summary target (paper: ≤60 tokens)
-THETA_DECAY_CHAIN = [0.28, 0.20, 0.12, 0.05, 0.0]  # Adaptive θ: try each level
+# RC-5 FIX: Cap θ decay at 0.12 — never cascade to 0.0 (which lets everything through).
+# If fewer than top_k candidates pass θ=0.12, return fewer results instead of garbage.
+THETA_DECAY_CHAIN = [0.28, 0.20, 0.12]
 
 # Token estimation (paper: α ∈ [200, 500] per tool)
 TOKENS_PER_SCHEMA_TOOL = 395  # Paper's measured average
@@ -54,10 +56,15 @@ TOKENS_PER_SCHEMA_TOOL = 395  # Paper's measured average
 # ═══════════════════════════════════════════════════════════════════
 
 class IntentRouter:
-    """Wraps encoder + FAISS index. Returns ranked, thresholded candidates.
+    """Wraps encoder + NumpyRouter. Returns ranked, thresholded candidates.
 
     Paper Section 2 — Equation 5:
       ISO(q, t_i) = (e_q^T · e_{t_i}) / (||e_q||_2 · ||e_{t_i}||_2)
+
+    RC-2/RC-3 FIX: Replaces FAISS IndexFlatIP with NumpyRouter.
+    - No FAISS index file I/O, no meta.json sync, no ghost entries
+    - Only routable types loaded (skill/command/agent/mcp) — 36% less compute
+    - L2-normalized once at load time, not per-query
     """
 
     # TTL-based LRU cache for encoded query vectors (saves ~50ms per repeat query)
@@ -66,22 +73,18 @@ class IntentRouter:
 
     def __init__(self):
         self.model: Optional[SentenceTransformer] = None
-        self.index: Optional[faiss.Index] = None
-        self.resource_ids: list[int] = []
-        self.resource_map: dict[int, dict] = {}  # id → summary
+        self._numpy_router: Optional[NumpyRouter] = None
         self._conn: Optional[sqlite3.Connection] = None
-        self._query_cache: OrderedDict[str, tuple[float, np.ndarray]] = OrderedDict()  # query → (timestamp, vector)
+        self._query_cache: OrderedDict[str, tuple[float, np.ndarray]] = OrderedDict()
 
     def load(self):
         if self.model is None:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             allow_download = os.environ.get("NEXUS_ALLOW_MODEL_DOWNLOAD", "false").lower() == "true"
             self.model = SentenceTransformer(MODEL_ID, local_files_only=not allow_download)
-        if self.index is None:
-            self.index = faiss.read_index(str(INDEX_PATH))
-            with open(str(INDEX_PATH) + ".meta.json") as f:
-                meta = json.load(f)
-            self.resource_ids = meta.get("resource_ids", [])
+        if self._numpy_router is None:
+            self._numpy_router = NumpyRouter.get()
+            self._numpy_router.load()
 
     @property
     def conn(self) -> sqlite3.Connection:
@@ -93,81 +96,69 @@ class IntentRouter:
     def _encode_cached(self, query: str) -> np.ndarray:
         """Encode query with TTL-based LRU cache."""
         now = time.time()
-        # Check cache
         if query in self._query_cache:
             ts, vec = self._query_cache[query]
             if now - ts < self._QUERY_CACHE_TTL:
-                # Move to end (most recently used)
                 self._query_cache.move_to_end(query)
                 return vec
-            # Expired — remove
             del self._query_cache[query]
 
-        # Encode and cache
         self.load()
         vec = self.model.encode([query]).astype(np.float32)
-        faiss.normalize_L2(vec)
-        cached_vec = vec.copy()  # Copy to avoid mutation
+        # Normalize for cosine similarity
+        norm = np.linalg.norm(vec[0])
+        if norm > 0:
+            vec[0] = vec[0] / norm
+        cached_vec = vec.copy()
 
         self._query_cache[query] = (now, cached_vec)
-        # Evict oldest if over max
         while len(self._query_cache) > self._QUERY_CACHE_MAX:
             self._query_cache.popitem(last=False)
 
         return cached_vec
 
-    def compute_iso_scores(self, query: str) -> list[dict]:
-        """Compute ISO(q, t_i) for all N tools.
+    def compute_iso_scores(self, query: str, cluster_ids: Optional[list[int]] = None) -> list[dict]:
+        """Compute ISO(q, t_i) for all routable tools via NumpyRouter.
 
         Returns list of {id, name, resource_type, iso_score} sorted
-        by ISO score descending, filtered to routable resources only.
+        by ISO score descending. Only routable resources (skill/command/agent/mcp).
         """
-        qvec = self._encode_cached(query)
-        distances, indices = self.index.search(qvec, len(self.resource_ids) if len(self.resource_ids) > 0 else 1)
+        self.load()
 
-        # Phase C: Filter to routable resources only (exclude strategy KB chunks)
-        routable_types = {'skill', 'command', 'agent', 'mcp'}
+        # Encode query (cached) and search via NumpyRouter
+        qvec = self._encode_cached(query)
+        raw_results = self._numpy_router.search(
+            query_vec=qvec[0],
+            top_k=len(self._numpy_router._resource_ids),
+            cluster_ids=cluster_ids,
+            theta=0.0,  # We apply theta in the decay chain below
+        )
         query_words = set(query.lower().split())
 
-        results = []
-        for j, i in enumerate(indices[0]):
-            if i < 0 or i >= len(self.resource_ids):
-                continue
-            rid = self.resource_ids[i]
-            score = float(distances[0][j])
-            results.append({"id": rid, "iso_score": round(score, 4)})
-
-        # Batch fetch names + types + usage, filter to routable only
-        if results:
-            ids = [r["id"] for r in results]
+        # Batch fetch body_text for hybrid scoring (keyword + name + usage boosts)
+        if raw_results:
+            ids = [r["id"] for r in raw_results]
             placeholders = ",".join("?" * len(ids))
             rows = self.conn.execute(
-                f"SELECT id, name, resource_type, description, body_text, status, tier, "
+                f"SELECT id, name, resource_type, description, body_text, "
                 f"times_triggered, times_correct, times_wrong "
                 f"FROM resources WHERE id IN ({placeholders})",
                 ids,
             ).fetchall()
             row_map = {r["id"]: r for r in rows}
 
-            filtered = []
-            for r in results:
+            enriched = []
+            for r in raw_results:
                 row = row_map.get(r["id"])
                 if not row:
                     continue
-                rtype = row["resource_type"]
+
                 name = row["name"] or ""
-
-                # Skip strategy KB chunks (chromadb-*) and non-routable types
-                if name.startswith("chromadb-"):
-                    continue
-                if rtype not in routable_types:
-                    continue
-
                 r["name"] = name
-                r["resource_type"] = rtype
+                r["resource_type"] = row["resource_type"]
                 r["description"] = (row["description"] or "")[:200]
-                r["tier"] = row["tier"] or 2
-                r["status"] = row["status"]
+                r["tier"] = r.get("tier", 2)
+                r["status"] = "active"
                 r["times_triggered"] = row["times_triggered"] or 0
                 r["times_correct"] = row["times_correct"] or 0
                 r["times_wrong"] = row["times_wrong"] or 0
@@ -179,39 +170,35 @@ class IntentRouter:
                 overlap = len(query_words & skill_words)
                 keyword_boost = min(overlap * 0.08, 0.3)
 
-                # Phase C: Name match boost — if task word appears in skill name
+                # Name match boost
                 name_match_boost = 0.0
                 for tw in query_words:
                     if len(tw) >= 4 and tw in name.lower():
                         name_match_boost += 0.2
                 name_match_boost = min(name_match_boost, 0.4)
 
-                # Usage boost: skills with high success rate get a boost
+                # Usage boost
                 times_triggered = row["times_triggered"] or 0
                 times_correct = row["times_correct"] or 0
                 success_rate = times_correct / max(times_triggered, 1)
                 usage_boost = 0.0
                 if times_triggered >= 10:
-                    usage_boost = success_rate * 0.15  # Up to 0.15 boost for proven skills
+                    usage_boost = success_rate * 0.15
                 elif times_triggered >= 5:
                     usage_boost = success_rate * 0.08
 
                 r["iso_score"] = round(r["iso_score"] + keyword_boost + name_match_boost + usage_boost, 4)
+                enriched.append(r)
 
-                filtered.append(r)
-
-            return filtered
+            return enriched
 
         return []
 
     def search(self, query: str, k: int = 10) -> list[tuple[int, float]]:
-        """Raw FAISS search, returns [(id, score)]."""
+        """Raw search via NumpyRouter, returns [(id, score)]."""
         self.load()
-        qvec = self.model.encode([query]).astype(np.float32)
-        faiss.normalize_L2(qvec)
-        dists, idxs = self.index.search(qvec, k)
-        return [(self.resource_ids[i], float(dists[0][j]))
-                for j, i in enumerate(idxs[0]) if 0 <= i < len(self.resource_ids)]
+        results = self._numpy_router.search_by_text(query, self.model, top_k=k)
+        return [(r["id"], r["iso_score"]) for r in results]
 
     def close(self):
         if self._conn:
@@ -258,9 +245,9 @@ class ToolAttentionV4:
         theta: float = THETA,
         top_k: int = TOP_K,
         project: str = "nexus",
-        use_clusters: bool = False,
+        use_clusters: bool = True,
         max_clusters: int = 2,
-        min_cluster_affinity: float = 0.35,
+        min_cluster_affinity: float = 0.15,
         auto_log: bool = True,
     ) -> dict:
         """Execute the full per-turn Tool Attention pipeline.
@@ -304,15 +291,17 @@ class ToolAttentionV4:
 
         # ── Line 1-2: Compute ISO scores for all N tools ───────
         start_iso = time.perf_counter()
-        all_scores = self.intent_router.compute_iso_scores(query)
+        # RC-4 FIX: Pass cluster_ids directly to NumpyRouter — avoids post-filtering
+        # the full result set. When clusters are active, only ~150-200 vectors are
+        # scored instead of all 1,174.
+        all_scores = self.intent_router.compute_iso_scores(query, cluster_ids=activated_cluster_ids)
         iso_latency = (time.perf_counter() - start_iso) * 1000
 
         # ── Line 3: Filter by threshold + state preconditions ──
         start_gate = time.perf_counter()
 
-        # Apply cluster filter if activated
-        if activated_cluster_ids is not None:
-            all_scores = [s for s in all_scores if s["id"] in activated_cluster_ids]
+        # Cluster filter already applied inside compute_iso_scores via NumpyRouter
+        # No need to post-filter all_scores here anymore
 
         # Apply type filter if specified
         if resource_types:
@@ -366,18 +355,34 @@ class ToolAttentionV4:
                 break  # Found enough candidates at this θ level
 
         # ── Guardrail: v2 keyword fallback when ALL θ levels fail ──
+        # RC-7 FIX: Look up real resource IDs from DB instead of creating fake id:0
+        # entries that corrupt times_triggered stats and break lazy-loading.
         if len(candidates) == 0:
             keyword_skills = find_matching_skills(query, project)
             if keyword_skills:
                 fallback_triggered = True
                 fallback_method = "keyword_match_v2"
                 fallback_skills_list = keyword_skills
+                # Resolve real resource IDs for keyword matches
+                ks_names = [ks["name"] for ks in keyword_skills]
+                placeholders = ",".join("?" * len(ks_names))
+                id_rows = self.intent_router.conn.execute(
+                    f"SELECT id, name, resource_type, description, tier "
+                    f"FROM resources WHERE name IN ({placeholders}) AND status='active'",
+                    ks_names,
+                ).fetchall()
+                id_map = {r["name"]: r for r in id_rows}
                 for ks in keyword_skills:
+                    row = id_map.get(ks["name"])
+                    real_id = row["id"] if row else 0
                     candidates.append({
-                        "id": 0, "name": ks["name"],
+                        "id": real_id,
+                        "name": ks["name"],
                         "resource_type": ks.get("type", "skill"),
-                        "iso_score": 0.0, "description": "",
-                        "tier": 2, "status": "active",
+                        "iso_score": 0.0,
+                        "description": row["description"] if row else "",
+                        "tier": row["tier"] if row else 2,
+                        "status": "active",
                     })
 
         gate_latency = (time.perf_counter() - start_gate) * 1000
@@ -732,7 +737,7 @@ def route_v4(
     theta: float = THETA,
     top_k: int = TOP_K,
     project: str = "nexus",
-    use_clusters: bool = False,
+    use_clusters: bool = True,
     max_clusters: int = 2,
     min_cluster_affinity: float = 0.35,
     auto_log: bool = True,
@@ -744,7 +749,7 @@ def route_v4(
         resource_types: Comma-separated types to filter (optional)
         theta: ISO score threshold (default: 0.28)
         top_k: Active set size (default: 10)
-        use_clusters: Enable cluster routing pre-filter (default: False)
+        use_clusters: Enable cluster routing pre-filter (default: True)
         max_clusters: Max clusters to activate (default: 2)
         min_cluster_affinity: Min affinity to activate a cluster (default: 0.35)
         auto_log: Auto-write routing decision to DB (default: True)

@@ -119,16 +119,20 @@ class ClusterRouter:
                     "resource_count": 0,  # filled below
                 })
 
-        # If no cluster activates, take top-1 regardless (centroid affinities
-        # are naturally low — centroids average 200+ resource embeddings, so
-        # a short query rarely scores >0.35 against any centroid).
-        if len(activated) == 0 and sorted_clusters:
-            top_cluster, top_aff = sorted_clusters[0]
-            activated.append({
-                "name": top_cluster,
-                "affinity": round(top_aff, 4),
-                "resource_count": 0,
-            })
+        # Centroid affinities are naturally low — centroids average 200+
+        # resource embeddings, so a short query rarely scores >0.35 against
+        # any centroid. If fewer than max_clusters activated, fill remaining
+        # slots with the top clusters by affinity regardless of threshold.
+        if len(activated) < max_clusters:
+            for cluster_name, affinity in sorted_clusters:
+                if len(activated) >= max_clusters:
+                    break
+                if not any(c["name"] == cluster_name for c in activated):
+                    activated.append({
+                        "name": cluster_name,
+                        "affinity": round(affinity, 4),
+                        "resource_count": 0,
+                    })
 
         # If still no cluster activates, fall back to general
         fallback = len(activated) == 0

@@ -196,7 +196,7 @@ async def route_v4_endpoint(
     resource_types: Optional[str] = None,
     theta: float = 0.28,
     top_k: int = 10,
-    use_clusters: bool = False,
+    use_clusters: bool = True,
     max_clusters: int = 2,
 ):
     """NEXUS v4: Full Tool Attention pipeline."""
@@ -382,6 +382,72 @@ async def report_outcome_endpoint(
     try:
         from learning import record_outcome
         result = await _run_sync(record_outcome, skill_name, outcome, task_summary, project, "http", 0)
+
+        # Bridge to OutcomeLog (server.rl.outcome_log) so the RL feedback table
+        # is populated. Without this, /report_outcome updates routing_log + resource
+        # counters but never inserts into outcome_log — the Thompson Sampling and
+        # cluster_affinity layers only read from outcome_log. Bug fix 2026-06-26.
+        try:
+            from server.rl.outcome_log import OutcomeLog
+            from pathlib import Path as _Path
+            from server import efc as _efc
+            db_path = _Path(__file__).parent.parent / "db" / "nexus.db"
+
+            def _bridge():
+                with OutcomeLog(str(db_path)) as log:
+                    # Resolve resource_id from skill_name
+                    row = log.conn.execute(
+                        "SELECT id, cluster FROM resources WHERE name = ?",
+                        (skill_name,),
+                    ).fetchone()
+                    if not row:
+                        return None
+                    resource_id, cluster = row
+
+                    # Compute EFC factors (arXiv:2605.29682)
+                    repeat_count = _efc.compute_repeat_count_1h(
+                        log.conn, task_summary or "", skill_name
+                    )
+                    first_use = _efc.is_first_use_on_task(
+                        log.conn, task_summary or "", skill_name
+                    )
+                    action_type = _efc.classify_action_type(
+                        task_summary or "", []
+                    )
+                    factors = _efc.compute_efc(
+                        outcome=outcome,
+                        action_type=action_type,
+                        repeat_count_1h=repeat_count,
+                        is_first_use_on_task=first_use,
+                    )
+
+                    return log.record(
+                        resource_id=resource_id,
+                        cluster_id=cluster,
+                        task_intent=task_summary or "",
+                        outcome=outcome,
+                        duration_ms=0,
+                        alternative_resource_ids=[],
+                        notes=f"bridged from /report_outcome on 2026-06-26 (EFC={factors['efc']:.3f}, NRS-EFC={factors['nrs_efc']:.3f})",
+                        session_id="http-bridge",
+                    ), log.conn.execute(
+                        """UPDATE outcome_log
+                           SET action_type = ?, repeat_count_1h = ?,
+                               efc_informativeness = ?, efc_validity = ?,
+                               efc_redundancy = ?, efc_memory = ?, efc_score = ?
+                           WHERE id = last_insert_rowid()""",
+                        (
+                            action_type, repeat_count,
+                            factors["I"], factors["V"], factors["R"], factors["M"],
+                            factors["efc"],
+                        ),
+                    )
+            bridge_result = await _run_sync(_bridge)
+        except Exception as bridge_err:
+            # Don't fail the whole request if bridge fails; just include in result
+            if isinstance(result, dict):
+                result["outcome_log_bridge_error"] = str(bridge_err)
+
         return result
     except Exception as e:
         raise HTTPException(500, f"Report outcome error: {e}")
