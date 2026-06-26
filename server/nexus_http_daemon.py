@@ -103,7 +103,7 @@ def get_db():
 
 
 # ── FastAPI app ─────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 import uvicorn
 
@@ -530,6 +530,76 @@ def shutdown_handler(signum, frame):
 
 signal.signal(signal.SIGTERM, shutdown_handler)
 signal.signal(signal.SIGINT, shutdown_handler)
+
+
+# ── P5: TUI IDE management endpoints ─────────────────────
+from server.ide_manager import get_manager as _get_ide_manager, launch_tmux as _launch_tmux
+
+
+@app.post("/ide/register")
+async def ide_register(req: Request):
+    """Register a TUI IDE session. Body: {ide_type, pid, tmux_session?, notes?}."""
+    try:
+        body = await req.json()
+    except Exception:
+        raise HTTPException(400, "invalid JSON body")
+    ide_type = body.get("ide_type")
+    pid = body.get("pid")
+    if not ide_type or not pid:
+        raise HTTPException(400, "ide_type and pid required")
+    session = _get_ide_manager().register(
+        ide_type, int(pid), body.get("tmux_session"), body.get("notes", "")
+    )
+    return {"session_id": session.session_id, "tmux_session": session.tmux_session}
+
+
+@app.post("/ide/launch")
+async def ide_launch(ide_type: str, session_name: str = ""):
+    """Launch a TUI IDE in a detached tmux session and register it."""
+    tmux_session, pid = _launch_tmux(ide_type, session_name or None)
+    if not tmux_session:
+        raise HTTPException(500, f"failed to launch {ide_type} (tmux or binary missing)")
+    session = _get_ide_manager().register(ide_type, pid or 0, tmux_session)
+    return {"session_id": session.session_id, "tmux_session": tmux_session, "pid": pid}
+
+
+@app.get("/ide/list")
+async def ide_list():
+    return _get_ide_manager().get_dashboard()
+
+
+@app.get("/ide/{session_id}/harness")
+async def ide_harness(session_id: str):
+    report = _get_ide_manager().get_harness_report(session_id)
+    if not report:
+        raise HTTPException(404, f"session {session_id} not found")
+    return report
+
+
+@app.post("/ide/{session_id}/outcome")
+async def ide_outcome(session_id: str, req: Request):
+    """Record a tool outcome for a session. Body: {outcome, tokens?}."""
+    try:
+        body = await req.json()
+    except Exception:
+        raise HTTPException(400, "invalid JSON body")
+    outcome = body.get("outcome")
+    if outcome not in ("correct", "wrong", "partial"):
+        raise HTTPException(400, "outcome must be correct|wrong|partial")
+    ok = _get_ide_manager().record_outcome(
+        session_id, outcome, body.get("tokens", 0)
+    )
+    if not ok:
+        raise HTTPException(404, f"session {session_id} not found")
+    return {"status": "ok"}
+
+
+@app.delete("/ide/{session_id}")
+async def ide_unregister(session_id: str):
+    ok = _get_ide_manager().unregister(session_id)
+    if not ok:
+        raise HTTPException(404, f"session {session_id} not found")
+    return {"status": "unregistered"}
 
 
 # ── Main ────────────────────────────────────────────────

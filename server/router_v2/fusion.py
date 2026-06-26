@@ -162,3 +162,114 @@ def rerank_with_feedback(
         out.append(y)
     out.sort(key=lambda z: z["final_score"], reverse=True)
     return out
+
+
+# ── P2/P6: 4-term EFC + UCB blend ──────────────────────────────────────
+# Resolves the plan v2 weight conflict: Phase 2's 0.5/0.2/0.3 is superseded by
+# Phase 6's 4-term blend. Final combined_score:
+#   combined = w_iso * iso + w_thompson * thompson + w_efc * efc_norm + w_ucb * ucb
+# Defaults: 0.40 / 0.15 / 0.25 / 0.20  (sums to 1.0).
+# All inputs must be normalized to [0, 1] by the caller. This function is pure
+# and side-effect-free, matching the rest of this module.
+
+DEFAULT_BLEND_WEIGHTS = {
+    "iso": 0.40,
+    "thompson": 0.15,
+    "efc": 0.25,
+    "ucb": 0.20,
+}
+
+
+def rerank_with_efc_ucb(
+    fused: Sequence[dict],
+    thompson_scores: dict[int, float] | None = None,
+    efc_scores: dict[int, float] | None = None,
+    ucb_bonuses: dict[int, float] | None = None,
+    weights: dict[str, float] | None = None,
+    iso_field: str = "rrf_score",
+) -> list[dict]:
+    """4-term blend: ISO (RRF) + Thompson + EFC + UCB.
+
+    Each score dict maps resource_id -> value in [0, 1]. Missing entries
+    contribute 0. The ISO component is read from ``fused[i][iso_field]``
+    (default ``rrf_score``) and normalized to [0, 1] against the batch max.
+
+    Cold-start behavior: when ``thompson_scores`` is empty, UCB drives
+    exploration of never-triggered resources (ucb=1.0 for n_i=0).
+
+    Args:
+        fused: output of reciprocal_rank_fusion (must contain iso_field).
+        thompson_scores: {resource_id: posterior mean in [0,1]} or None.
+        efc_scores: {resource_id: normalized EFC in [0,1]} or None.
+        ucb_bonuses: {resource_id: UCB1 bonus in [0,1]} or None.
+        weights: override blend weights (keys: iso, thompson, efc, ucb).
+        iso_field: field name in fused entries to use as the ISO component.
+
+    Returns:
+        New list of dicts sorted DESC by ``final_score``. Each entry is the
+        input dict plus ``final_score``, ``thompson_score``, ``efc_score``,
+        ``ucb_bonus``.
+    """
+    w = {**DEFAULT_BLEND_WEIGHTS, **(weights or {})}
+    thompson_scores = thompson_scores or {}
+    efc_scores = efc_scores or {}
+    ucb_bonuses = ucb_bonuses or {}
+
+    # normalize ISO (rrf_score) to [0,1]
+    iso_vals = [x.get(iso_field, 0) for x in fused if x.get(iso_field, 0) > 0]
+    iso_max = max(iso_vals) if iso_vals else 1.0
+
+    out: list[dict] = []
+    for x in fused:
+        rid = x.get("resource_id")
+        iso_n = (x.get(iso_field, 0) / iso_max) if iso_max > 0 else 0.0
+        t = thompson_scores.get(rid) if rid is not None else None
+        e = efc_scores.get(rid) if rid is not None else None
+        u = ucb_bonuses.get(rid) if rid is not None else None
+        final = (
+            w["iso"] * iso_n
+            + w["thompson"] * (t or 0.0)
+            + w["efc"] * (e or 0.0)
+            + w["ucb"] * (u or 0.0)
+        )
+        y = dict(x)
+        y["thompson_score"] = t
+        y["efc_score"] = e
+        y["ucb_bonus"] = u
+        y["iso_normalized"] = round(iso_n, 4)
+        y["final_score"] = final
+        out.append(y)
+    out.sort(key=lambda z: z["final_score"], reverse=True)
+    return out
+
+
+def ucb1_bonus(n_i: int, total_pulls: int, c: float = 2.0) -> float:
+    """UCB1 exploration bonus, clamped to [0, 1].
+
+    UCB = sqrt(c * ln(N) / n_i). Never-triggered (n_i=0) -> 1.0 (max
+    exploration). The bonus drives cold-start activation of the 66.6%
+    of resources with times_triggered == 0.
+
+    Args:
+        n_i: times this resource was triggered.
+        total_pulls: total routings observed (N).
+        c: exploration constant (default 2.0).
+
+    Returns:
+        Bonus in [0, 1]. 1.0 for n_i=0; decreases as n_i grows.
+    """
+    import math
+    if n_i <= 0:
+        return 1.0
+    return min(math.sqrt(c * math.log(max(total_pulls, 1)) / n_i), 1.0)
+
+
+def two_tier_split(top_k: int, cold_fraction: float = 0.3) -> tuple[int, int]:
+    """Split top_k into (hot_k, cold_k) for two-tier routing.
+
+    Hot tier (times_triggered > 0) gets (1 - cold_fraction); cold tier
+    (never triggered) gets cold_fraction. Default 70/30 (Paper 3: ToolkenGPT).
+    """
+    cold_k = max(1, int(round(top_k * cold_fraction)))
+    hot_k = max(1, top_k - cold_k)
+    return hot_k, cold_k
