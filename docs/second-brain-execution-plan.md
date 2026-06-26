@@ -189,3 +189,63 @@ Level 5 (after all):
 ---
 
 **Status:** DRAFT — awaiting approval. No code changes made yet.
+---
+
+## 8. PA — Audit & Plan-vs-Execution Matrix (2026-06-26)
+
+Executed on branch `second-brain-v2`. Commits: 08c1387 (snapshot) → 63d31ec
+(P3+P7) → 2a33794 (P2/P4/P5/P6/P8/P9).
+
+### Metric re-measurement (live DB)
+
+| Metric | Baseline | Target | Achieved |
+|--------|----------|--------|----------|
+| outcome_log EFC coverage | 1/1710 (0.06%) | 100% | **100%** (1758/1758) |
+| KG 0-edge resources | 941 | 0 | **0** |
+| KG NULL-cluster resources | 853 | 0 | **0** |
+| KG edges | 9126 | densified | **12080** (+32%) |
+| Domain clusters | 8 | 8 | **8** |
+| routing_log resolved outcomes | 98.9% | >99% | **99.7%** (5044/5057) |
+| Cold-start resources (never-triggered) | 66.6% | UCB-driven | UCB1 bonus=1.0 wired, smoke-tested |
+| Two-tier hot/cold split | n/a | 70/30 | implemented + tested (10→7,3) |
+| 4-term blend | plan conflict | unified | 0.40/0.15/0.25/0.20, tested |
+| Autonomous tool calling | n/a | before/after+gate+reflexion | implemented, smoke-tested |
+| IDE orchestration | n/a | IDEManager + endpoints | implemented (6 endpoints) |
+| Research pipeline | n/a | 3 sources + synthesis | implemented |
+
+### Plan-vs-Execution
+
+| Phase | Type | Status | Notes |
+|-------|------|--------|-------|
+| P0 | git snapshot + router_v2 reconciliation | DONE | read fusion.py, chose extend (additive) |
+| P1 | supervisord + deps | PARTIAL | deps installed; supervisord.conf NOT applied (guardrail: kills live MCP) |
+| P2 | UnifiedRouter 4-term blend | DONE (code) | live-MCP rewiring deferred |
+| P3 | EFC backfill | DONE | 100% coverage |
+| P4 | autonomous_pipeline | DONE | smoke-tested |
+| P5 | ide_manager + endpoints | DONE | 6 endpoints |
+| P6 | UCB + two-tier | DONE | smoke-tested |
+| P7 | KG densification | DONE | edges 9126→12080 |
+| P8 | feedback closure | DONE | 48 stale routes closed; bulk EFC wiring deferred |
+| P9 | research_pipeline | DONE | offline-safe |
+| PA | audit | DONE | this section |
+
+### Deferred (guardrail — out-of-session)
+
+1. **Live MCP cutover**: wire UnifiedRouter into `nexus-mcp-enhanced.py` handlers
+   (keep v3/v4 behind a flag). Requires supervisord restart → kills the live
+   MCP session. Run from outside this session.
+2. **Bulk EFC structural wiring**: EFC computed only in HTTP /report_outcome
+   bridge + auto-close + backfill. Primary `learning.record_outcome` path
+   bypasses EFC, so new outcomes drift. Wire `compute_efc` into
+   `learning.py` to lift outcome_log coverage from 34.8% (1758/5057) toward
+   >80%.
+3. **supervisord.conf**: prepared config but not applied (pkill/supervisord-
+   start kills live MCP).
+4. **Perplexity outcomes** (P8): flagged off (LLM cost budget).
+5. **Reflexion LLM** (P4/P8): pluggable callback; no model wired.
+
+### Outcome feedback
+
+Skills used this session logged via `nexus_log_outcome` / learning notes at
+session end. EFC backfill + auto-close contribute Thompson + EFC signal for
+all 1758 outcome_log rows.
