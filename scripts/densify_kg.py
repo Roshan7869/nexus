@@ -1,28 +1,27 @@
 """P7: Knowledge graph densification.
 
-Two passes:
-  7b — semantic similarity edges (threshold 0.65) between embedded resources,
-       using a vectorized numpy cosine matrix (1834 x 1834 = ~13MB, trivial).
-       NOT the plan's O(n^2) python double-loop — one matmul.
-  7c — assign the 853 orphan (NULL-cluster) resources to their nearest cluster
-       centroid by embedding similarity. Louvain community detection is run
-       for reporting only — orphans have no edges so Louvain cannot place them;
-       centroid assignment is the correct mechanism (matches plan 6c auto_organize).
-
-Corrected vs plan v2:
-  - INSERT uses real column `edge_type` (plan said `relation` — wrong).
-  - 7a (I/O type edges) dropped: `resources.input_types`/`output_types` do not
-    exist. Semantic edges alone target <500.
-  - Baseline is 941 (33.4%) not 2,117 (75%) — plan was stale.
+Passes:
+  7b — semantic similarity edges (default threshold 0.65) via vectorized numpy
+       cosine matrix (one matmul, not the plan's O(n^2) python double-loop).
+  7c — assign NULL-cluster orphans to nearest cluster centroid by embedding
+       similarity (Louvain is report-only; orphans have no edges).
+  7d — member_of edges from 0-edge resources to a cluster anchor.
+  7e — promote co_triggered count>=5 to weighted edges; optionally prune
+       count==2 noise (gated by --prune-cotrigger).
+  7f — prune similar_to below 0.78 and pairs already co-triggered (gated by
+       NEXUS_PRUNE_SIMILAR env; backs up to resource_edges_backup).
+  7g — networkx Louvain community detection with resolution sweep (gated
+       write via --write-communities). Leiden-CPM is the out-of-session upgrade.
 
 Reversible: edges added in this run get created_at = run timestamp;
-    DELETE FROM resource_edges WHERE created_at >= '<run_ts>' AND edge_type='similar_to';
-Cluster reverts via backup of resources.cluster column (printed at start).
+    DELETE FROM resource_edges WHERE created_at >= '<run_ts>' AND edge_type='similar_to'.
 
 Usage: python3 scripts/densify_kg.py [--dry-run] [--threshold 0.65]
+       [--prune-cotrigger] [--write-communities]
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import sys
 import time
@@ -246,7 +245,11 @@ def pass_7d_member_edges(conn, dry_run):
 
 
 def pass_7c_louvain_report(conn):
-    """Run Louvain for reporting only — counts communities on the existing graph."""
+    """Louvain validation against the 8 manual clusters. ADDITIVE only — never
+    writes clusters. Skipped if networkx/python-louvain unavailable. Reports
+    n_communities, per-community plurality cluster + purity, overall purity,
+    and clusters Louvain splits/merges.
+    """
     try:
         import networkx as nx
         import community as community_louvain
@@ -263,14 +266,231 @@ def pass_7c_louvain_report(conn):
             G.add_edge(r[0], r[1], weight=max(float(r[2] or 1.0), 0.001))
     try:
         partition = community_louvain.best_partition(G)
-        n_communities = len(set(partition.values()))
-        print(f"7c: louvain detected {n_communities} communities (reporting only)")
     except Exception as e:
         print(f"7c: louvain failed: {e}")
+        return
+
+    # resource_id -> existing cluster (from resources table)
+    rid_to_cluster = {
+        r[0]: r[1] for r in conn.execute(
+            "SELECT id, cluster FROM resources WHERE cluster IS NOT NULL"
+        ).fetchall()
+    }
+    n_communities = len(set(partition.values()))
+    print(f"7c: louvain detected {n_communities} communities "
+          f"(vs 8 assigned clusters)")
+
+    # contingency: community -> {cluster: count}
+    contig: dict[int, dict[str, int]] = {}
+    for rid, comm in partition.items():
+        cluster = rid_to_cluster.get(rid)
+        if cluster is None:
+            continue
+        contig.setdefault(comm, {})
+        contig[comm][cluster] = contig[comm].get(cluster, 0) + 1
+
+    # per-community plurality cluster + purity contribution
+    total_assigned = sum(sum(c.values()) for c in contig.values())
+    overall_correct = 0
+    print("7c: per-community plurality (top 12 by size):")
+    comm_summary = []
+    for comm, counts in contig.items():
+        size = sum(counts.values())
+        if size == 0:
+            continue
+        plurality_cluster, plurality_n = max(counts.items(), key=lambda kv: kv[1])
+        purity = plurality_n / size
+        overall_correct += plurality_n
+        comm_summary.append((size, comm, plurality_cluster, purity, len(counts)))
+    comm_summary.sort(reverse=True)
+    for size, comm, pc, purity, n_clusters in comm_summary[:12]:
+        marker = " MERGE" if n_clusters > 2 else ""
+        print(f"   comm={comm:4d} size={size:5d} plurality={pc:18s} "
+              f"purity={purity:.2f} spans={n_clusters} clusters{marker}")
+
+    if total_assigned:
+        overall_purity = overall_correct / total_assigned
+        print(f"7c: overall clustering purity = {overall_purity:.3f} "
+              f"({overall_correct}/{total_assigned})")
+
+    # split detection: clusters dominant in ≥2 communities
+    cluster_to_comms: dict[str, list[tuple[int, int]]] = {}
+    for size, comm, pc, purity, _ in comm_summary:
+        cluster_to_comms.setdefault(pc, []).append((comm, size))
+    splits = {c: v for c, v in cluster_to_comms.items() if len(v) > 1}
+    if splits:
+        print("7c: clusters Louvain SPLITS across communities:")
+        for c, v in list(splits.items())[:8]:
+            parts = ", ".join(f"comm={comm}({sz})" for comm, sz in v[:4])
+            print(f"   {c:18s} -> {parts}")
+    else:
+        print("7c: no cluster splits detected (each cluster is plurality in "
+              "exactly one community)")
+
+
+def pass_7e_promote_co_triggered(conn, dry_run, prune=False):
+    """Promote co_triggered count>=5 to weighted edges (weight =
+    min(0.3+0.1*count, 0.95)); optionally prune count==2 noise.
+
+    Pruning is gated behind --prune-cotrigger (default OFF). To avoid
+    orphaning the pair / node, a count==2 edge is deleted ONLY when the same
+    (source,target) pair already has another edge of a DIFFERENT edge_type.
+    Idempotent: the UPDATE recomputes from co_trigger_count; deletions stick.
+    """
+    cnt = "SELECT COUNT(*) FROM resource_edges WHERE edge_type='co_triggered' AND co_trigger_count"
+    n_signal = conn.execute(cnt + ">=5").fetchone()[0]
+    n_noise = conn.execute(cnt + "=2").fetchone()[0]
+    print(f"7e: co_triggered count>=5 (signal)={n_signal}, count==2 (noise)={n_noise}")
+    pair_other = (" (e2.id!=e.id AND e2.edge_type!='co_triggered' AND "
+                  "((e2.source_id=e.source_id AND e2.target_id=e.target_id) "
+                  "OR (e2.source_id=e.target_id AND e2.target_id=e.source_id)))")
+    prunable = conn.execute(
+        "SELECT COUNT(*) FROM resource_edges e WHERE e.edge_type='co_triggered' "
+        "AND e.co_trigger_count=2 AND EXISTS (SELECT 1 FROM resource_edges e2 WHERE"
+        + pair_other + ")"
+    ).fetchone()[0]
+    print(f"7e: count==2 edges safe to prune (pair has other edge_type): {prunable}")
+    if not dry_run:
+        cur = conn.execute(
+            "UPDATE resource_edges SET weight=min(0.3 + 0.1*co_trigger_count, 0.95), "
+            "updated_at=datetime('now') WHERE edge_type='co_triggered' AND co_trigger_count>=5"
+        )
+        conn.commit()
+        print(f"7e: promoted (rows updated): {cur.rowcount}")
+    if prune:
+        if dry_run:
+            print(f"7e: (dry-run) would prune {prunable} count==2 noise edges")
+        else:
+            ids = [r[0] for r in conn.execute(
+                "SELECT e.id FROM resource_edges e WHERE e.edge_type='co_triggered' "
+                "AND e.co_trigger_count=2 AND EXISTS (SELECT 1 FROM resource_edges e2 WHERE"
+                + pair_other + ")"
+            ).fetchall()]
+            if ids:
+                conn.executemany("DELETE FROM resource_edges WHERE id=?", [(i,) for i in ids])
+                conn.commit()
+            print(f"7e: pruned count==2 noise edges: {len(ids)}")
+    else:
+        print("7e: --prune-cotrigger not set -> count==2 noise retained")
+    return n_signal, n_noise, prunable
+
+
+def pass_7f_prune_similar_to(conn, ids, mat, dry_run, threshold=0.78):
+    """Prune similar_to: drop weight<threshold AND pairs already co-triggered
+    (redundant; arXiv:2601.15298). Gated by NEXUS_PRUNE_SIMILAR env (default
+    OFF) because nexus_get_neighbors / nexus_shortest_path (mcp_v2_server.py
+    ~L429/L445) consume similar_to. Backs up deleted edges to
+    resource_edges_backup (with backed_up_at) before deletion.
+    """
+    enabled = os.environ.get("NEXUS_PRUNE_SIMILAR", "").lower() in ("1", "true", "yes")
+    total = conn.execute(
+        "SELECT COUNT(*) FROM resource_edges WHERE edge_type='similar_to'"
+    ).fetchone()[0]
+    below = conn.execute(
+        "SELECT COUNT(*) FROM resource_edges WHERE edge_type='similar_to' AND weight < ?",
+        (threshold,)).fetchone()[0]
+    cotrig = conn.execute(
+        "SELECT COUNT(*) FROM resource_edges s WHERE s.edge_type='similar_to' AND EXISTS ("
+        "SELECT 1 FROM resource_edges c WHERE c.edge_type='co_triggered' AND c.co_trigger_count>0 "
+        "AND ((c.source_id=s.source_id AND c.target_id=s.target_id) "
+        "OR (c.source_id=s.target_id AND c.target_id=s.source_id)))"
+    ).fetchone()[0]
+    print(f"7f: similar_to total={total}, weight<{threshold}={below}, "
+          f"pairs already co-triggered={cotrig}")
+    if not enabled:
+        print("7f: NEXUS_PRUNE_SIMILAR not set -> skip (report-only)")
+        return 0
+    rows = conn.execute(
+        "SELECT id, source_id, target_id, edge_type, weight, co_trigger_count, "
+        "created_at, updated_at FROM resource_edges WHERE edge_type='similar_to' "
+        "AND (weight < ? OR EXISTS (SELECT 1 FROM resource_edges c WHERE "
+        "c.edge_type='co_triggered' AND c.co_trigger_count>0 AND ((c.source_id=resource_edges.source_id "
+        "AND c.target_id=resource_edges.target_id) OR (c.source_id=resource_edges.target_id "
+        "AND c.target_id=resource_edges.source_id))))", (threshold,)).fetchall()
+    print(f"7f: similar_to to prune: {len(rows)}")
+    if dry_run:
+        return len(rows)
+    conn.execute("CREATE TABLE IF NOT EXISTS resource_edges_backup AS "
+                 "SELECT * FROM resource_edges WHERE 0")
+    try:
+        conn.execute("ALTER TABLE resource_edges_backup ADD COLUMN backed_up_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    conn.executemany(
+        "INSERT INTO resource_edges_backup (id, source_id, target_id, edge_type, "
+        "weight, co_trigger_count, created_at, updated_at, backed_up_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?)", [(*tuple(r), ts) for r in rows])
+    conn.executemany("DELETE FROM resource_edges WHERE id=?", [(r[0],) for r in rows])
+    conn.commit()
+    print(f"7f: backed up + deleted {len(rows)} similar_to edges")
+    return len(rows)
+
+
+def pass_7g_communities(conn, dry_run, write=False):
+    """Dep-free community detection: networkx Louvain with resolution sweep.
+
+    Leiden-CPM (Traag 2019, doi:10.1038/s41598-019-41695-z) is the
+    out-of-session refinement (needs leidenalg+igraph, not installed).
+    nx.community.louvain_communities(G, resolution=r) exposes the resolution
+    knob that addresses the Fortunato-Barthelemy PNAS 2007 resolution limit.
+    Target: largest community ~=5-10% of nodes (140-280 of 2815) to avoid
+    ~10-node noise communities. WRITE gated behind --write-communities.
+    """
+    try:
+        import networkx as nx
+    except Exception as e:
+        print(f"7g: networkx unavailable ({e}) -> skip")
+        return None
+    G = nx.Graph()
+    G.add_nodes_from(r[0] for r in conn.execute("SELECT id FROM resources").fetchall())
+    for r in conn.execute("SELECT source_id, target_id, weight FROM resource_edges").fetchall():
+        if r[0] != r[1]:
+            G.add_edge(r[0], r[1], weight=max(float(r[2] or 1.0), 0.001))
+    n_nodes = G.number_of_nodes()
+    target_lo, target_hi = int(0.05 * n_nodes), int(0.10 * n_nodes)
+    print(f"7g: graph nodes={n_nodes}, edges={G.number_of_edges()}, "
+          f"target largest community {target_lo}-{target_hi}")
+    sweep = []
+    for res in (0.5, 1.0, 2.0, 5.0, 10.0):
+        comms = nx.community.louvain_communities(G, resolution=res, seed=42)
+        sizes = sorted((len(c) for c in comms), reverse=True)
+        sweep.append((res, len(comms), sizes[0] if sizes else 0))
+    print("7g: resolution sweep (resolution, n_communities, largest_size):")
+    for res, nc, largest in sweep:
+        print(f"   resolution={res:<5} n_communities={nc:<5} largest={largest}")
+    in_band = [s for s in sweep if target_lo <= s[2] <= target_hi]
+    if in_band:
+        chosen = in_band[0]
+        print(f"7g: chosen resolution={chosen[0]} (largest={chosen[2]}, in band)")
+    else:
+        mid = (target_lo + target_hi) / 2
+        chosen = min(sweep, key=lambda s: abs(s[2] - mid))
+        print(f"7g: WARNING no resolution hits band {target_lo}-{target_hi}; "
+              f"closest resolution={chosen[0]} (largest={chosen[2]})")
+    if dry_run or not write:
+        print("7g: report-only (pass --write-communities to persist)")
+        return chosen
+    comms = nx.community.louvain_communities(G, resolution=chosen[0], seed=42)
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("DELETE FROM kg_community_membership")
+    conn.execute("DELETE FROM kg_communities")
+    for members in comms:
+        conn.execute("INSERT INTO kg_communities (resolution, size, created_at) VALUES (?,?,?)",
+                     (chosen[0], len(members), ts))
+        cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.executemany(
+            "INSERT OR IGNORE INTO kg_community_membership (resource_id, community_id) VALUES (?,?)",
+            [(rid, cid) for rid in members])
+    conn.commit()
+    print(f"7g: wrote {len(comms)} communities to kg_communities/kg_community_membership")
+    return chosen
 
 
 def main():
     dry_run = "--dry-run" in sys.argv
+    prune_cotrigger = "--prune-cotrigger" in sys.argv
+    write_communities = "--write-communities" in sys.argv
     threshold = THRESHOLD
     if "--threshold" in sys.argv:
         threshold = float(sys.argv[sys.argv.index("--threshold") + 1])
@@ -295,6 +515,9 @@ def main():
     n7d = pass_7d_member_edges(conn, dry_run)
     if not dry_run:
         pass_7c_louvain_report(conn)
+    pass_7e_promote_co_triggered(conn, dry_run, prune=prune_cotrigger)
+    pass_7f_prune_similar_to(conn, ids, mat, dry_run, threshold=0.78)
+    pass_7g_communities(conn, dry_run, write=write_communities)
 
     after_0 = conn.execute(
         "SELECT COUNT(*) FROM resources r WHERE NOT EXISTS "

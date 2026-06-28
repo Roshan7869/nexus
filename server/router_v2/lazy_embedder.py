@@ -66,7 +66,7 @@ class LazyEmbedder:
                 raise EmbedderUnavailableError(
                     f"Unable to import IsoEmbedder: {e}"
                 ) from e
-            iso = IsoEmbedder()
+            iso = IsoEmbedder.get()     # singleton — shares model with cluster_router/etc.
             try:
                 iso.load_model()        # loads SentenceTransformer (no FAISS)
             except Exception as e:

@@ -34,7 +34,7 @@ class PlanExecutor:
     @property
     def conn(self):
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path), timeout=60)
+            self._conn = sqlite3.connect(str(self.db_path), timeout=60, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
         return self._conn
 

@@ -1,5 +1,5 @@
 """NEXUS v3 IsoEmbedder — sentence-transformers + FAISS ISO embeddings."""
-import os, sqlite3, numpy as np, faiss
+import os, sqlite3, threading, numpy as np, faiss
 from sentence_transformers import SentenceTransformer
 from typing import Optional
 
@@ -11,8 +11,38 @@ class EmbedderUnavailableError(RuntimeError):
 
 
 class IsoEmbedder:
+    """Sentence-transformers + FAISS ISO embedder.
+
+    Use :meth:`get` (process-wide singleton, keyed by db_path) instead of the
+    constructor. Constructing ``IsoEmbedder()`` per call reloads the
+    all-MiniLM-L6-v2 model (~12-15s cold) on first use — the standard
+    sentence-transformers anti-pattern (see TEI/Infinity: production embedding
+    servers load once per process, never per request). The FAISS index is
+    read-only after load, so sharing one instance across callers is safe.
+    """
     DIM = 384
     MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
+
+    _instances: dict[str, "IsoEmbedder"] = {}
+    _lock = threading.Lock()
+
+    @classmethod
+    def get(cls, db_path: str = DEFAULT_DB_PATH, model_id: str = MODEL_ID) -> "IsoEmbedder":
+        """Return the process-wide singleton for ``db_path`` (loads model once).
+
+        The key is normalized via ``os.path.realpath`` so callers passing a
+        relative path, an absolute path, or a ``Path``-str all hit the same
+        instance (avoids one cold load per path string-form).
+        """
+        key = os.path.realpath(str(db_path))
+        inst = cls._instances.get(key)
+        if inst is None:
+            with cls._lock:
+                inst = cls._instances.get(key)
+                if inst is None:
+                    inst = cls(db_path=db_path, model_id=model_id)
+                    cls._instances[key] = inst
+        return inst
 
     def __init__(self, db_path: str = DEFAULT_DB_PATH, model_id: str = MODEL_ID):
         self.db_path = db_path

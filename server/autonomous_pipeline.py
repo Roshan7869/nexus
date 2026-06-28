@@ -29,7 +29,7 @@ import sqlite3
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 _SELF = Path(__file__).resolve().parent
 if str(_SELF) not in sys.path:
@@ -72,6 +72,20 @@ class AfterModelResult:
 # Reflexion LLM callback signature: (prompt) -> str
 ReflexionLLM = Callable[[str], str]
 
+# Perplexity callback signature: (task, tool_name, tool_result) -> float|None
+# Returns the model's perplexity on the task given the tool result, or None
+# if unavailable. Used by perplexity_outcome to infer an implicit verdict:
+# low perplexity (model confident) -> 'correct', high -> 'wrong'. When no
+# callback is wired, perplexity_outcome returns 'routed' (no fake verdict) —
+# the honest default. This mirrors the reflexion pluggable pattern: no LLM is
+# ever silently faked; a real scorer must be injected.
+PerplexityScorer = Callable[[str, str, Any], Optional[float]]
+
+# Default thresholds for mapping perplexity -> outcome. Tunable so callers can
+# set per-task thresholds without editing this module.
+PERPLEXITY_LOW = 3.0   # <= this -> 'correct' (model was confident)
+PERPLEXITY_HIGH = 10.0  # >= this -> 'wrong'  (model was uncertain)
+
 
 class AutonomousToolCaller:
     """Middleware for autonomous tool calling with a hallucination gate."""
@@ -82,10 +96,20 @@ class AutonomousToolCaller:
         self.gate = HallucinationGate(self.db_path)
         self.top_k = top_k
         self._reflexion_llm: ReflexionLLM | None = None
+        self._perplexity_scorer: PerplexityScorer | None = None
 
     def set_reflexion_llm(self, llm: ReflexionLLM) -> None:
         """Inject an LLM callback for reflexion-based implicit outcomes."""
         self._reflexion_llm = llm
+
+    def set_perplexity_scorer(self, scorer: PerplexityScorer) -> None:
+        """Inject a perplexity scorer for perplexity-based implicit outcomes.
+
+        Without a scorer, :meth:`perplexity_outcome` returns ``'routed'``
+        (no fake verdict). The scorer must return a non-negative float or
+        None; None means "could not score" and also falls back to 'routed'.
+        """
+        self._perplexity_scorer = scorer
 
     # ── before_model ───────────────────────────────────────────────────
     def before_model(self, query: str, agent_state: dict | None = None) -> BeforeModelResult:
@@ -233,6 +257,50 @@ class AutonomousToolCaller:
             return {"outcome": outcome, "reflection": parsed.get("reason", "")}
         except Exception as e:
             return {"outcome": "routed", "reflection": f"reflexion_error: {e}"}
+
+    # ── perplexity outcome (P8c) ───────────────────────────────────────
+    def perplexity_outcome(self, tool_call: ToolCall, tool_result: Any,
+                           query: str, *,
+                           low: float = PERPLEXITY_LOW,
+                           high: float = PERPLEXITY_HIGH) -> dict:
+        """Implicit outcome from model perplexity — pluggable, honest stub.
+
+        Idea (perplexity-as-feedback): if the model's perplexity on the task
+        given the tool result is low, the tool helped (outcome 'correct'); if
+        high, it didn't ('wrong'). This avoids the disabled
+        ``_auto_close_routed`` heuristic, which marked stale routes 'correct'
+        and inflated Thompson beliefs.
+
+        HONEST DEFAULT: without a perplexity scorer wired via
+        :meth:`set_perplexity_scorer`, returns ``outcome='routed'`` (the
+        intermediate state, NOT a fake verdict). No LLM is ever silently faked.
+        To enable, inject a scorer returning a non-negative float (or None);
+        None also falls back to 'routed'.
+
+        Args:
+            tool_call/tool_result/query: the turn to score.
+            low: perplexity <= this -> 'correct'.
+            high: perplexity >= this -> 'wrong'. In-between -> 'partial'.
+
+        Returns:
+            ``{outcome, perplexity, source}`` where source is 'scorer',
+            'none' (no scorer), 'null' (scorer returned None), or 'error'.
+        """
+        if self._perplexity_scorer is None:
+            return {"outcome": "routed", "perplexity": None, "source": "none"}
+        try:
+            ppl = self._perplexity_scorer(query, tool_call.name, tool_result)
+        except Exception as e:
+            return {"outcome": "routed", "perplexity": None, "source": f"error: {e}"}
+        if ppl is None:
+            return {"outcome": "routed", "perplexity": None, "source": "null"}
+        if ppl <= low:
+            outcome = "correct"
+        elif ppl >= high:
+            outcome = "wrong"
+        else:
+            outcome = "partial"
+        return {"outcome": outcome, "perplexity": float(ppl), "source": "scorer"}
 
     # ── helpers ────────────────────────────────────────────────────────
     def _load_schema(self, resource_id: int | None) -> dict | None:

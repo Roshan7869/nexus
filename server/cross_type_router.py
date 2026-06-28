@@ -3,13 +3,17 @@ Finds the best resources across ALL types (not just skills), with
 weighted scoring (70% semantic, 30% type preference).
 """
 from __future__ import annotations
-import math, sqlite3, numpy as np
+import math, sqlite3, threading, os, numpy as np
+from pathlib import Path
 from typing import Optional
 from collections import defaultdict
 from iso_embedder import IsoEmbedder, EmbedderUnavailableError
 
-DB_PATH = "/home/roshan/nexus/server/../db/nexus.db"
-INDEX_PATH = "/home/roshan/nexus/server/../db/faiss/resources.index"
+DB_PATH = os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db"))
+INDEX_PATH = os.environ.get(
+    "NEXUS_INDEX_PATH",
+    str(Path.home() / "nexus/db/faiss/resources.index"),
+)
 
 # ── Type directional vectors ──────────────────────────────────────────
 # 8 base types × 4-dim directional embeddings (ToolkenGPT-like)
@@ -39,12 +43,12 @@ class CrossTypeRouter:
     def __init__(self, db_path: str = DB_PATH, index_path: str = INDEX_PATH):
         self.db_path = db_path
         self.index_path = index_path
-        self.embedder = IsoEmbedder(db_path, model_id="sentence-transformers/all-MiniLM-L6-v2")
+        self.embedder = IsoEmbedder.get(db_path, model_id="sentence-transformers/all-MiniLM-L6-v2")
         self._conn = None
 
     def _connection(self) -> sqlite3.Connection:
         if self._conn is None:
-            self._conn = sqlite3.connect(self.db_path, timeout=60)
+            self._conn = sqlite3.connect(self.db_path, timeout=60, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
         return self._conn
 
@@ -181,7 +185,11 @@ class CrossTypeRouter:
         return self.route(query, project, resource_types=["skill"], top_k=top_k)
 
 
+_cross_type_router_lock = threading.Lock()
+
 def get_cross_type_router(db_path: str = DB_PATH, index_path: str = INDEX_PATH) -> CrossTypeRouter:
     if not hasattr(get_cross_type_router, "_instance"):
-        get_cross_type_router._instance = CrossTypeRouter(db_path, index_path)
+        with _cross_type_router_lock:
+            if not hasattr(get_cross_type_router, "_instance"):
+                get_cross_type_router._instance = CrossTypeRouter(db_path, index_path)
     return get_cross_type_router._instance

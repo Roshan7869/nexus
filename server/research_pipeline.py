@@ -116,6 +116,46 @@ class GithubSource:
         return findings
 
 
+class SsrnSource:
+    """Best-effort SSRN (sol3) paper search via urllib HTML scrape.
+
+    SSRN has no public JSON API, so this scrapes the sol3 results page HTML
+    for paper titles + abstract links. Offline-safe: ANY failure (no network,
+    SSRN blocks the request, HTML format changes, parse error) returns []
+    — the research pipeline then continues with the other sources. Never
+    raises.
+    """
+    name = "ssrn"
+    BASE = "https://papers.ssrn.com/sol3/results.cfm"
+
+    def search(self, topic: str, limit: int = 10) -> list[Finding]:
+        params = urllib.parse.urlencode({"txtKey_Words": topic})
+        text = _http_get(f"{self.BASE}?{params}")
+        if not text:
+            return []
+        findings: list[Finding] = []
+        try:
+            # SSRN result entries link to /sol3/papers.cfm?abstract_id=<id>.
+            # Extract abstract_id, then pull the surrounding title text.
+            for m in re.finditer(
+                r'papers\.cfm\?abstract_id=(\d+)[^>]*>([^<]+)</a>', text
+            ):
+                aid, title = m.group(1), m.group(2).strip()
+                if not title:
+                    continue
+                findings.append(Finding(
+                    "ssrn", title,
+                    f"https://papers.ssrn.com/sol3/papers.cfm?abstract_id={aid}",
+                    "",  # abstract not on the results page; left empty
+                    {"abstract_id": aid},
+                ))
+                if len(findings) >= limit:
+                    break
+        except Exception:
+            return []
+        return findings
+
+
 class LocalSource:
     """Scan local NEXUS resources for matches against the topic via FTS5."""
     name = "local"
@@ -151,7 +191,8 @@ class LocalSource:
         return findings
 
 
-SOURCES = {"arxiv": ArxivSource, "github": GithubSource, "local": LocalSource, "ssrn": None}
+SOURCES = {"arxiv": ArxivSource, "github": GithubSource,
+           "local": LocalSource, "ssrn": SsrnSource}
 
 
 class ResearchPipeline:

@@ -25,6 +25,7 @@ the embedder. The Thompson-Sampling re-rank hook is added in N5.3 via
 """
 from __future__ import annotations
 
+import os
 from typing import Sequence
 
 DEFAULT_K = 60  # Cormack 2009 constant
@@ -273,3 +274,135 @@ def two_tier_split(top_k: int, cold_fraction: float = 0.3) -> tuple[int, int]:
     cold_k = max(1, int(round(top_k * cold_fraction)))
     hot_k = max(1, top_k - cold_k)
     return hot_k, cold_k
+
+
+# ── v5 L3 fusion: tuned convex combination (default) + weighted-RRF baseline ─
+# (paper2code extraction, 2026-06-27 — P3 of the Second Brain v2 plan)
+#
+# This is the L3 RERANK fusion for unified_route_v5, NOT the L2 FTS+vec RRF
+# above. L3 fuses four per-candidate scores — topic (L2 retrieval), intent
+# (L1 route_task), skill_match (binary L1-membership), listwise (reciprocal
+# list position) — into one final ranking.
+#
+# Research grounding:
+#   - Bruch et al., arXiv:2210.11934, "An Analysis of Fusion Functions for
+#     Hybrid Retrieval": a TUNED CONVEX COMBINATION of normalized scores
+#     OUTPERFORMS RRF, and RRF's tuned η parameters do NOT generalize across
+#     domains. => convex combination is the DEFAULT (v5 already was one);
+#     weighted-RRF is kept ONLY as a COMPARISON BASELINE, not the unifier.
+#   - Cormack et al. SIGIR 2009 (cited above): the weighted-RRF baseline uses
+#     the same k = DEFAULT_K = 60 as the L2 fusion, for consistency.
+#
+# Scope / faithfulness: weights are env-overridable (NEXUS_V5_W_<NAME>) for
+# OFFLINE P5-bench tuning sweeps. There is NO online learning — the graded-
+# labels corpus is thin (plan risk #4), so "learnable" means "tunable via
+# offline NDCG@5 grid/random search", the regime Bruch et al. used. Defaults
+# match the prior v5 hand-tuned values EXACTLY, so with no env set this is
+# byte-identical to the former inline v5 arithmetic.
+
+V5_DEFAULT_WEIGHTS = {
+    "topic": 0.45,
+    "intent": 0.25,
+    "skill_match": 0.20,
+    "listwise": 0.10,
+}
+RRF_K = DEFAULT_K  # alias for the L3 weighted-RRF baseline (same Cormack constant)
+
+
+def v5_get_weights(weights: dict | None = None) -> dict:
+    """Load L3 weights with NEXUS_V5_W_<NAME> env overrides, renormalized to
+    sum to 1.0. Unset env → defaults (byte-identical to prior v5 arithmetic)."""
+    w = dict(V5_DEFAULT_WEIGHTS)
+    for key in list(w.keys()):
+        env_val = os.environ.get(f"NEXUS_V5_W_{key.upper()}")
+        if env_val:
+            try:
+                w[key] = float(env_val)
+            except ValueError:
+                pass
+    if weights:
+        w.update(weights)
+    total = sum(w.values())
+    if total <= 0.0:
+        return dict(V5_DEFAULT_WEIGHTS)
+    return {k: v / total for k, v in w.items()}
+
+
+def _v5_ranks(scores: Sequence[float], descending: bool = True) -> list[int]:
+    """0-based rank of each item by score (0 = best), stable on ties."""
+    if not scores:
+        return []
+    order = sorted(range(len(scores)),
+                   key=lambda i: (-scores[i] if descending else scores[i]))
+    ranks = [0] * len(scores)
+    for r, i in enumerate(order):
+        ranks[i] = r
+    return ranks
+
+
+def v5_convex_combine(topic_norm, intent, skill_match, listwise,
+                      weights: dict | None = None) -> list[float]:
+    """Tuned convex combination of normalized scores — the DEFAULT L3 fusion
+    (Bruch et al. 2022). All inputs in [0, 1], aligned by candidate index."""
+    w = v5_get_weights(weights)
+    return [
+        w["topic"] * t + w["intent"] * i + w["skill_match"] * s + w["listwise"] * lw
+        for t, i, s, lw in zip(topic_norm, intent, skill_match, listwise)
+    ]
+
+
+def v5_weighted_rrf(topic_scores, intent_scores, skill_match_scores,
+                    listwise_scores, weights: dict | None = None,
+                    k: int = RRF_K) -> list[float]:
+    """Weighted RRF — the COMPARISON BASELINE (Cormack et al. 2009).
+
+    Computes a 0-based rank for each candidate within each of the four ranked
+    lists, then sums w_r / (k + rank_r + 1) across lists. Inputs are raw scores
+    (higher = better); ranks are derived internally so callers pass the same
+    arrays they pass to v5_convex_combine. BASELINE, not the production unifier
+    — P5-bench verifies Bruch's convex > RRF finding holds on NEXUS data.
+    """
+    w = v5_get_weights(weights)
+    n = len(topic_scores)
+    if n == 0:
+        return []
+    score_lists = {
+        "topic": topic_scores,
+        "intent": intent_scores,
+        "skill_match": skill_match_scores,
+        "listwise": listwise_scores,
+    }
+    out = [0.0] * n
+    for name, scores in score_lists.items():
+        wt = w.get(name, 0.0)
+        if wt == 0.0:
+            continue
+        ranks = _v5_ranks(scores)
+        for i, r in enumerate(ranks):
+            out[i] += wt / (k + r + 1)
+    return out
+
+
+def v5_fusion_scores(topic_norm, intent, skill_match, listwise,
+                     mode: str = "convex",
+                     weights: dict | None = None) -> list[float]:
+    """Dispatch: 'convex' (default) → v5_convex_combine; 'wrrf' → v5_weighted_rrf
+    baseline. Centralizes the mode switch so v5 and the shadow cutover share
+    one code path and can never diverge in candidate handling."""
+    if mode == "wrrf":
+        return v5_weighted_rrf(topic_norm, intent, skill_match, listwise, weights)
+    return v5_convex_combine(topic_norm, intent, skill_match, listwise, weights)
+
+
+def v5_agreement(rank_a: Sequence[int], rank_b: Sequence[int], k: int = 5) -> float:
+    """Top-k OVERLAP agreement = |A∩B| / k between two rankings expressed as
+    ordered candidate-id lists. Used by the shadow cutover to measure cross-
+    fusion agreement between convex and weighted-RRF on the same candidate
+    set. This is the standard overlap@k metric (not Jaccard — Jaccard double-
+    penalizes non-shared items and doesn't match the existing benchmark's
+    'cross-router agreement >60%' target, which is overlap@k)."""
+    a = set(rank_a[:k])
+    b = set(rank_b[:k])
+    if k == 0:
+        return 1.0
+    return len(a & b) / k

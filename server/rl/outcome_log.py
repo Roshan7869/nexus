@@ -62,7 +62,7 @@ class OutcomeLog:
                 the ``resources`` and ``outcome_log`` tables.
         """
         self.db_path: str = db_path
-        self.conn: sqlite3.Connection = sqlite3.connect(db_path)
+        self.conn: sqlite3.Connection = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         # Coerce busy_timeout to 30s to avoid SQLITE_BUSY under contention.
         self.conn.execute("PRAGMA busy_timeout=30000")

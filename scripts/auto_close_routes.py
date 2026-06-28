@@ -3,12 +3,18 @@
 Two coverage gaps exist in NEXUS, and this script fixes only the first:
 
   1. STALE-ROUTE LEAK (this script): routing_log entries left with outcome
-     NULL / 'pending' / 'routed' that never got explicit feedback. Currently
-     ~54 of 5057 (1.1%). Paper 2 (ScaleMCP) insight: a stale route with no
-     explicit outcome is an implicit success — if routing failed, the user
-     would have reported it. This script auto-closes those older than
-     `timeout_minutes`, recording an implicit 'correct' outcome with a
-     computed EFC score, and mirrors them into outcome_log.
+     NULL / 'pending' / 'routed' that never got explicit feedback.
+
+     ANTI-INFLATION DISCIPLINE (L6/L7, 2026-06-27): a stale route is NOT an
+     implicit success. The old "ScaleMCP: no complaint = implicit correct"
+     heuristic inflated Thompson beliefs (learning.py:_auto_close_routed was
+     already disabled for this reason). IRC (arXiv:2604.02869) shows read-only
+     / stale routes carry ~0 discriminative signal. This script now marks
+     stale routes 'routed' — the honest neutral state, excluded from Thompson
+     updates — and writes NO EFC score (no signal to score). It is a
+     landmine guard: P4-T2 supervisord would re-arm cron auto-close, so this
+     script must be safe to cron. derive_outcome() in server/implicit_outcomes.py
+     is the real implicit-outcome path; this script only sweeps stale NULLs.
 
   2. BULK EFC COVERAGE (separate follow-up, NOT this script): only 1710 of
      5057 routing outcomes are mirrored into outcome_log with EFC computed
@@ -89,13 +95,9 @@ def main(timeout_minutes: int = 5, dry_run: bool = False) -> None:
             continue
         task = r["task_summary"] or ""
         action_type = r["action_type"] or classify_action_type(task, [])
-        # implicit 'correct' — first use on this task (auto-closed), repeat=0
-        factors = compute_efc(
-            outcome="correct",
-            action_type=action_type,
-            repeat_count_1h=0,
-            is_first_use_on_task=True,
-        )
+        # Stale = NO signal. Mark 'routed' (neutral, excluded from Thompson).
+        # Do NOT compute or write an EFC score — there is no outcome to score.
+        # (compute_efc import retained for callers; not used on stale rows.)
         if not dry_run:
             conn.execute(
                 """
@@ -104,18 +106,15 @@ def main(timeout_minutes: int = 5, dry_run: bool = False) -> None:
                  alternative_resource_ids, notes, session_id, created_at,
                  action_type, repeat_count_1h,
                  efc_informativeness, efc_validity, efc_redundancy, efc_memory, efc_score)
-                VALUES (?, NULL, ?, 'correct', 0, '[]',
-                 'auto-closed (timeout)', 'auto-close', ?, ?, 0, ?, ?, ?, ?, ?)
+                VALUES (?, NULL, ?, 'routed', 0, '[]',
+                 'auto-closed (timeout, no signal)', 'auto-close', ?, ?, 0,
+                 NULL, NULL, NULL, NULL, NULL)
                 """,
-                (
-                    resource_id, task[:500], ts_now, action_type,
-                    factors["I"], factors["V"], factors["R"], factors["M"],
-                    factors["efc"],
-                ),
+                (resource_id, task[:500], ts_now, action_type),
             )
-            # mark the routing_log entry as auto-closed
+            # mark the routing_log entry as routed (NOT correct) — no inflation
             conn.execute(
-                "UPDATE routing_log SET outcome='correct' WHERE id=?",
+                "UPDATE routing_log SET outcome='routed' WHERE id=?",
                 (r["id"],),
             )
         closed += 1
@@ -123,7 +122,7 @@ def main(timeout_minutes: int = 5, dry_run: bool = False) -> None:
             sample.append({
                 "route_id": r["id"], "skill": r["skill_name"],
                 "task": task[:50], "resource_id": resource_id,
-                "efc": factors["efc"],
+                "efc": None,  # routed — no EFC score (no signal)
             })
 
     if not dry_run and closed:
@@ -132,7 +131,7 @@ def main(timeout_minutes: int = 5, dry_run: bool = False) -> None:
     print(f"{'would close' if dry_run else 'closed'}: {closed}")
     print(f"skipped (no resource match): {no_resource}")
     for s in sample:
-        print(f"  route={s['route_id']} skill={s['skill']:20s} task={s['task']!r} efc={s['efc']:.3f}")
+        print(f"  route={s['route_id']} skill={s['skill']:20s} task={s['task']!r} outcome=routed (no signal)")
 
     # Coverage report
     total_routes = conn.execute("SELECT COUNT(*) FROM routing_log").fetchone()[0]

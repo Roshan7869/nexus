@@ -17,10 +17,19 @@ from __future__ import annotations
 
 import math
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Sequence
 
-from fusion import (
+# Package-robust import: ensure server/ is on sys.path so `router_v2.fusion`
+# resolves whether imported as `router_v2.scoring` (server/ on path) or run
+# standalone (server/router_v2/scoring.py). Mirrors autonomous_pipeline.py.
+_SELF = Path(__file__).resolve().parent          # server/router_v2/
+_SERVER = _SELF.parent                            # server/
+if str(_SERVER) not in sys.path:
+    sys.path.insert(0, str(_SERVER))
+
+from router_v2.fusion import (  # noqa: E402
     DEFAULT_BLEND_WEIGHTS,
     reciprocal_rank_fusion,
     rerank_with_efc_ucb,

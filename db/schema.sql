@@ -32,7 +32,21 @@ CREATE TABLE IF NOT EXISTS routing_log (
     outcome TEXT CHECK(outcome IN ('correct','wrong','partial',NULL)),
     skill_name TEXT,
     tokens_used INTEGER DEFAULT 0,
-    ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','unknown')),
+    -- RC7 (2026-06-27): ide enum documents the REAL set of entrypoint tags.
+    -- The live routing_log table predates this CHECK and already accepts the
+    -- broader enum (verified via sqlite_master on db/nexus.db). This file is
+    -- the documented contract; do NOT run an ALTER that rebuilds the live
+    -- table to "enforce" it — that is risky on a live DB and gains nothing
+    -- (the live CHECK is already broader). Tags:
+    --   opencode    — tool_attention_v4 / intent_classifier entrypoints
+    --   claude-code — MCP entrypoints (nexus-mcp*.py), invoked by Claude Code
+    --   mcp         — generic MCP client / cold_warm exposure seeding
+    --   http        — nexus_http_daemon FastAPI endpoints
+    --   auto_invoke — auto_invoke.py + learning._log_auto_invoke retry path
+    --   hermes,codex— legacy/other IDE clients
+    --   unknown     — truly undeterminable (router.py pre-RC7 default; left
+    --                 honest per Curnow 2024 — do NOT impute from matched_model)
+    ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','mcp','http','auto_invoke','hermes','codex','unknown')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -60,7 +74,9 @@ CREATE TABLE IF NOT EXISTS execution_log (
     skills_used TEXT NOT NULL DEFAULT '[]',
     outcome TEXT CHECK(outcome IN ('correct','wrong','partial','skipped','timeout',NULL)),
     tokens_used INTEGER DEFAULT 0,
-    ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','unknown')),
+    -- RC7 (2026-06-27): see routing_log comment — same real-world enum. Live
+    -- table predates this CHECK; documented contract only, do NOT ALTER live.
+    ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','mcp','http','auto_invoke','hermes','codex','unknown')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (plan_id) REFERENCES plans(id)
 );

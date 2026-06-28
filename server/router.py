@@ -789,7 +789,8 @@ def find_matching_skills(task: str, project: str = "default",
 # UNIFIED ROUTING PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
 
-def route_task(task: str, project: str = "default", use_embedding: bool = False) -> dict:
+def route_task(task: str, project: str = "default", use_embedding: bool = False,
+               ide: str = None) -> dict:
     """Unified v4 routing pipeline.
 
     Pipeline flow:
@@ -801,7 +802,17 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False)
       5. Hallucination gate → validate
       6. Thompson Sampling → pick model
       7. Fallback → keyword tier + specialty matching
+
+    ``ide`` labels the calling entrypoint for telemetry (OTel-style
+    telemetry.sdk.* attribution): 'claude-code' (MCP), 'http' (HTTP daemon),
+    'opencode' (tool-attention-v4), 'auto_invoke', or 'unknown' when truly
+    undeterminable. Override via the ``NEXUS_IDE`` env var forces any
+    entrypoint. RC7 (2026-06-27): previously hardcoded 'unknown' here, which
+    mislabeled 68% of routing_log rows and invalidated the claude_code-wiring
+    audit (MNAR). Threading the tag is a labeling fix, not a wiring fix.
     """
+    if ide is None:
+        ide = os.environ.get("NEXUS_IDE", "unknown")
     start_time = time.time()
 
     # Step 0: Classify
@@ -935,7 +946,7 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False)
                     result = enhance_routing_result(result, task, project)
                 except Exception:
                     pass
-                _log_decision(task, result)
+                _log_decision(task, result, ide=ide)
                 return result
 
     # Tier scoring (fallback model selection)
@@ -1051,11 +1062,12 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False)
     except Exception:
         pass
 
-    _log_decision(task, result)
+    _log_decision(task, result, ide=ide)
     return result
 
 
-def _log_decision(task: str, result: dict, outcome: str = None):
+def _log_decision(task: str, result: dict, outcome: str = None,
+                   ide: str = "unknown"):
     """Log routing decision to DB for analytics + update Thompson Sampling beliefs.
 
     Phase 7: This closes the learning loop by recording every routing decision
@@ -1088,7 +1100,7 @@ def _log_decision(task: str, result: dict, outcome: str = None):
               result.get("tier", 0), result.get("model", "unknown"),
               skills_json, outcome,
               result.get("skills", [{}])[0].get("name") if result.get("skills") else None,
-              "unknown"))
+              ide))
         conn.commit()
         rowid = cur.lastrowid
         conn.close()
@@ -1105,7 +1117,7 @@ def _log_decision(task: str, result: dict, outcome: str = None):
                 outcome=outcome,
                 task_summary=task,
                 project=result.get("project", "default"),
-                ide="router",
+                ide=ide,
                 routed_id=rowid
             )
         except Exception as e:

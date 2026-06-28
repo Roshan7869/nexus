@@ -43,7 +43,7 @@ class LocalDirLoader(BaseLoader):
             if any(part in self.SKIP_DIRS or part.startswith(".git")
                    for part in path.parts):
                 continue
-            if not self._should_include_file(path.name, path.suffix):
+            if not self._include_path(path):
                 continue
             seen += 1
             try:

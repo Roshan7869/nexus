@@ -76,15 +76,26 @@ from broker_runtime import (
 @mcp.tool()
 def find_skills(task: str, project: str = "default", max_results: int = 5) -> str:
     """Route a task to the best model tier and find matching skills.
-    
+
     Args:
         task: Short description of what you need to do (e.g. 'fix login bug')
         project: Project name (kaari, vihaar, hermes, trading, or default)
         max_results: Maximum number of skills to return
-    
+
     Returns JSON with tier, recommended model, token limit, and matched skills.
+
+    P2 wiring: when env var USE_UNIFIED_ROUTER=1 is set, routes through the
+    router_v2 unified pipeline (resource-level lexical search + bit[384]
+    semantic + RRF + 4-term blend 0.40/0.15/0.25/0.20 + two-tier hot/cold),
+    instead of the v4 route_task pipeline. Default OFF = zero live change.
+    Set USE_UNIFIED_ROUTER=1 + restart MCP to enable. See /route_ab_compare
+    for offline agreement comparison between the two pipelines.
     """
-    result = route_task(task, project, use_embedding=True)
+    if os.environ.get("USE_UNIFIED_ROUTER", "0") == "1":
+        result = _route_unified(task, project, max_results)
+    else:
+        result = route_task(task, project, use_embedding=True,
+                            ide=os.environ.get("NEXUS_IDE", "claude-code"))
 
     try:
         with db_conn() as conn:
@@ -96,21 +107,117 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
                 task, project, result['tier'], result['model'],
                 json.dumps([s['name'] for s in result.get('skills', [])]),
                 result['skills'][0]['name'] if result.get('skills') else None,
-                'claude-code'
+                os.environ.get("NEXUS_IDE", "claude-code")
             ))
             conn.commit()
     except Exception:
         pass
-    
+
     # Limit results
     result['skills'] = result.get('skills', [])[:max_results]
     return json.dumps(result, indent=2)
 
 
+def _route_unified(task: str, project: str, max_results: int) -> dict:
+    """Shape router_v2.unified_route output into the find_skills result schema.
+
+    The unified router does not run Thompson model selection (that stays in
+    v4 route_task); here we set tier=2 / model=sonnet as a neutral default and
+    populate ``skills`` from the merged 4-term-blended ranking. ``pipeline``
+    records which streams fed the result so callers can tell it came from the
+    unified router.
+    """
+    sys.path.insert(0, str(Path.home() / 'nexus/server'))
+    from router_v2 import unified_route
+    top_k = max(max_results, 10)  # pull a wider net, truncate after logging
+    ur = unified_route(task, top_k=top_k, cold_fraction=0.3, vec=True)
+    skills = []
+    for x in ur.get("merged", []):
+        name = x.get("name")
+        if not name:
+            continue
+        skills.append({
+            "name": name,
+            "score": round(x.get("final_score", 0.0), 4),
+            "category": "INVOKE",
+            "success_rate": 0,
+            "type": "skill",
+            "_source": "unified_router",
+            "cluster": x.get("cluster"),
+            "rrf_score": round(x.get("rrf_score", 0.0), 4),
+        })
+    return {
+        "task": task,
+        "project": project,
+        "tier": 2,
+        "tier_name": "Unified",
+        "model": "sonnet",
+        "token_limit": 200000,
+        "skills": skills,
+        "method": "unified_router_v2",
+        "cluster": skills[0]["cluster"] if skills else None,
+        "pipeline": ["unified_route", "rrf_resource", "blend_4term", "two_tier"],
+        "used_dense": ur.get("used_dense", False),
+        "vec_reason": ur.get("vec_reason", "disabled"),
+        "weights": ur.get("weights"),
+        "latency_ms": None,
+    }
+
+
+@mcp.tool()
+def route_ab_compare(task: str, project: str = "default",
+                     top_k: int = 10) -> str:
+    """A/B agreement comparison: v4 route_task vs router_v2 unified_route.
+
+    Runs BOTH pipelines on the same query (no DB writes, no live routing
+    effect) and reports the top-k name overlap so the unified router can be
+    evaluated before flipping USE_UNIFIED_ROUTER=1. This is the offline A/B
+    stub required by P2 — it never changes live behaviour.
+
+    Args:
+        task: task description to route.
+        project: project name.
+        top_k: number of top results to compare from each pipeline.
+
+    Returns JSON with both pipelines' top-k names, the intersection, and an
+    agreement score (intersection / union).
+    """
+    sys.path.insert(0, str(Path.home() / 'nexus/server'))
+    # v4 path
+    try:
+        v4 = route_task(task, project, use_embedding=True,
+                        ide=os.environ.get("NEXUS_IDE", "claude-code"))
+        v4_names = [s.get("name") for s in v4.get("skills", [])[:top_k] if s.get("name")]
+    except Exception as e:
+        v4_names, v4 = [], {"error": str(e)}
+    # unified path
+    try:
+        from router_v2 import unified_route
+        ur = unified_route(task, top_k=top_k, cold_fraction=0.3, vec=True)
+        u_names = [x.get("name") for x in ur.get("merged", [])[:top_k] if x.get("name")]
+    except Exception as e:
+        u_names, ur = [], {"error": str(e)}
+    inter = sorted(set(v4_names) & set(u_names))
+    union = sorted(set(v4_names) | set(u_names))
+    agreement = round(len(inter) / max(len(union), 1), 3)
+    return json.dumps({
+        "task": task,
+        "top_k": top_k,
+        "v4_names": v4_names,
+        "unified_names": u_names,
+        "intersection": inter,
+        "union": union,
+        "agreement": agreement,
+        "v4_method": v4.get("method") if isinstance(v4, dict) else None,
+        "unified_used_dense": ur.get("used_dense") if isinstance(ur, dict) else None,
+        "unified_vec_reason": ur.get("vec_reason") if isinstance(ur, dict) else None,
+    }, indent=2)
+
+
 @mcp.tool()
 def get_skill(name: str) -> str:
     """Read full skill body text by name.
-    
+
     Args:
         name: Exact skill name (from find_skills result)
     
@@ -321,7 +428,7 @@ def execute_phase(plan_id: int, phase_id: str, force: bool = False) -> str:
             return json.dumps({"error": f"Phase {phase_id} not found in plan {plan_id}"})
         
         task = f"{target['name']}: {target['description']}"
-        routing = route_task(task, project)
+        routing = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
         
         conn.execute("""
             INSERT INTO execution_log(plan_id, phase_id, task_summary, matched_model, skills_used, outcome, ide)
@@ -676,7 +783,7 @@ def tool_attention_route(task: str, project: str = "default") -> str:
         return json.dumps(result, indent=2)
     except Exception as e:
         from server.router import route_task
-        result = route_task(task, project)
+        result = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
         result["fallback"] = f"Tool Attention unavailable: {e}"
         return json.dumps(result, indent=2)
 

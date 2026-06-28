@@ -1,5 +1,5 @@
 """NEXUS v3 Tool Attention Router - complete integration."""
-import os, json, sqlite3, numpy as np, faiss
+import os, json, sqlite3, threading, numpy as np, faiss
 from pathlib import Path
 from typing import Optional
 from sentence_transformers import SentenceTransformer
@@ -24,10 +24,14 @@ class ToolAttention:
         self.loader = LazyLoader(str(DB_PATH))
         self.cross_router = CrossTypeRouter(str(DB_PATH), str(INDEX_PATH))
 
+    _instance_lock = threading.Lock()
+
     @classmethod
     def get(cls) -> "ToolAttention":
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def load(self):
@@ -42,7 +46,8 @@ class ToolAttention:
             with open(str(INDEX_PATH) + ".meta.json") as f:
                 self.resource_ids = json.load(f)["resource_ids"]
         if self.conn is None:
-            self.conn = sqlite3.connect(str(DB_PATH), timeout=60)
+            self.conn = sqlite3.connect(str(DB_PATH), timeout=60, check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
 
     def search(self, query: str, k: int = 10) -> list[tuple[int, float]]:
         try:

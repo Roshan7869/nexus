@@ -4,7 +4,7 @@ nexus-mcp-enhanced.py — Enhanced NEXUS MCP Server
 Includes find_skills, get_skill, log_outcome, audit_routing, list_resources
 AND the new orchestrator tools: orchestrate, design_plan, execute_phase, verify_phase, audit_plan
 """
-import json, sqlite3, sqlite_vec, sys, time
+import json, sqlite3, sqlite_vec, sys, time, os
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -43,8 +43,8 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
     
     Returns JSON with tier, recommended model, token limit, and matched skills.
     """
-    result = route_task(task, project)
-    
+    result = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
+
     try:
         conn = get_db()
         conn.execute("""
@@ -55,7 +55,7 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
             task, project, result['tier'], result['model'],
             json.dumps([s['name'] for s in result.get('skills', [])]),
             result['skills'][0]['name'] if result.get('skills') else None,
-            'claude-code'
+            os.environ.get("NEXUS_IDE", "claude-code")
         ))
         conn.commit()
         conn.close()
@@ -122,7 +122,7 @@ def log_outcome(skill_name: str, outcome: str, task_summary: str = "",
                                matched_skills, outcome, skill_name, tokens_used, ide)
         VALUES(?,?,?,?,?,?,?,?,?)
     """, (task_summary or "logged outcome", project, 0, "unknown", "[]",
-          outcome, skill_name, tokens_used, 'unknown'))
+          outcome, skill_name, tokens_used, os.environ.get("NEXUS_IDE", "claude-code")))
     
     if outcome == 'correct':
         conn.execute("""
@@ -321,7 +321,7 @@ def execute_phase(plan_id: int, phase_id: str, force: bool = False) -> str:
     
     # Route the phase task
     task = f"{target['name']}: {target['description']}"
-    routing = route_task(task, project)
+    routing = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
     
     # Log execution
     conn.execute("""

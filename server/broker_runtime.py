@@ -886,7 +886,7 @@ def search_user_learnings(query: str = "", *, project: str = "default", limit: i
                     ).fetchall()
                     if all_rows:
                         from server.iso_embedder import IsoEmbedder
-                        embedder = IsoEmbedder()
+                        embedder = IsoEmbedder.get()
                         embedder.load_model()
                         qvec = embedder.encode(query)
                         import numpy as np
@@ -926,7 +926,7 @@ def search_user_learnings(query: str = "", *, project: str = "default", limit: i
             elif len(results) > 1:
                 try:
                     from server.iso_embedder import IsoEmbedder
-                    embedder = IsoEmbedder()
+                    embedder = IsoEmbedder.get()
                     embedder.load_model()
                     qvec = embedder.encode(query)
                     import numpy as np

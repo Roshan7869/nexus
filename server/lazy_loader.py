@@ -175,8 +175,16 @@ class LazyLoader:
             self._body_pool.clear()
             self._pool_hits = self._pool_misses = self._body_hits = self._body_misses = 0
 
-def get_loader(db_path: str = "/home/roshan/nexus/db/nexus.db") -> LazyLoader:
+def get_loader(db_path: str = None) -> LazyLoader:
     """Singleton lazy-loader instance."""
+    if db_path is None:
+        import os
+        db_path = os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db"))
     if not hasattr(get_loader, "_instance"):
-        get_loader._instance = LazyLoader(db_path)
+        with get_loader._lock:
+            if not hasattr(get_loader, "_instance"):
+                get_loader._instance = LazyLoader(db_path)
     return get_loader._instance
+
+
+get_loader._lock = threading.Lock()

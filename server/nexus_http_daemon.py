@@ -103,8 +103,9 @@ def get_db():
 
 
 # ── FastAPI app ─────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Body
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 import uvicorn
 
 app = FastAPI(
@@ -112,6 +113,49 @@ app = FastAPI(
     description="Persistent HTTP daemon for NEXUS v4 routing + learning pipeline",
     version="4.1.0",
 )
+
+
+# ── Pydantic request bodies for POST endpoints ─────────────────────
+# These allow JSON body requests alongside the legacy query-param interface.
+# Backward compatibility: each endpoint accepts EITHER a JSON body OR query params.
+
+class RouteRequest(BaseModel):
+    task: str
+    project: str = "default"
+    use_embedding: bool = True
+
+
+class RouteV4Request(BaseModel):
+    query: str
+    resource_types: Optional[str] = None
+    theta: float = 0.28
+    top_k: int = 10
+    use_clusters: bool = True
+    max_clusters: int = 2
+
+
+class ClusterRouteRequest(BaseModel):
+    task: str
+    project: str = "default"
+    max_clusters: int = 2
+
+
+class ClusterActivateRequest(BaseModel):
+    clusters: str
+    project: str = "default"
+
+
+class FindSkillsRequest(BaseModel):
+    task: str
+    project: str = "default"
+    max_results: int = 5
+
+
+class ReportOutcomeRequest(BaseModel):
+    skill_name: str
+    outcome: str
+    task_summary: str = ""
+    project: str = "default"
 
 
 @app.on_event("startup")
@@ -177,14 +221,26 @@ async def stats():
 # ── Routing ─────────────────────────────────────────────
 
 @app.post("/route")
-async def route_task_endpoint(task: str, project: str = "default", use_embedding: bool = True):
-    """Route a task through the v3 pipeline."""
+async def route_task_endpoint(
+    body: Optional[RouteRequest] = Body(default=None),
+    task: Optional[str] = None,
+    project: str = "default",
+    use_embedding: bool = True,
+):
+    """Route a task through the v3 pipeline. Accepts JSON body or query params."""
+    if body is not None:
+        task = body.task
+        project = body.project
+        use_embedding = body.use_embedding
+    if not task:
+        raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     start = time.time()
     try:
         from server.router import route_task as _route
-        result = await _run_sync(_route, task, project, use_embedding=use_embedding)
+        result = await _run_sync(_route, task, project, use_embedding=use_embedding,
+                                 ide=os.environ.get("NEXUS_IDE", "http"))
         result["latency_ms"] = round((time.time() - start) * 1000, 1)
         return result
     except Exception as e:
@@ -192,14 +248,24 @@ async def route_task_endpoint(task: str, project: str = "default", use_embedding
 
 @app.post("/route_v4")
 async def route_v4_endpoint(
-    query: str,
+    body: Optional[RouteV4Request] = Body(default=None),
+    query: Optional[str] = None,
     resource_types: Optional[str] = None,
     theta: float = 0.28,
     top_k: int = 10,
     use_clusters: bool = True,
     max_clusters: int = 2,
 ):
-    """NEXUS v4: Full Tool Attention pipeline."""
+    """NEXUS v4: Full Tool Attention pipeline. Accepts JSON body or query params."""
+    if body is not None:
+        query = body.query
+        resource_types = body.resource_types
+        theta = body.theta
+        top_k = body.top_k
+        use_clusters = body.use_clusters
+        max_clusters = body.max_clusters
+    if not query:
+        raise HTTPException(400, "query is required (send as JSON body or ?query= query param)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     start = time.time()
@@ -219,8 +285,19 @@ async def route_v4_endpoint(
         raise HTTPException(500, f"v4 routing error: {e}")
 
 @app.post("/cluster_route")
-async def cluster_route_endpoint(task: str, project: str = "default", max_clusters: int = 2):
-    """Route through domain clusters first, then search within."""
+async def cluster_route_endpoint(
+    body: Optional[ClusterRouteRequest] = Body(default=None),
+    task: Optional[str] = None,
+    project: str = "default",
+    max_clusters: int = 2,
+):
+    """Route through domain clusters first, then search within. Accepts JSON body or query params."""
+    if body is not None:
+        task = body.task
+        project = body.project
+        max_clusters = body.max_clusters
+    if not task:
+        raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     try:
@@ -251,8 +328,17 @@ async def cluster_route_endpoint(task: str, project: str = "default", max_cluste
 
 
 @app.post("/cluster_activate")
-async def cluster_activate_endpoint(clusters: str, project: str = "default"):
-    """Manually activate specific clusters by name."""
+async def cluster_activate_endpoint(
+    body: Optional[ClusterActivateRequest] = Body(default=None),
+    clusters: Optional[str] = None,
+    project: str = "default",
+):
+    """Manually activate specific clusters by name. Accepts JSON body or query params."""
+    if body is not None:
+        clusters = body.clusters
+        project = body.project
+    if not clusters:
+        raise HTTPException(400, "clusters is required (send as JSON body or ?clusters= query param)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     try:
@@ -329,15 +415,27 @@ async def cluster_list_endpoint():
 # ── Skills ───────────────────────────────────────────────
 
 @app.post("/find_skills")
-async def find_skills_endpoint(task: str, project: str = "default", max_results: int = 5):
-    """Route a task to the best model tier and find matching skills."""
+async def find_skills_endpoint(
+    body: Optional[FindSkillsRequest] = Body(default=None),
+    task: Optional[str] = None,
+    project: str = "default",
+    max_results: int = 5,
+):
+    """Route a task to the best model tier and find matching skills. Accepts JSON body or query params."""
+    if body is not None:
+        task = body.task
+        project = body.project
+        max_results = body.max_results
+    if not task:
+        raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     start = time.time()
     try:
         def _blocking():
             from server.router import route_task as _route
-            result = _route(task, project, use_embedding=True)
+            result = _route(task, project, use_embedding=True,
+                            ide=os.environ.get("NEXUS_IDE", "http"))
 
             # Log to routing_log
             if DB_AVAILABLE:
@@ -351,7 +449,7 @@ async def find_skills_endpoint(task: str, project: str = "default", max_results:
                         task, project, result.get('tier', ''), result.get('model', ''),
                         json.dumps([s['name'] for s in result.get('skills', [])]),
                         result.get('skills', [{}])[0].get('name') if result.get('skills') else None,
-                        'unknown'
+                        os.environ.get("NEXUS_IDE", "http")
                     ))
                     conn.commit()
                     conn.close()
@@ -371,83 +469,33 @@ async def find_skills_endpoint(task: str, project: str = "default", max_results:
 
 @app.post("/report_outcome")
 async def report_outcome_endpoint(
-    skill_name: str,
-    outcome: str,
+    body: Optional[ReportOutcomeRequest] = Body(default=None),
+    skill_name: Optional[str] = None,
+    outcome: Optional[str] = None,
     task_summary: str = "",
     project: str = "default",
 ):
-    """Report whether a skill/tool recommendation was correct or wrong."""
+    """Report whether a skill/tool recommendation was correct or wrong. Accepts JSON body or query params."""
+    if body is not None:
+        skill_name = body.skill_name
+        outcome = body.outcome
+        task_summary = body.task_summary
+        project = body.project
+    if not skill_name or not outcome:
+        raise HTTPException(400, "skill_name and outcome are required (send as JSON body or query params)")
     global REQUEST_COUNT
     REQUEST_COUNT += 1
     try:
         from learning import record_outcome
         result = await _run_sync(record_outcome, skill_name, outcome, task_summary, project, "http", 0)
 
-        # Bridge to OutcomeLog (server.rl.outcome_log) so the RL feedback table
-        # is populated. Without this, /report_outcome updates routing_log + resource
-        # counters but never inserts into outcome_log — the Thompson Sampling and
-        # cluster_affinity layers only read from outcome_log. Bug fix 2026-06-26.
-        try:
-            from server.rl.outcome_log import OutcomeLog
-            from pathlib import Path as _Path
-            from server import efc as _efc
-            db_path = _Path(__file__).parent.parent / "db" / "nexus.db"
-
-            def _bridge():
-                with OutcomeLog(str(db_path)) as log:
-                    # Resolve resource_id from skill_name
-                    row = log.conn.execute(
-                        "SELECT id, cluster FROM resources WHERE name = ?",
-                        (skill_name,),
-                    ).fetchone()
-                    if not row:
-                        return None
-                    resource_id, cluster = row
-
-                    # Compute EFC factors (arXiv:2605.29682)
-                    repeat_count = _efc.compute_repeat_count_1h(
-                        log.conn, task_summary or "", skill_name
-                    )
-                    first_use = _efc.is_first_use_on_task(
-                        log.conn, task_summary or "", skill_name
-                    )
-                    action_type = _efc.classify_action_type(
-                        task_summary or "", []
-                    )
-                    factors = _efc.compute_efc(
-                        outcome=outcome,
-                        action_type=action_type,
-                        repeat_count_1h=repeat_count,
-                        is_first_use_on_task=first_use,
-                    )
-
-                    return log.record(
-                        resource_id=resource_id,
-                        cluster_id=cluster,
-                        task_intent=task_summary or "",
-                        outcome=outcome,
-                        duration_ms=0,
-                        alternative_resource_ids=[],
-                        notes=f"bridged from /report_outcome on 2026-06-26 (EFC={factors['efc']:.3f}, NRS-EFC={factors['nrs_efc']:.3f})",
-                        session_id="http-bridge",
-                    ), log.conn.execute(
-                        """UPDATE outcome_log
-                           SET action_type = ?, repeat_count_1h = ?,
-                               efc_informativeness = ?, efc_validity = ?,
-                               efc_redundancy = ?, efc_memory = ?, efc_score = ?
-                           WHERE id = last_insert_rowid()""",
-                        (
-                            action_type, repeat_count,
-                            factors["I"], factors["V"], factors["R"], factors["M"],
-                            factors["efc"],
-                        ),
-                    )
-            bridge_result = await _run_sync(_bridge)
-        except Exception as bridge_err:
-            # Don't fail the whole request if bridge fails; just include in result
-            if isinstance(result, dict):
-                result["outcome_log_bridge_error"] = str(bridge_err)
-
+        # NOTE: outcome_log + EFC bridging now happens INSIDE record_outcome
+        # (server/learning.py::_bridge_outcome_log, P3/P8 structural fix
+        # 2026-06-26). The previous duplicate bridge here was the ONLY path
+        # writing EFC to outcome_log, leaving 65% of rows with NULL EFC.
+        # record_outcome now bridges every terminal outcome itself, so this
+        # endpoint no longer needs a separate bridge block (which would have
+        # double-inserted). result["outcome_log_bridge"] reports the bridge.
         return result
     except Exception as e:
         raise HTTPException(500, f"Report outcome error: {e}")

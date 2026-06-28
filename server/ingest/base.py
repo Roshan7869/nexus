@@ -118,6 +118,30 @@ class BaseLoader(ABC):
         return suffix.lower() in BaseLoader.INCLUDE_EXT
 
     @staticmethod
+    def _include_path(path) -> bool:
+        """Path-level inclusion: known extension OR an extensionless shebang script.
+
+        ``_should_include_file`` alone skips extensionless files (e.g. the
+        gstack/bin shell commands ``gstack-relink``, ``gstack-update-check`` —
+        real text scripts with no ``.sh`` suffix). A ``#!`` first line is a
+        reliable, bounded signal that the file is an executable text script, so
+        we peek the first 2 bytes only when the extension is unknown. Binary
+        files never start with ``#!``. Keeps the filter principled without
+        ingesting arbitrary extensionless files.
+        """
+        from pathlib import Path
+        p = path if isinstance(path, Path) else Path(path)
+        if BaseLoader._should_include_file(p.name, p.suffix):
+            return True
+        if p.suffix:  # had an extension, just not a recognised one
+            return False
+        try:
+            with open(p, "rb") as fh:
+                return fh.read(2) == b"#!"
+        except OSError:
+            return False
+
+    @staticmethod
     def _detect_chunk_type(path_name: str, first_line: str) -> ChunkType:
         """Heuristic: code files → code (or function), markdown → section/heading."""
         suf = path_name.rsplit(".", 1)[-1].lower() if "." in path_name else ""

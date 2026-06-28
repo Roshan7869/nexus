@@ -7,7 +7,7 @@ Triggers automatically when system requires intervention.
 No manual find_skills() calls needed.
 """
 
-import json, time, sqlite3, re
+import json, time, sqlite3, re, os
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
@@ -313,8 +313,8 @@ class AutoInvoke:
                 INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
                                        matched_skills, outcome, skill_name, ide)
                 VALUES(?,?,?,?,?,?,?,?)
-            """, (task, "auto", 2, "auto-router", json.dumps([tool.name]), 
-                  "pending", tool.name, "auto_invoke"))
+            """, (task, "auto", 2, "auto-router", json.dumps([tool.name]),
+                  "pending", tool.name, os.environ.get("NEXUS_IDE", "auto_invoke")))
             self.conn.commit()
         except Exception as exc:
             # Silently continue — logging failure shouldn't block invocation
@@ -417,7 +417,8 @@ class AutoInvoke:
                                    matched_skills, outcome, skill_name, ide)
             VALUES(?,?,?,?,?,?,?,?)
         """, (f"Success with {tool.name}", "auto", 2, "auto-router",
-              json.dumps([tool.name]), "correct", tool.name, "opencode"))
+              json.dumps([tool.name]), "correct", tool.name,
+              os.environ.get("NEXUS_IDE", "auto_invoke")))
         
         self.conn.execute("""
             UPDATE resources SET times_correct = times_correct + 1,

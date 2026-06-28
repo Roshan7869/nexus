@@ -25,6 +25,7 @@ import json
 import logging
 import re
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -85,6 +86,7 @@ class NumpyRouter:
     """
 
     _instance: Optional["NumpyRouter"] = None
+    _instance_lock = threading.Lock()
 
     def __init__(self, db_path: str = None):
         self.db_path = Path(db_path) if db_path else DB_PATH
@@ -98,7 +100,9 @@ class NumpyRouter:
     @classmethod
     def get(cls) -> "NumpyRouter":
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     @property
