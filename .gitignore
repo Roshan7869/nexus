@@ -34,3 +34,6 @@ Thumbs.db
 AI-Engineering-Coach/
 .mcp.json
 node_modules/
+db/nexus.db*
+ruvector.db*
+*.log
