@@ -7,7 +7,7 @@ import sys, os, sqlite3, unittest, time
 from pathlib import Path
 from datetime import datetime, timedelta
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "server"))
 

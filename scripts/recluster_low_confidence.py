@@ -117,6 +117,12 @@ def recluster(dry_run: bool = False) -> dict:
                     "UPDATE resources SET cluster = ?, cluster_confidence = ?, updated_at = datetime('now') WHERE id = ?",
                     (best_cluster, round(best_score, 3), rid),
                 )
+                # FIX 1: Sync to cluster_membership (authoritative routing source)
+                conn.execute(
+                    "INSERT OR REPLACE INTO cluster_membership (cluster_name, resource_id, affinity) "
+                    "VALUES (?, ?, ?)",
+                    (best_cluster, rid, round(best_score, 3)),
+                )
 
             re_cluster_map[best_cluster] = re_cluster_map.get(best_cluster, 0) + 1
 

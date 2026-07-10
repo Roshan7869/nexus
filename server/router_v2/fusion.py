@@ -188,8 +188,9 @@ def rerank_with_efc_ucb(
     ucb_bonuses: dict[int, float] | None = None,
     weights: dict[str, float] | None = None,
     iso_field: str = "rrf_score",
+    iso_theta: float = 0.0,
 ) -> list[dict]:
-    """4-term blend: ISO (RRF) + Thompson + EFC + UCB.
+    """4-term blend: ISO (RRF/CC) + Thompson + EFC + UCB.
 
     Each score dict maps resource_id -> value in [0, 1]. Missing entries
     contribute 0. The ISO component is read from ``fused[i][iso_field]``
@@ -198,6 +199,11 @@ def rerank_with_efc_ucb(
     Cold-start behavior: when ``thompson_scores`` is empty, UCB drives
     exploration of never-triggered resources (ucb=1.0 for n_i=0).
 
+    FIX 6b (Tool Attention §3.2): ``iso_theta`` filters out candidates whose
+    normalized ISO score falls below the threshold. This prevents low-relevance
+    resources from being boosted by Thompson/EFC/UCB components. When > 0.0,
+    candidates with ``iso_n < iso_theta`` are excluded from the final ranking.
+
     Args:
         fused: output of reciprocal_rank_fusion (must contain iso_field).
         thompson_scores: {resource_id: posterior mean in [0,1]} or None.
@@ -205,11 +211,12 @@ def rerank_with_efc_ucb(
         ucb_bonuses: {resource_id: UCB1 bonus in [0,1]} or None.
         weights: override blend weights (keys: iso, thompson, efc, ucb).
         iso_field: field name in fused entries to use as the ISO component.
+        iso_theta: minimum ISO normalized score threshold (0 = no filtering).
 
     Returns:
         New list of dicts sorted DESC by ``final_score``. Each entry is the
         input dict plus ``final_score``, ``thompson_score``, ``efc_score``,
-        ``ucb_bonus``.
+        ``ucb_bonus``. Entries with ``iso_n < iso_theta`` are removed.
     """
     w = {**DEFAULT_BLEND_WEIGHTS, **(weights or {})}
     thompson_scores = thompson_scores or {}
@@ -224,6 +231,9 @@ def rerank_with_efc_ucb(
     for x in fused:
         rid = x.get("resource_id")
         iso_n = (x.get(iso_field, 0) / iso_max) if iso_max > 0 else 0.0
+        # FIX 6b: gate on iso_theta — discard low-relevance candidates
+        if iso_theta > 0.0 and iso_n < iso_theta:
+            continue
         t = thompson_scores.get(rid) if rid is not None else None
         e = efc_scores.get(rid) if rid is not None else None
         u = ucb_bonuses.get(rid) if rid is not None else None
@@ -392,6 +402,119 @@ def v5_fusion_scores(topic_norm, intent, skill_match, listwise,
     if mode == "wrrf":
         return v5_weighted_rrf(topic_norm, intent, skill_match, listwise, weights)
     return v5_convex_combine(topic_norm, intent, skill_match, listwise, weights)
+
+
+# ── FIX 6: L2 Convex Combination fusion (Bruch et al. 2022) ─────────────
+# Replaces RRF at the resource-keyed L2 level. Each stream's raw scores are
+# normalized per-query via min-max to [0, 1], then combined as a weighted sum.
+# A resource found by multiple streams accumulates contributions from each.
+#
+# Score sources:
+#   lexical: match_score from _resource_search (exact name=50, token name=10,
+#       desc=3, body=1)
+#   semantic: hamming_distance -> similarity = 1.0 - distance / 384
+#   chunk: chunk_rrf directly (already a [0,1] signal)
+#
+# Bruch et al. proved CC outperforms RRF in both in-domain and out-of-domain
+# settings (arXiv:2210.11934, §4.2). Tuned CC is the default; RRF is kept
+# as the backward-compatible baseline.
+
+L2_CC_WEIGHTS = {"lex": 0.40, "vec": 0.35, "chunk": 0.25}
+L2_DIM = 384  # bit[384] column dimension for Hamming -> similarity conversion
+
+
+def _cc_normalize(scores: dict[int, float]) -> dict[int, float]:
+    """Min-max normalize a score dict to [0, 1]. Empty -> {}."""
+    if not scores:
+        return {}
+    vals = [v for v in scores.values() if v is not None]
+    if not vals:
+        return {k: 0.0 for k in scores}
+    lo, hi = min(vals), max(vals)
+    if hi == lo:
+        return {k: 0.5 for k in scores}
+    return {k: (v - lo) / (hi - lo) if v is not None else 0.0
+            for k, v in scores.items()}
+
+
+def convex_combine_resource(
+    lex: list[dict],
+    vec_results: list[dict],
+    chunks: list[dict] | None = None,
+    weights: dict[str, float] | None = None,
+) -> list[dict]:
+    """L2 Convex Combination fusion — resource-keyed (FIX 6).
+
+    Replaces ``_rrf_resource`` for the ``fusion="cc"`` mode. Each input
+    stream's raw scores are normalized per-query via min-max to [0, 1],
+    then combined as a weighted sum (Bruch et al. 2022).
+
+    Args:
+        lex: best-first list of ``{resource_id, match_score, name, cluster}``.
+            ``match_score`` is the raw SQL weight (not the fake negative score).
+        vec_results: best-first list of ``{resource_id, distance}`` where
+            distance is the Hamming distance from BitIndex.search.
+        chunks: optional best-first list of ``{resource_id, chunk_rrf}``.
+        weights: per-stream weights ``{lex, vec, chunk}`` (defaults to
+            ``L2_CC_WEIGHTS``: 0.40/0.35/0.25).
+
+    Returns:
+        best-first list of ``{resource_id, cc_score, lex_score, vec_score,
+        chunk_score, name, cluster}`` — one entry per unique resource found
+        by any stream, sorted DESC by ``cc_score``.
+    """
+    w = {**L2_CC_WEIGHTS, **(weights or {})}
+    lex_scores: dict[int, float] = {}
+    vec_scores: dict[int, float] = {}
+    chunk_scores: dict[int, float] = {}
+    meta: dict[int, dict] = {}
+
+    for r in lex:
+        rid = r.get("resource_id")
+        if rid is None:
+            continue
+        lex_scores[rid] = float(r.get("match_score", 0))
+        meta.setdefault(rid, {})["name"] = r.get("name")
+        meta[rid]["cluster"] = r.get("cluster")
+
+    for r in vec_results:
+        rid = r.get("resource_id")
+        if rid is None:
+            continue
+        dist = r.get("distance", 0)
+        vec_scores[rid] = 1.0 - min(float(dist) / L2_DIM, 1.0)
+        meta.setdefault(rid, {})
+
+    for r in (chunks or []):
+        rid = r.get("resource_id")
+        if rid is None:
+            continue
+        chunk_scores[rid] = float(r.get("chunk_rrf", 0))
+        meta.setdefault(rid, {})
+
+    lex_norm = _cc_normalize(lex_scores)
+    vec_norm = _cc_normalize(vec_scores)
+    chunk_norm = _cc_normalize(chunk_scores)
+
+    all_ids = set(lex_norm) | set(vec_norm) | set(chunk_norm)
+    out: list[dict] = []
+    for rid in all_ids:
+        ln = lex_norm.get(rid, 0.0)
+        vn = vec_norm.get(rid, 0.0)
+        cn = chunk_norm.get(rid, 0.0)
+        cc = w["lex"] * ln + w["vec"] * vn + w["chunk"] * cn
+        m = meta.get(rid, {})
+        out.append({
+            "resource_id": rid,
+            "cc_score": cc,
+            "lex_score": round(ln, 4),
+            "vec_score": round(vn, 4),
+            "chunk_score": round(cn, 4),
+            "name": m.get("name"),
+            "cluster": m.get("cluster"),
+        })
+    out.sort(key=lambda x: x["cc_score"], reverse=True)
+    return out
 
 
 def v5_agreement(rank_a: Sequence[int], rank_b: Sequence[int], k: int = 5) -> float:

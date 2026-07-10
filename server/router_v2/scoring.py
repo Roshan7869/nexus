@@ -108,11 +108,20 @@ def ucb_bonuses(conn: sqlite3.Connection,
 
 def rank(fused: Sequence[dict],
          db_path: str | Path = DB_PATH,
-         weights: dict[str, float] | None = None) -> list[dict]:
+         weights: dict[str, float] | None = None,
+         iso_theta: float = 0.0) -> list[dict]:
     """Apply the 4-term blend to a fused list.
 
     ``fused`` entries must contain ``resource_id`` and an ISO/RRF score field
-    (``rrf_score`` from reciprocal_rank_fusion).
+    (``rrf_score`` from reciprocal_rank_fusion or CC fusion).
+
+    Args:
+        fused: output of L2 fusion (RRF or CC).
+        db_path: path to nexus.db.
+        weights: 4-term blend weights.
+        iso_theta: minimum ISO normalized score threshold (FIX 6b). Candidates
+            with ``iso_n < iso_theta`` are filtered out before the blend.
+            Default 0.0 (no filtering, backward-compatible).
     """
     rids = [x["resource_id"] for x in fused if x.get("resource_id") is not None]
     if not rids:
@@ -125,7 +134,7 @@ def rank(fused: Sequence[dict],
         u = ucb_bonuses(conn, rids)
     finally:
         conn.close()
-    return rerank_with_efc_ucb(fused, t, e, u, weights)
+    return rerank_with_efc_ucb(fused, t, e, u, weights, iso_theta=iso_theta)
 
 
 def route_two_tier(query: str, fts_results, vec_results, *,

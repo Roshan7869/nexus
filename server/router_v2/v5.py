@@ -267,6 +267,7 @@ def _v5_rerank(topic_merged: list[dict], intent: dict,
     # two-tier hot/cold split (ToolkenGPT): preserve cold_fraction cold picks.
     # Look up triggered status from the DB (unified_route was called with
     # cold_fraction=0.0 so its items carry no hot/cold flag).
+    is_canary = os.environ.get("USE_UNIFIED_ROUTER") == "2"
     if cold_fraction > 0.0:
         rids_hot = [s["resource_id"] for s in scored if s.get("resource_id") is not None]
         triggered: set[int] = set()
@@ -282,6 +283,25 @@ def _v5_rerank(topic_merged: list[dict], intent: dict,
                 conn.close()
         for s in scored:
             s["hot"] = s.get("resource_id") in triggered
+
+        # ── Canary: IDS-inspired cold-pool exploration bonus ──────────────
+        # When USE_UNIFIED_ROUTER=2, add an information-gain bonus to
+        # never-triggered cold items. The bonus is proportional to topic
+        # uncertainty: topic*(1-topic) peaks at 0.5 (max information gain),
+        # modeling the IDS principle that exploring a resource with maximal
+        # posterior uncertainty yields the most information per unit regret.
+        # Configurable via NEXUS_CANARY_COLD_BONUS (default 0.15).
+        if is_canary:
+            canary_bonus = float(os.environ.get("NEXUS_CANARY_COLD_BONUS", "0.15"))
+            for s in scored:
+                if s.get("hot"):
+                    continue
+                topic = s.get("topic_score", 0.0) or 0.0
+                info_gain = topic * (1.0 - topic)  # IDS: peak uncertainty at 0.5
+                s["final_score"] += canary_bonus * info_gain
+                s["canary_info_bonus"] = round(canary_bonus * info_gain, 4)
+            scored.sort(key=lambda s: s["final_score"], reverse=True)
+
         hot_k = max(1, int(round(top_k * (1.0 - cold_fraction))))
         cold_k = top_k - hot_k
         hot = [s for s in scored if s.get("hot")][:hot_k]

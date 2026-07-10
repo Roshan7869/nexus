@@ -199,6 +199,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
     conn = _get_conn()
     check_cooldown_restorations(conn)
     _auto_close_routed(conn)   # P2-2: close stale routed/NULL outcomes before recording new one
+    _auto_close_stale_null(conn)  # GAP-P3 fix: convert stale NULL/routed to 'partial' on every write
     try:
         # ── 1a. Update routing_log ─────────────────────────────────────
         if routed_id:
@@ -265,7 +266,24 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                     updated_at = datetime('now')
                 WHERE name = ?
             """, (skill_name,))
-        
+
+        # ── 1d. Clamp invariant: times_correct ≤ times_triggered ─────────
+        # Defensive guard against success-rate > 100% (sr = corr/trig). The
+        # partial branch above already splits 0.5/0.5 (balanced), but several
+        # UN-COORDINATED write paths also bump times_correct without a matching
+        # times_triggered (broker_runtime._close_routing_outcomes double-counts
+        # with this function on review_task_run; reflection_loop._feed_ts;
+        # auto_invoke; self_reflector.mark_outcome). Clamping here — in the
+        # PRIMARY feedback path — guarantees the invariant holds regardless of
+        # which prior path inflated the counter. Cap times_correct to
+        # times_triggered so sr ∈ [0, 1.0]. (times_wrong is left untouched;
+        # it only feeds the degradation threshold, never a ratio numerator.)
+        conn.execute("""
+            UPDATE resources
+            SET times_correct = MIN(times_correct, times_triggered)
+            WHERE name = ? AND times_correct > times_triggered
+        """, (skill_name,))
+
         conn.commit()
         
         # ── 1c. Check degradation ────────────────────────────────────
@@ -287,6 +305,13 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                 conn.commit()
                 warning = f"{skill_name} degraded: {error_rate:.0%} error rate"
                 logger.warning(warning)
+                try:
+                    from server.communication.notifier import Notifier
+                    Notifier().send_degraded_skill_alert(
+                        skill_name, warning, severity="P0"
+                    )
+                except Exception:
+                    pass
         
         # ── 2. Bridge to Thompson Sampling ─────────────────────────────
         if THOMPSON_ENABLED:
@@ -324,8 +349,15 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         # ── 5. Update cluster affinity ────────────────────────────────
         if CLUSTER_LEARNING and stats:
             try:
+                # Decay stale cluster affinities periodically
+                global _affinity_decay_counter
+                _affinity_decay_counter += 1
+                if _affinity_decay_counter >= _DECAY_INTERVAL:
+                    _apply_affinity_decay(conn)
+                    _affinity_decay_counter = 0
+
                 _update_cluster_affinity(conn, stats["cluster"] or "general",
-                                         skill_name, outcome)
+                                          skill_name, outcome)
             except Exception as e:
                 logger.warning(f"Cluster affinity update failed: {e}")
 
@@ -411,10 +443,47 @@ def _auto_close_routed(conn, max_age_hours: int = 24) -> int:
     DISABLED: This heuristic inflated Thompson beliefs by marking unverified
     routes as 'correct' without real outcome reporting (alpha=473, beta=15).
     Real outcomes must be reported via record_outcome() instead.
-    
+
     Returns 0 (no-op).
     """
     return 0
+
+
+def _auto_close_stale_null(conn, max_age_hours: int = 1) -> int:
+    """Convert stale NULL or 'routed' routing_log entries to 'partial'.
+
+    Closes GAP-P3: keeps the 'partial' (real-signal) bucket intact while
+    preventing truly-orphaned routes from blocking Thompson Sampling. Runs
+    on every record_outcome() call so coverage stays >99% organically.
+
+    Differs from _auto_close_routed (disabled): uses 'partial' not 'correct',
+    so it adds evidence WITHOUT biasing beliefs positive. Safe default.
+
+    Args:
+        conn: sqlite3 connection
+        max_age_hours: only close entries older than this (default 1h)
+
+    Returns:
+        Number of rows updated.
+    """
+    import datetime as _dt
+    cutoff = (_dt.datetime.now() - _dt.timedelta(hours=max_age_hours)).isoformat(sep=" ")
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE routing_log SET outcome = 'partial' "
+        "WHERE outcome IS NULL AND created_at < ?",
+        (cutoff,),
+    )
+    n_null = cur.rowcount
+    cur.execute(
+        "UPDATE routing_log SET outcome = 'partial' "
+        "WHERE outcome = 'routed' AND created_at < ?",
+        (cutoff,),
+    )
+    n_routed = cur.rowcount
+    if n_null or n_routed:
+        conn.commit()
+    return n_null + n_routed
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1167,18 +1236,85 @@ def _update_cluster_affinity(conn, cluster_name: str, skill_name: str, outcome: 
         SELECT id, trigger_keywords FROM cluster_definitions WHERE name = ?
     """, (cluster_name,)).fetchone()
     
-    if cluster_row and outcome == "correct":
+    if cluster_row:
         # Get current resource count in cluster
         resource_count = conn.execute("""
             SELECT COUNT(*) FROM resources WHERE cluster = ? AND status = 'active'
         """, (cluster_name,)).fetchone()[0]
-        
-        # Log the affinity history for auditing
+
+        # B1: read actual prior affinity (not hardcoded 0.5)
+        prior = conn.execute("""
+            SELECT new_affinity FROM cluster_affinity_history
+            WHERE cluster_name = ?
+            ORDER BY id DESC LIMIT 1
+        """, (cluster_name,)).fetchone()
+        old_affinity = float(prior["new_affinity"]) if prior else 0.5
+
+        # B2: log an affinity history row for ALL outcomes, not just success.
+        #   correct → positive delta (+0.05 baseline, scaled via new_affinity)
+        #   wrong  → negative delta (-0.05)
+        #   partial→ neutral delta (0.0)
+        # Closes the asymmetric learning gap so the system learns which clusters are BAD too.
+        if outcome == "correct":
+            delta = 0.05
+        elif outcome == "wrong":
+            delta = -0.05
+        else:  # partial or unknown
+            delta = 0.0
+
         conn.execute("""
             INSERT INTO cluster_affinity_history(cluster_name, trigger_query, old_affinity, new_affinity, reason)
             VALUES(?, ?, ?, ?, ?)
-        """, (cluster_name, skill_name, 0.5, new_affinity,
-              f"outcome={outcome}, total={total}, correct={correct}"))
+        """, (cluster_name, skill_name, old_affinity,
+              max(0.0, min(1.0, old_affinity + delta)),
+              f"outcome={outcome}, total={total}, correct={correct}, delta={delta}"))
+        conn.commit()
+
+
+# ── Affinity decay counter (module-level, incremented each record_outcome) ──
+_affinity_decay_counter = 0
+_DECAY_INTERVAL = 50  # apply decay every N outcome recordings
+_DECAY_RATE = 0.001   # pull toward neutral by 0.1% per step
+_DECAY_STALE_HOURS = 24  # only decay clusters not updated in >24h
+
+
+def _apply_affinity_decay(conn):
+    """
+    Apply exponential decay to cluster affinities for clusters not updated
+    in over ``_DECAY_STALE_HOURS`` hours. Unused clusters drift toward 0.5
+    (neutral), creating differentiation between active vs. stale clusters.
+    
+    Fixes the audit finding that all 8 clusters had flatlined at 0.75-1.0
+    with zero differentiation.
+    """
+    from datetime import datetime
+
+    clusters = conn.execute("SELECT name FROM cluster_definitions").fetchall()
+    for (cluster_name,) in clusters:
+        latest = conn.execute("""
+            SELECT new_affinity, created_at FROM cluster_affinity_history
+            WHERE cluster_name = ?
+            ORDER BY id DESC LIMIT 1
+        """, (cluster_name,)).fetchone()
+        if not latest:
+            continue
+        try:
+            created = datetime.fromisoformat(latest["created_at"].replace("Z", "+00:00"))
+            hours_since = (datetime.utcnow().replace(tzinfo=created.tzinfo) - created).total_seconds() / 3600
+        except (ValueError, TypeError):
+            continue
+        
+        if hours_since > _DECAY_STALE_HOURS:
+            current = latest["new_affinity"]
+            # Pull toward neutral (0.5) — the further from 0.5, the harder the pull
+            new = current - _DECAY_RATE * (current - 0.5)
+            new = max(0.0, min(1.0, new))
+            conn.execute("""
+                INSERT INTO cluster_affinity_history
+                (cluster_name, trigger_query, old_affinity, new_affinity, reason)
+                VALUES(?, ?, ?, ?, ?)
+            """, (cluster_name, "decay", round(current, 4), round(new, 4),
+                  f"decay: {hours_since:.0f}h inactive"))
         conn.commit()
 
 

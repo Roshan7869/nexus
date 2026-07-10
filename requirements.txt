@@ -1,6 +1,47 @@
+# NEXUS — full dependency manifest
+# Keep in sync with all `import` statements in source code.
+
+# HTTP server
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
-httpx>=0.27.0
 pydantic>=2.0.0
-pyyaml>=6.0.0
 python-dotenv>=1.0.0
+
+# HTTP clients
+httpx>=0.27.0
+httpx-sse>=0.4.0
+requests>=2.31.0
+
+# Data + ML
+numpy>=1.26.0
+sentence-transformers>=2.5.0
+faiss-cpu>=1.8.0
+scikit-learn>=1.4.0
+networkx>=3.2.0
+python-louvain>=0.16
+
+# Storage
+sqlite-vec>=0.1.0
+
+# MCP / IDE integration
+fastmcp>=0.2.0
+mcp>=1.0.0
+
+# Async / reliability
+asyncio-mqtt>=0.16.0
+tenacity>=8.2.0
+
+# LLM providers
+ollama>=0.2.0
+litellm>=1.40.0
+openai>=1.30.0
+
+# Config
+pyyaml>=6.0.0
+
+# Process supervision
+supervisor>=4.2.5
+
+# Dev / testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

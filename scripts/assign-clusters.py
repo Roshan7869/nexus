@@ -70,6 +70,12 @@ assigned = 0
 for name, cluster in cluster_map.items():
     cur.execute("UPDATE resources SET cluster=? WHERE name=? AND (cluster IS NULL OR cluster='')", (cluster, name))
     if cur.rowcount > 0:
+        # FIX 1: Sync to cluster_membership (authoritative routing source)
+        cur.execute(
+            "INSERT OR REPLACE INTO cluster_membership (cluster_name, resource_id, affinity) "
+            "SELECT ?, id, 1.0 FROM resources WHERE name=? AND cluster=?",
+            (cluster, name, cluster),
+        )
         print(f"  ASSIGNED: {name:35s} → {cluster}")
         assigned += 1
 

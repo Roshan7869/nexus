@@ -84,14 +84,22 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
 
     Returns JSON with tier, recommended model, token limit, and matched skills.
 
-    P2 wiring: when env var USE_UNIFIED_ROUTER=1 is set, routes through the
-    router_v2 unified pipeline (resource-level lexical search + bit[384]
-    semantic + RRF + 4-term blend 0.40/0.15/0.25/0.20 + two-tier hot/cold),
-    instead of the v4 route_task pipeline. Default OFF = zero live change.
-    Set USE_UNIFIED_ROUTER=1 + restart MCP to enable. See /route_ab_compare
-    for offline agreement comparison between the two pipelines.
+    P2/P4 wiring: route selection by USE_UNIFIED_ROUTER env var.
+      =0 (default)        → legacy v4 route_task (kept for canary A/B controls)
+      =1                  → router_v2 unified_route (P2 v2 unifier — bit[384] RRF)
+      =2                  → router_v2.unified_route_v5 (HGMF intent→cluster→rerank,
+                            the single PRODUCTION source of truth per T4 of
+                            second-brain-v2 cutover, 2026-06-28)
+
+    Default OFF (=0) leaves the legacy v4 pipeline running until the
+    canary (T7) flips the env on a single MCP process and T10 verifies
+    parity. Set USE_UNIFIED_ROUTER=2 + restart the canary MCP process
+    to activate v5 in production.
     """
-    if os.environ.get("USE_UNIFIED_ROUTER", "0") == "1":
+    router_flag = os.environ.get("USE_UNIFIED_ROUTER", "0")
+    if router_flag == "2":
+        result = _route_unified_v5(task, project, max_results)
+    elif router_flag == "1":
         result = _route_unified(task, project, max_results)
     else:
         result = route_task(task, project, use_embedding=True,
@@ -161,6 +169,56 @@ def _route_unified(task: str, project: str, max_results: int) -> dict:
         "vec_reason": ur.get("vec_reason", "disabled"),
         "weights": ur.get("weights"),
         "latency_ms": None,
+    }
+
+
+def _route_unified_v5(task: str, project: str, max_results: int) -> dict:
+    """Shape unified_route_v5 (HGMF intent→cluster→retrieve→rerank) output
+    into the find_skills result schema.
+
+    This is the PRODUCTION router per second-brain-v2 cutover T4
+    (2026-06-28). v5 adds an L3 refiner step on top of v2's hybrid
+    retrieval: L1 intent (route_task) → L2 cluster-bound topic
+    (unified_route) → L3 weighted convex blend
+    0.45·topic + 0.25·intent + 0.20·skill_match + 0.10·listwise
+    → L4 rank-gap autocut.
+    """
+    sys.path.insert(0, str(Path.home() / 'nexus/server'))
+    from router_v2.v5 import unified_route_v5
+    top_k = max(max_results, 10)
+    v5 = unified_route_v5(task, top_k=top_k, cold_fraction=0.3)
+    skills = []
+    for x in v5.get("merged", []):
+        name = x.get("name")
+        if not name:
+            continue
+        skills.append({
+            "name": name,
+            "score": round(x.get("final_score", 0.0), 4),
+            "category": "INVOKE",
+            "success_rate": 0,
+            "type": "skill",
+            "_source": "unified_router_v5",
+            "cluster": x.get("cluster"),
+            "l1_match": x.get("l1_match", False),
+            "intent_score": round(x.get("intent_score", 0.0), 4),
+        })
+    return {
+        "task": task,
+        "project": project,
+        "tier": 2,
+        "tier_name": "Unified v5",
+        "model": "sonnet",
+        "token_limit": 200000,
+        "skills": skills,
+        "method": "unified_router_v5",
+        "cluster": skills[0]["cluster"] if skills else None,
+        "pipeline": ["intent_route", "cluster_route", "topic_retrieve",
+                     "l3_rerank", "l4_autocut"],
+        "weights": v5.get("weights"),
+        "l1_short_circuit": v5.get("l1_short_circuit", False),
+        "agreement": v5.get("agreement"),
+        "latency_ms": v5.get("latency_ms"),
     }
 
 
@@ -1096,13 +1154,21 @@ def nexus_route_to_cluster(task: str) -> str:
     return _route(task)
 
 
-# ── v4 Tool Attention (arxiv:2604.21816) ───────────────────────────
+# ── v4 Tool Attention (arxiv:2604.21816) — DEBUG-ONLY (demoted by T4) ────
+# 2026-06-28: unified_route_v5 is the sole production router. This MCP tool
+# is kept CALLABLE for A/B comparison (route_ab_compare invokes route_task
+# directly, not this tool, so demotion does not affect offline A/B) and for
+# offline diagnostics. Production routing traffic should not call this tool.
 
 @mcp.tool()
 def route_v4(query: str, resource_types: str = None,
              theta: float = 0.28, top_k: int = 10,
              use_clusters: bool = True, max_clusters: int = 2) -> str:
-    """NEXUS v4: Full Tool Attention pipeline per arxiv:2604.21816.
+    """DEBUG-ONLY — NEXUS v4 Tool Attention pipeline (arxiv:2604.21816).
+
+    DEMOTED 2026-06-28: unified_route_v5 is the production router.
+    This tool is retained callable for A/B comparison and offline
+    diagnostics only. Do NOT call from production routing flows.
 
     Implements Algorithm 1 exactly:
       1. Encode query → ISO scores for all N tools
@@ -1110,9 +1176,6 @@ def route_v4(query: str, resource_types: str = None,
       3. Top-k selection → active set A_t
       4. Lazy-load full schemas for A_t
       5. Return complete turn record with token accounting
-
-    With cluster routing enabled (use_clusters=True), adds a pre-filter
-    step that narrows search to 1-2 domain clusters before ISO scoring.
 
     Paper: 'Tool Attention Is All You Need: Dynamic Tool Gating and
     Lazy Schema Loading for Eliminating the MCP/Tools Tax'
@@ -1270,12 +1333,15 @@ def get_cluster_affinities() -> str:
 # ── Ruflo Proxy Tools ────────────────────────────────
 
 @mcp.tool()
-def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
+async def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
     """Call a ruflo MCP tool through NEXUS proxy.
 
     NEXUS manages a ruflo subprocess and forwards tool calls.
     Use this to invoke any of ruflo's 261 tools (agent, swarm, memory,
     hooks, neural, etc.) without connecting ruflo as a separate MCP server.
+
+    Each invocation is protected by a per-tool circuit breaker and a
+    5-second timeout so a hung ruflo call cannot block all routing.
 
     Args:
         tool_name: Name of the ruflo tool (e.g. 'agent_spawn', 'memory_search', 'swarm_init')
@@ -1285,9 +1351,9 @@ def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
         JSON with ruflo_tool, result text, and isError flag
     """
     import json
-    from ruflo_proxy import call_ruflo_tool
+    from server.integrations.ruflo_async_proxy import acall_ruflo_tool
     arguments = json.loads(arguments_json) if arguments_json else {}
-    return call_ruflo_tool(tool_name, arguments)
+    return await acall_ruflo_tool(tool_name, arguments)
 
 
 @mcp.tool()

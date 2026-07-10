@@ -33,9 +33,12 @@ _SERVER = _SELF.parent                             # server/
 if str(_SERVER) not in sys.path:
     sys.path.insert(0, str(_SERVER))
 
+import math
+
 from router_v2.bitvec import BitIndex  # noqa: E402
 from router_v2.fusion import (  # noqa: E402
     DEFAULT_BLEND_WEIGHTS,
+    convex_combine_resource,
     reciprocal_rank_fusion,
     two_tier_split,
 )
@@ -64,14 +67,23 @@ def _tokens(query: str, keep_stopwords: bool = False) -> list[str]:
 
 
 def _resource_search(query: str, db_path: str, limit: int = 50,
-                     clusters: list[str] | None = None) -> list[dict]:
-    """Lexical search over resources.name + description + body_text.
+                     clusters: list[str] | None = None,
+                     use_sections: bool = True) -> list[dict]:
+    """Lexical search over resources.name + description + body_text
+    (and optionally resource_sections.heading + content).
 
     Returns best-first list of ``{resource_id, name, cluster, score}`` where
     score is a simple relevance weight (name exact > name token > desc/body
-    token). Used as the lexical source for RRF in place of the unlinked
-    ``chunks_fts`` index. Scores are negative so that, like bm25, lower is
-    better (RRF only uses ranks, so the sign does not affect fusion).
+    token > section heading > section content). Used as the lexical source for
+    RRF in place of the unlinked ``chunks_fts`` index. Scores are negative so
+    that, like bm25, lower is better (RRF only uses ranks, so the sign does
+    not affect fusion).
+
+    When *use_sections* is True (default), the query LEFT JOINs the
+    ``resource_sections`` table and adds per-token scoring on
+    ``resource_sections.heading`` (weight 4) and
+    ``resource_sections.content`` (weight 2).  Section scores are accumulated
+    across multiple matching sections via SUM + GROUP BY.
 
     ``clusters``: when set, restrict candidates to resources in the given
     clusters (via cluster_membership JOIN, fallback resources.cluster IN).
@@ -90,8 +102,16 @@ def _resource_search(query: str, db_path: str, limit: int = 50,
         like_clauses = []
         params: list = []
         for t in toks:
-            like_clauses.append("name LIKE ? OR description LIKE ? OR body_text LIKE ?")
-            params.extend([f"%{t}%", f"%{t}%", f"%{t}%"])
+            if use_sections:
+                like_clauses.append(
+                    "name LIKE ? OR description LIKE ? OR body_text LIKE ? "
+                    "OR resource_sections.heading LIKE ? "
+                    "OR resource_sections.content LIKE ?"
+                )
+                params.extend([f"%{t}%"] * 5)
+            else:
+                like_clauses.append("name LIKE ? OR description LIKE ? OR body_text LIKE ?")
+                params.extend([f"%{t}%"] * 3)
         where = " OR ".join(f"({c})" for c in like_clauses)
         cluster_clause = ""
         cluster_join = ""
@@ -103,21 +123,48 @@ def _resource_search(query: str, db_path: str, limit: int = 50,
         score_terms = ["(CASE WHEN name = ? THEN 50 ELSE 0 END)"]
         params_score: list = [query.strip().lower()]
         for t in toks:
-            score_terms.append(f"(CASE WHEN name LIKE ? THEN 10 ELSE 0 END)")
+            score_terms.append("(CASE WHEN name LIKE ? THEN 10 ELSE 0 END)")
             params_score.append(f"%{t}%")
-            score_terms.append(f"(CASE WHEN description LIKE ? THEN 3 ELSE 0 END)")
+            score_terms.append("(CASE WHEN description LIKE ? THEN 3 ELSE 0 END)")
             params_score.append(f"%{t}%")
-            score_terms.append(f"(CASE WHEN body_text LIKE ? THEN 1 ELSE 0 END)")
+            score_terms.append("(CASE WHEN body_text LIKE ? THEN 1 ELSE 0 END)")
             params_score.append(f"%{t}%")
-        sql = (
-            "SELECT DISTINCT resources.id AS id, resources.name AS name, "
-            "resources.cluster AS cluster, "
-            + " + ".join(score_terms)
-            + " AS match_score "
-            f"FROM resources {cluster_join} "
-            f"WHERE resources.status != 'disabled' {cluster_clause} AND ({where}) "
-            "ORDER BY match_score DESC, resources.times_triggered DESC LIMIT ?"
-        )
+            if use_sections:
+                score_terms.append(
+                    "COALESCE(SUM(CASE WHEN resource_sections.heading LIKE ? "
+                    "THEN 4 ELSE 0 END), 0)"
+                )
+                params_score.append(f"%{t}%")
+                score_terms.append(
+                    "COALESCE(SUM(CASE WHEN resource_sections.content LIKE ? "
+                    "THEN 2 ELSE 0 END), 0)"
+                )
+                params_score.append(f"%{t}%")
+        if use_sections:
+            sql = (
+                "SELECT resources.id AS id, resources.name AS name, "
+                "resources.cluster AS cluster, "
+                + " + ".join(score_terms)
+                + " AS match_score "
+                f"FROM resources {cluster_join} "
+                "LEFT JOIN resource_sections "
+                "ON resource_sections.resource_id = resources.id "
+                f"WHERE resources.status NOT IN ('disabled','deprecated','archived') "
+                f"{cluster_clause} AND ({where}) "
+                "GROUP BY resources.id "
+                "ORDER BY match_score DESC, resources.times_triggered DESC LIMIT ?"
+            )
+        else:
+            sql = (
+                "SELECT DISTINCT resources.id AS id, resources.name AS name, "
+                "resources.cluster AS cluster, "
+                + " + ".join(score_terms)
+                + " AS match_score "
+                f"FROM resources {cluster_join} "
+                f"WHERE resources.status NOT IN ('disabled','deprecated','archived') "
+                f"{cluster_clause} AND ({where}) "
+                "ORDER BY match_score DESC, resources.times_triggered DESC LIMIT ?"
+            )
         bind = params_score[:]
         if clusters:
             bind += list(clusters)
@@ -131,6 +178,8 @@ def _resource_search(query: str, db_path: str, limit: int = 50,
                 "cluster": r["cluster"],
                 # negative so lower=better (bm25 convention); rank is all RRF uses
                 "score": -(i + (50 - r["match_score"]) * 0.001),
+                # raw match_score for CC fusion (FIX 6)
+                "match_score": float(r["match_score"]),
             })
         return out
     finally:
@@ -256,7 +305,8 @@ def _chunk_resource_stream(query: str, db_path: str, k: int,
 
 def _rrf_resource(lex: list[dict], vec_results: list[dict],
                   chunks: list[dict] | None = None,
-                  k: int = 60, chunk_weight: float = 0.5) -> list[dict]:
+                  k: int = 60, chunk_weight: float = 0.5,
+                  section_weight: float = 1.0) -> list[dict]:
     """Resource-keyed RRF (Cormack 2009), fusing lexical + semantic (+ chunk) on resource_id.
 
     Unlike :func:`router_v2.fusion.reciprocal_rank_fusion` (which keys FTS by
@@ -274,12 +324,21 @@ def _rrf_resource(lex: list[dict], vec_results: list[dict],
     BOTH lex/vec AND chunks still gets a boost (the chunk confirms it); a
     chunk-ONLY resource ranks below strong direct matches — no pollution.
 
+    When a chunk was matched via section content (``chunk_heading`` is not
+    None), its RRF contribution is further multiplied by ``section_weight``.
+    This lets callers amplify (e.g. 2.0) or dampen (e.g. 0.5) section-sourced
+    matches relative to direct resource-level matches.
+
     Args:
         lex: best-first list of ``{resource_id, name?, cluster?}``.
         vec_results: best-first list of ``{resource_id, distance?}``.
         chunks: optional best-first list of ``{resource_id, chunk_rank}`` from
             :func:`_chunk_resource_stream` (the 66k chunks actively participating).
         k: RRF constant (default 60).
+        chunk_weight: multiplicative weight for all chunk RRF contributions
+            (default 0.5).
+        section_weight: multiplicative weight for section-sourced chunk RRF
+            contributions (default 1.0 — backward-compatible neutral).
 
     Returns:
         best-first list of ``{resource_id, rrf_score, lex_rank, vec_rank,
@@ -321,7 +380,10 @@ def _rrf_resource(lex: list[dict], vec_results: list[dict],
         if e["vec_rank"] is not None:
             rrf += 1.0 / (k + e["vec_rank"])
         if e["chunk_rank"] is not None:
-            rrf += chunk_weight * 1.0 / (k + e["chunk_rank"])
+            chunk_rrf = 1.0 / (k + e["chunk_rank"])
+            if e.get("chunk_heading") and section_weight != 1.0:
+                chunk_rrf *= section_weight
+            rrf += chunk_weight * chunk_rrf
         out.append({
             "resource_id": rid,
             "rrf_score": rrf,
@@ -338,11 +400,113 @@ def _rrf_resource(lex: list[dict], vec_results: list[dict],
     return out
 
 
-def unified_route(query: str, top_k: int = 10, cold_fraction: float = 0.3,
+def _cc_resource(lex: list[dict], vec_results: list[dict],
+                 chunks: list[dict] | None = None,
+                 weights: dict[str, float] | None = None,
+                 section_weight: float = 1.0) -> list[dict]:
+    """Resource-keyed Convex Combination fusion (FIX 6 — Bruch et al. 2022).
+
+    Thin wrapper around ``convex_combine_resource`` that normalizes the
+    ``cc_score`` to ``rrf_score`` (so the downstream 4-term blend and
+    two-tier split work identically regardless of fusion mode). Each
+    output dict carries both ``cc_score`` and ``rrf_score`` (aliased).
+
+    When ``section_weight != 1.0``, chunk scores from section-content
+    matches (where ``heading`` is set) are scaled by that weight before
+    being passed to the convex combination — same amplification/dampening
+    semantics as in ``_rrf_resource``.
+
+    Args: same as ``_rrf_resource`` but with ``weights`` instead of ``k``
+    and ``chunk_weight``.
+    """
+    if section_weight != 1.0 and chunks:
+        chunks = [
+            {**c, "chunk_rrf": c.get("chunk_rrf", 0) * section_weight}
+            if c.get("heading") else c
+            for c in chunks
+        ]
+    cc = convex_combine_resource(lex, vec_results, chunks, weights=weights)
+    # Normalize cc_score to serve as rrf_score for downstream 4-term blend
+    cc_vals = [x["cc_score"] for x in cc if x["cc_score"] > 0]
+    cc_max = max(cc_vals) if cc_vals else 1.0
+    out: list[dict] = []
+    for i, x in enumerate(cc):
+        out.append({
+            "resource_id": x["resource_id"],
+            "rrf_score": x["cc_score"],  # aliased for downstream
+            "cc_score": x["cc_score"],
+            "lex_score": x.get("lex_score"),
+            "vec_score": x.get("vec_score"),
+            "chunk_score": x.get("chunk_score"),
+            "name": x.get("name"),
+            "cluster": x.get("cluster"),
+        })
+    return out
+
+
+def _estimate_query_entropy(query: str) -> float:
+    """Estimate query specificity via token-length entropy (0..1).
+
+    ToolkenGPT-inspired: short/generic queries have low entropy and need more
+    cold exploration; long/specific queries have high entropy and can exploit
+    hot resources. Returns normalized entropy in [0, 1].
+    """
+    toks = _tokens(query)
+    if not toks:
+        return 0.0
+    # Use token-length distribution as a proxy for specificity
+    # Short queries (1-2 words) → low entropy → more exploration needed
+    # Long queries (5+ words) → high entropy → can exploit hot resources
+    n = len(toks)
+    if n <= 1:
+        return 0.1
+    if n <= 2:
+        return 0.3
+    if n <= 4:
+        return 0.6
+    return min(1.0, 0.6 + 0.1 * math.log2(n - 3))
+
+
+def _adaptive_cold_fraction(query: str, base_fraction: float = 0.3) -> float:
+    """Adapt cold_fraction based on query novelty (ToolkenGPT, §3.2).
+
+    Low-entropy (generic/short) queries → more cold exploration (up to 0.5).
+    High-entropy (specific/long) queries → less cold exploration (down to 0.2).
+    """
+    entropy = _estimate_query_entropy(query)
+    # Map entropy 0..1 to cold_fraction 0.5..0.2 (inverse relationship)
+    return base_fraction + 0.2 * (1.0 - entropy) - 0.1 * entropy
+
+
+def _adaptive_iso_theta(query: str, base_theta: float = 0.05) -> float:
+    """Adaptive ISO θ threshold (FIX 6b — Tool Attention §3.2).
+
+    Low-entropy (generic/short) queries get a LOWER theta (more inclusive)
+    because the intent is broad and many resources could match.
+    High-entropy (specific/long) queries get a HIGHER theta (stricter gate)
+    because the narrow intent demands high relevance.
+
+    Range: 0.02 (1-word query) to 0.15 (8+ word query).
+    """
+    toks = _tokens(query)
+    n = len(toks)
+    if n <= 1:
+        return max(0.0, base_theta - 0.03)  # 0.02
+    if n <= 2:
+        return base_theta  # 0.05
+    if n <= 4:
+        return min(base_theta + 0.03, 0.15)  # 0.08
+    return min(base_theta + 0.10, 0.30)  # cap at 0.15 for very specific queries
+
+
+def unified_route(query: str, top_k: int = 10, cold_fraction: float | None = None,
                   db_path: str | Path = DB_PATH, vec: bool = True,
                   weights: dict[str, float] | None = None,
                   clusters: list[str] | None = None,
-                  use_chunks: bool = False) -> dict[str, Any]:
+                   use_chunks: bool = True,
+                  fusion: str = "rrf",
+                  iso_theta: float | None = None,
+                  section_weight: float = 1.0) -> dict[str, Any]:
     """Full router_v2 pipeline for a query.
 
     Args:
@@ -350,6 +514,7 @@ def unified_route(query: str, top_k: int = 10, cold_fraction: float = 0.3,
         top_k: total results to return (split 70/30 hot/cold by default).
         cold_fraction: fraction of top_k reserved for cold-tier (never-triggered)
             resources, UCB-driven. 0.0 disables two-tier (single blended list).
+            None = auto (adaptive based on query entropy).
         db_path: path to nexus.db.
         vec: enable the bit[384] dense path (best-effort; falls back to
             lexical-only if the embedder or index is unavailable).
@@ -364,15 +529,34 @@ def unified_route(query: str, top_k: int = 10, cold_fraction: float = 0.3,
             no chunk signal if the chunk embedder/index is unavailable or no
             chunks are linked to resources yet. Default ``False`` (backward-
             compatible; the live MCP only enables it behind ``USE_UNIFIED_ROUTER``).
+        fusion: L2 fusion method — ``"rrf"`` (default, backward-compatible) or
+            ``"cc"`` (convex combination, FIX 6 — Bruch et al. 2022).
+        iso_theta: minimum ISO normalized score threshold (FIX 6b). When set,
+            candidates with ``iso_n < iso_theta`` are filtered out before the
+            4-term blend. ``None`` = auto-adaptive based on query entropy.
+            Range: 0.02 (short queries) to 0.15 (long queries).
+        section_weight: multiplicative weight for section-sourced chunk matches
+            (default 1.0 — backward-compatible neutral). Passed to both
+            ``_rrf_resource`` and ``_cc_resource``.
 
     Returns:
         ``{query, hot, cold, merged, hot_k, cold_k, used_dense, vec_reason,
-        used_chunks, chunk_hits, weights, n}``. Each result in hot/cold/merged
-        carries ``resource_id``, ``name``, ``cluster``, ``final_score``,
-        ``rrf_score`` and the blend components (``iso``, ``thompson``, ``efc``,
-        ``ucb``); chunk-sourced entries also carry ``chunk_id``, ``chunk_heading``,
-        ``n_chunks``.
+        used_chunks, chunk_hits, weights, fusion, iso_theta, n}``. Each result
+        in hot/cold/merged carries ``resource_id``, ``name``, ``cluster``,
+        ``final_score``, ``rrf_score`` and the blend components (``iso``,
+        ``thompson``, ``efc``, ``ucb``); chunk-sourced entries also carry
+        ``chunk_id``, ``chunk_heading``, ``n_chunks``. When ``fusion="cc"``,
+        entries also carry ``cc_score``, ``lex_score``, ``vec_score``,
+        ``chunk_score``.
     """
+    # FIX 4 (ToolkenGPT): adaptive cold_fraction based on query entropy
+    if cold_fraction is None:
+        cold_fraction = _adaptive_cold_fraction(query)
+
+    # FIX 6b (Tool Attention): adaptive iso_theta based on query entropy
+    if iso_theta is None:
+        iso_theta = _adaptive_iso_theta(query)
+
     db_path = str(db_path)
     fts = _resource_search(query, db_path, limit=max(top_k * 5, 50), clusters=clusters)
 
@@ -394,11 +578,16 @@ def unified_route(query: str, top_k: int = 10, cold_fraction: float = 0.3,
         used_chunks = bool(chunk_stream)
         chunk_hits = len(chunk_stream)
 
-    # resource-keyed RRF (lexical + semantic + chunk, all keyed by resource_id)
-    fused = _rrf_resource(fts, vec_results, chunks=chunk_stream)
+    # resource-keyed fusion (RRF or CC, all keyed by resource_id)
+    if fusion == "cc":
+        fused = _cc_resource(fts, vec_results, chunks=chunk_stream,
+                             section_weight=section_weight)
+    else:
+        fused = _rrf_resource(fts, vec_results, chunks=chunk_stream,
+                              section_weight=section_weight)
 
     # 4-term blend (scoring.rank reads Thompson/EFC/UCB from the live DB)
-    ranked = _scoring.rank(fused, db_path=db_path, weights=weights)
+    ranked = _scoring.rank(fused, db_path=db_path, weights=weights, iso_theta=iso_theta)
 
     conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
@@ -451,6 +640,8 @@ def unified_route(query: str, top_k: int = 10, cold_fraction: float = 0.3,
         "used_chunks": used_chunks,
         "chunk_hits": chunk_hits,
         "weights": weights or DEFAULT_BLEND_WEIGHTS,
+        "fusion": fusion,
+        "iso_theta": iso_theta,
         "n": len(merged),
     }
 

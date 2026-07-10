@@ -124,8 +124,22 @@ class ModelBelief:
 class NexusLearner:
     """Thompson Sampling router that learns from IDE events, benchmarks, and implicit signals."""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, config=None, metrics_store=None, db_path: str = None):
+        """Construct NexusLearner.
+
+        Three usage patterns:
+          1. NexusLearner() — uses default NEXUS_DB
+          2. NexusLearner(db_path="...") — explicit DB path
+          3. NexusLearner(config, metrics_store) — full LLM-gateway context
+             (config: NexusConfig, metrics_store: MetricsStore)
+
+        The config and metrics_store are stored for use in routing decisions
+        and event recording. Backward-compatible: existing callers using
+        NexusLearner() or NexusLearner(db_path=...) continue to work.
+        """
         self.db_path = Path(db_path) if db_path else NEXUS_DB
+        self.config = config
+        self.metrics_store = metrics_store
         self._conn = None
         self._belief_cache: Dict[str, ModelBelief] = {}
 

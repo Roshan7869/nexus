@@ -6,7 +6,7 @@ the embedding model and routing pipeline loaded in memory.
 Endoints:
   GET  /health              — pipeline state + embedding model status
   POST /route               — route_task with optional embedding
-  POST /route_v4             — full v4 Tool Attention pipeline
+  POST /debug/route_v4            — v4 Tool Attention pipeline (DEBUG/diagnostic)
   POST /cluster_route        — cluster-first routing
   POST /cluster_activate     — manually activate clusters
   GET  /cluster_list         — list all domain clusters
@@ -33,6 +33,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional
+
+from router_v2.cache_telemetry import get_cache_stats
 
 # ── Paths ───────────────────────────────────────────────
 SERVER_DIR = Path(__file__).parent.resolve()
@@ -175,6 +177,7 @@ async def startup():
 async def health():
     """Health check: pipeline state + embedding model status."""
     uptime = time.time() - START_TIME
+    cache_stats = get_cache_stats()
     return {
         "status": "ok" if DB_AVAILABLE and EMBEDDING_LOADED else "degraded",
         "uptime_seconds": round(uptime, 1),
@@ -182,6 +185,8 @@ async def health():
         "embedding_load_time_s": round(EMBEDDING_LOAD_TIME, 2),
         "db_available": DB_AVAILABLE,
         "total_requests": REQUEST_COUNT,
+        "cache_hit_rate": cache_stats["hit_rate"],
+        "cache_stats": cache_stats,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -246,8 +251,8 @@ async def route_task_endpoint(
     except Exception as e:
         raise HTTPException(500, f"Routing error: {e}")
 
-@app.post("/route_v4")
-async def route_v4_endpoint(
+@app.post("/debug/route_v4")
+async def route_v4_debug_endpoint(
     body: Optional[RouteV4Request] = Body(default=None),
     query: Optional[str] = None,
     resource_types: Optional[str] = None,
@@ -256,7 +261,12 @@ async def route_v4_endpoint(
     use_clusters: bool = True,
     max_clusters: int = 2,
 ):
-    """NEXUS v4: Full Tool Attention pipeline. Accepts JSON body or query params."""
+    """Debug-only: NEXUS v4 Tool Attention pipeline (arxiv:2604.21816).
+
+    Demoted on 2026-06-28 — unified_route v5 is the sole production router.
+    This endpoint retained for A/B comparison and offline diagnostics; not
+    intended for production routing traffic. Accepts JSON body or query params.
+    """
     if body is not None:
         query = body.query
         resource_types = body.resource_types

@@ -28,6 +28,7 @@ import numpy as np
 import sqlite_vec
 
 from router_v2.lazy_embedder import LazyEmbedder, EmbedderUnavailableError
+from router_v2.cache_telemetry import LRUKCache, get_cache_stats
 
 DIM = 384
 _FLOAT_BYTES = DIM * 4  # 1536 bytes for float32(384)
@@ -86,10 +87,11 @@ class ChunkEmbedder:
     already in chunk_embed_cache; results are written back for next time.
     """
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(self, db_path: str | Path, mem_cache_size: int = 2048, mem_cache_k: int = 2) -> None:
         self.db_path = str(db_path)
         self._emb = LazyEmbedder.get()
         self._lock = threading.Lock()
+        self._mem_cache = LRUKCache(max_size=mem_cache_size, k=mem_cache_k)
 
     # ---- schema / bootstrap --------------------------------------------
 
@@ -128,8 +130,9 @@ class ChunkEmbedder:
                      con: sqlite3.Connection | None = None) -> np.ndarray:
         """Encode a list of texts to a (N, 384) float32 array, cache-backed.
 
-        Only uncached texts are passed through the model; cached ones are
-        read from chunk_embed_cache. All results are written back to the cache.
+        Checks the in-memory LRU-K cache first, then the persistent SQLite
+        ``chunk_embed_cache``, and finally the model for remaining misses.
+        All model outputs are written back to both caches.
 
         Args:
             con: optional shared connection (e.g. the backfill's idx.con) to
@@ -138,23 +141,48 @@ class ChunkEmbedder:
         if not texts:
             return np.zeros((0, DIM), dtype=np.float32)
         hashes = [text_hash(t) for t in texts]
+
+        # 1. In-memory LRU-K cache lookup
+        mem_hits: dict[int, np.ndarray] = {}
+        mem_miss_idxs: list[int] = []
+        for i, h in enumerate(hashes):
+            hit, vec = self._mem_cache._cache_lookup(h)
+            if hit and vec is not None:
+                mem_hits[i] = vec
+            else:
+                mem_miss_idxs.append(i)
+
+        if not mem_miss_idxs:
+            return np.array([mem_hits[i] for i in range(len(texts))], dtype=np.float32)
+
+        # 2. Persistent SQLite cache lookup for memory misses
+        mem_miss_hashes = [hashes[i] for i in mem_miss_idxs]
         own_con = con is None
         con = con if con is not None else _connect(self.db_path)
         try:
-            cached = self._cache_lookup(con, hashes)
+            cached = self._cache_lookup(con, mem_miss_hashes)
         finally:
             if own_con:
                 con.close()
 
+        # Promote SQLite hits into the in-memory cache
+        for h, vec in cached.items():
+            self._mem_cache.put(h, vec)
+
         out = np.zeros((len(texts), DIM), dtype=np.float32)
         to_encode: list[int] = []
-        for i, h in enumerate(hashes):
+        for i in mem_miss_idxs:
+            h = hashes[i]
             v = cached.get(h)
             if v is not None:
                 out[i] = v
             else:
                 to_encode.append(i)
 
+        for i, vec in mem_hits.items():
+            out[i] = vec
+
+        # 3. Encode remaining misses with the model and write back everywhere
         misses: list[tuple[str, np.ndarray]] = []
         if to_encode:
             for start in range(0, len(to_encode), batch_size):
@@ -164,6 +192,7 @@ class ChunkEmbedder:
                 for j, i in enumerate(idxs):
                     out[i] = vecs[j]
                     misses.append((hashes[i], vecs[j]))
+                    self._mem_cache.put(hashes[i], vecs[j])
             own_con2 = con is None or own_con
             con2 = con if not own_con2 else _connect(self.db_path)
             try:
@@ -221,4 +250,5 @@ class ChunkEmbedder:
             "cache_entries": int(n_cache),
             "embedder": self._emb.stats(),
             "dim": DIM,
+            "mem_cache": self._mem_cache.get_stats(),
         }

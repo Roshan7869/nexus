@@ -16,7 +16,7 @@ When routing (Thompson) ON: Step 6 overrides tier model selection.
 
 Papers: ToolkenGPT (2310.03054), Reflexion (2303.11366), SWE-agent (2405.15793)
 """
-import sys, json, sqlite3, os, logging, time, hashlib, math
+import sys, json, sqlite3, os, logging, time, hashlib, math, re, random
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -42,6 +42,19 @@ _LEARN_CFG = get_learning_config()
 CLUSTER_ROUTING = _LEARN_CFG.is_cluster_routing()
 THOMPSON_ROUTING = _LEARN_CFG.is_thompson_routing()
 REFLECTION_ENABLED = _LEARN_CFG.is_reflection_enabled()
+
+# ── Harness Research — academic context augmentation ──────────────────
+HARNESS_RESEARCH_ENABLED = os.environ.get(
+    "NEXUS_HARNESS_RESEARCH", "true"
+).lower() != "false"
+
+RESEARCH_KEYWORDS = re.compile(
+    r'\b(?:research|paper|papers|arxiv|study|survey|literature|academic|'
+    r'semantic.scholar|papers.with.code|'
+    r'scientific|journal|conference|citation|'
+    r'state.of.the.art|bibliography|peer.review|'
+    r'open.source)\b', re.IGNORECASE
+)
 
 # ── Tier Definitions (fallback when Thompson Sampling off) ──────────────
 TIERS = {
@@ -376,7 +389,9 @@ def _load_eval_dataset() -> dict:
 def _evaluate_outcome(task: str, returned_skills: list) -> str:
     """Evaluate routing outcome by comparing against ground truth.
     
-    Returns: 'correct', 'wrong', or 'partial' (no ground truth available).
+    Returns: 'correct', 'wrong' (eval dataset has ground truth), or 'routed'
+    (no ground truth available — neutral, does NOT update Thompson beliefs;
+    per server/implicit_outcomes.py design).
     """
     task_lower = task.lower().strip()
     eval_data = _load_eval_dataset()
@@ -388,8 +403,12 @@ def _evaluate_outcome(task: str, returned_skills: list) -> str:
             return 'correct'
         return 'wrong'
     
-    # No ground truth available — log as partial (implicit positive signal)
-    return 'partial'
+    # No ground truth available — honest neutral state, no signal to update
+    # Thompson beliefs. 'routed' (NOT 'partial') is the IRC-sanctioned neutral
+    # value per server/implicit_outcomes.py — it prevents a flood of fake
+    # 'partial' signals from biasing Thompson Sampling for tasks outside the
+    # 56-entry eval dataset.
+    return 'routed'
 
 def find_matching_skills(task: str, project: str = "default",
                           filtered_ids: List[int] = None,
@@ -695,8 +714,9 @@ def find_matching_skills(task: str, project: str = "default",
     # ── Epsilon-Greedy Cold-Start Exploration ──────────────────
     import random
     try:
-        # Constant 15% exploration rate (no decay — Thompson Sampling handles exploitation)
-        if random.random() < 0.15:
+        # Constant 25% exploration rate (temporarily high to cover 827 cold resources;
+        # decay back to 15% after coverage improves — Thompson Sampling handles exploitation)
+        if random.random() < 0.25:
             cluster_param = None
             if filtered_ids:
                 # P0-2 fix: Use cluster_membership (authoritative) not resources.cluster
@@ -718,13 +738,13 @@ def find_matching_skills(task: str, project: str = "default",
                     SELECT r.id, r.name, r.resource_type FROM resources r
                     JOIN cluster_membership cm ON cm.resource_id = r.id
                     WHERE r.status = 'active' AND r.times_triggered = 0 AND cm.cluster_name = ?
-                    ORDER BY RANDOM() LIMIT 2
+                    ORDER BY RANDOM() LIMIT 5
                 """, (cluster_param,)).fetchall()
             else:
                 cold_rows = conn.execute("""
                     SELECT id, name, resource_type FROM resources 
                     WHERE status = 'active' AND times_triggered = 0 
-                    ORDER BY RANDOM() LIMIT 2
+                    ORDER BY RANDOM() LIMIT 5
                 """).fetchall()
                 
             for cr in cold_rows:
@@ -783,6 +803,32 @@ def find_matching_skills(task: str, project: str = "default",
 
     conn.close()
     return matches[:max_results]
+
+
+def _get_cold_resources(top_k: int = 3) -> List[Dict]:
+    """Return never-triggered active resources, sorted by content quality proxy.
+
+    The section count acts as a rough proxy for content depth. Resources with
+    more sections tend to have richer descriptions and are more likely to
+    produce useful outcomes when first explored.
+    """
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT r.name, r.resource_type, COUNT(rs.id) as section_count
+            FROM resources r
+            JOIN resource_sections rs ON r.id = rs.resource_id
+            WHERE r.times_triggered = 0 AND r.status = 'active'
+            GROUP BY r.id
+            ORDER BY section_count DESC
+            LIMIT ?
+        """, (top_k,)).fetchall()
+        conn.close()
+        return [{"name": r["name"], "resource_type": r["resource_type"],
+                 "section_count": r["section_count"]} for r in rows]
+    except Exception:
+        return []
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -856,6 +902,21 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
         if CLUSTER_ROUTING:
             pipeline_steps.append("gates")
 
+    # Step 3.7: Harness Research — academic/research context augmentation
+    harness_results = []
+    if HARNESS_RESEARCH_ENABLED and RESEARCH_KEYWORDS.search(task):
+        try:
+            from server.context_harness.server import harness_research
+            harness_json = harness_research(task, max_results=3)
+            harness_data = json.loads(harness_json)
+            harness_results = harness_data.get("fused", [])
+            if harness_results:
+                pipeline_steps.append("harness_research")
+        except ImportError as e:
+            logger.debug(f"harness_research import failed: {e}")
+        except Exception as e:
+            logger.debug(f"harness_research call failed: {e}")
+
     # Step 3.5: Verb-Intent Classification (handles task-type routing)
     intent_results = []
     if intent_predict:
@@ -885,6 +946,23 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
         if thompson_result:
             thompson_model = thompson_result.get("model")
             pipeline_steps.append("thompson_sampling")
+
+    # Step 6.5: Cold-start exploration — inject never-triggered resources
+    COLD_START_RATE = 0.15
+    if random.random() < COLD_START_RATE:
+        try:
+            cold_resources = _get_cold_resources(top_k=3)
+            if cold_resources:
+                for cr in cold_resources:
+                    iso_candidates.insert(0, {
+                        "name": cr["name"],
+                        "iso_score": 0.3,
+                        "resource_type": cr["resource_type"],
+                        "_source": "cold_start",
+                    })
+                pipeline_steps.append("cold_start")
+        except Exception as e:
+            logger.debug(f"Cold-start failed: {e}")
 
     # Step 7: Fallback — keyword matching (specialty + tier)
     method = "v4_pipeline" if len(pipeline_steps) > 1 else "keyword_match"
@@ -1023,6 +1101,27 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
                     "type": iso_c.get("resource_type", "skill"),
                     "_source": "iso",
                 })
+
+    # Harness Research merge — tertiary priority (below intent + ISO, above keyword)
+    harness_seen = set(intent_seen) | set(
+        c.get("name", "") for c in (iso_candidates if use_embedding else [])
+    )
+    for hr in harness_results[:5]:
+        title = (hr.get("title") or hr.get("name") or hr.get("full_name") or "")
+        if not title or title in harness_seen:
+            continue
+        harness_seen.add(title)
+        fused_score = hr.get("fused_score", 0.4)
+        skills.append({
+            "name": title,
+            "score": round(fused_score * 0.6, 4),
+            "category": "RESEARCH",
+            "success_rate": 0,
+            "type": "doc",
+            "_source": "harness_research",
+            "_url": hr.get("url", hr.get("html_url", "")),
+            "_summary": hr.get("snippet", hr.get("summary", "")),
+        })
 
     # Sort: intent first (by score), then ISO (by score), then keyword (by score)
     skills = sorted(
