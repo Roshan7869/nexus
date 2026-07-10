@@ -34,8 +34,6 @@ from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional
 
-from router_v2.cache_telemetry import get_cache_stats
-
 # ── Paths ───────────────────────────────────────────────
 SERVER_DIR = Path(__file__).parent.resolve()
 PROJECT_DIR = SERVER_DIR.parent
@@ -43,6 +41,8 @@ DB_PATH = Path.home() / "nexus/db/nexus.db"
 
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(SERVER_DIR))
+
+from router_v2.cache_telemetry import get_cache_stats
 
 # ── Logging ─────────────────────────────────────────────
 logging.basicConfig(
