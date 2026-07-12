@@ -1,0 +1,53 @@
+arxiv_id: "2309.10809"
+title: "Semantic Text Compression for Classification"
+authors:
+  - "Emrecan Kutay"
+  - "Aylin Yener"
+year: 2023
+url: "https://arxiv.org/abs/2309.10809"
+problem_statement: |
+  Compress text for a downstream classification task by preserving semantic meaning
+  rather than exact reconstruction. The goal is to reduce storage/transmission bits
+  while keeping classification accuracy close to a semantic-agnostic baseline.
+key_algorithms:
+  - |
+    Semantic embedding: encode text s to Q ∈ R^p using SBERT (e.g., all-mpnet-base-v2).
+    Semantic distance: Δ(s^(k), s^(j)) = ||Q^(k) - Q^(j)||_2^2.
+  - |
+    Conventional baseline: exact reconstruction via Huffman coding; classification uses
+    the reconstructed text embedded by SBERT and a K-nearest-neighbours (KNN) classifier
+    trained on Q_train and y_train.
+  - |
+    Semantic quantization:
+      index assignment Π_{Q_pre^N}(Q) = argmin_{0≤i'<N} δ(Q, Q_pre^N(i'))
+      where δ(Q, Q̂) = ||Q - Q̂||_2.
+      Encoder sends Huffman code of index I(s) = Π(Q); decoder retrieves Q̂ and classifies
+      with KNN using Q_train and y_train.
+  - |
+    Semantic compression (clustering):
+      Cluster embeddings in Q_pre^N with Affinity Propagation using similarity
+      s(x_i, x_j) = -||x_i - x_j||_2^2.
+      Cluster label L(s) = AP_{Q_pre^N}(Q). Encoder sends Huffman code of L(s);
+      decoder retrieves the exemplar Q̂ and classifies with KNN.
+      Responsibility and availability messages:
+        r(i,k) ← s(i,k) - max_{k'≠k} { a(i,k') + s(i,k') }
+        a(i,k) ← min{ 0, r(k,k) + Σ_{i'∉{i,k}} max{0, r(i',k)} }.
+hyperparameters:
+  - "SBERT model: all-mpnet-base-v2 (p = 768)"
+  - "Memory size N (number of stored embeddings, e.g., 20,000)"
+  - "KNN K = 15"
+  - "Affinity Propagation preference = median of pairwise similarities"
+  - "Block size for Huffman coding (e.g., K = 15 characters)"
+reproducibility_notes: |
+  Appeared in IEEE ICC 2023 2nd International Workshop on Semantic Communications.
+  No code repository is linked. SBERT and Affinity Propagation are available in
+  sentence-transformers and scikit-learn, respectively.
+licensing: "arXiv.org perpetual, non-exclusive license (see arXiv abstract page)."
+feasibility_for_nexus:
+  level: "high"
+  rationale: |
+    Directly applicable to embedding storage compression and semantic clustering for
+    NEXUS resource embeddings (PERF-3). The SBERT+AP pipeline is easy to prototype
+    and can reduce memory footprint of the embedding cache.
+extracted_gaps:
+  - "PERF-3"

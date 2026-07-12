@@ -193,20 +193,6 @@ def db() -> sqlite3.Connection:
 
 
 @pytest.fixture
-def harness(db: sqlite3.Connection):
-    """ContextHarness with mocked DB connections."""
-    from server.context_harness.integration import ContextHarness, EngineConfig
-    config = EngineConfig(
-        db_path=":memory:", enable_classifier=False, enable_prediction=False,
-        enable_gating=False, enable_writeback=False, cache_warmup=False,
-        max_context_tokens=8192, router_config={}, decision_config={},
-    )
-    with mock_ro_conn(db), mock_rw_conn(db):
-        h = ContextHarness(config)
-        yield h
-
-
-@pytest.fixture
 def engine(db: sqlite3.Connection):
     """ContextHarnessEngine with mocked DB."""
     from server.context_harness.engine import ContextHarnessEngine

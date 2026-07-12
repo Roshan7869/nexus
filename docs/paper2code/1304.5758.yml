@@ -1,0 +1,44 @@
+arxiv_id: "1304.5758"
+title: "Prior-free and prior-dependent regret bounds for Thompson Sampling"
+authors:
+  - "Sébastien Bubeck"
+  - "Che-Yu Liu"
+year: 2013
+url: "https://arxiv.org/abs/1304.5758"
+problem_statement: |
+  Study the stochastic multi-armed bandit problem with an arbitrary prior distribution
+  over reward distributions. The paper proves prior-free Bayesian regret bounds for
+  Thompson Sampling (removing a log factor) and prior-dependent bounds in the
+  "best-arm known" (BPR) setting where the optimal mean and a minimum gap are known.
+key_algorithms:
+  - |
+    Thompson Sampling (general prior): at round t, draw θ(t) from the posterior π_t
+    and pull arm It ∈ argmax_i μ_i(θ(t)).
+  - |
+    Prior-free Bayesian regret bound (Theorem 1): for any prior over [0,1] rewards,
+    BR_n ≤ 14 sqrt(nK). This is unimprovable up to constants (lower bound Ω(sqrt(nK))).
+  - |
+    MOSS-style upper-confidence term used in the proof:
+    B_{i,t} = μ̂_{i,T_i(t-1)} + sqrt( (1/T_i(t-1)) * log_+(n / (K T_i(t-1))) ).
+  - |
+    Two-armed BPR policy (Figure 1): known best-arm mean μ* and gap Δ. Play arm 1
+    for rounds 1-2, then for t ≥ 3 sample arm 1 with probability
+    p_t(1) ∝ exp( -1/2 Σ_{s=1}^{T_1(t-1)}(μ* - X_{1,s})^2
+                  -1/2 Σ_{s=1}^{T_2(t-1)}(μ* - Δ - X_{2,s})^2 ).
+    Regret is uniformly bounded: R_n ≤ Δ + 578/Δ.
+hyperparameters:
+  - "No tunable hyperparameters for the core Thompson Sampling algorithm."
+  - "BPR setting requires prior knowledge of μ* (best-arm mean) and Δ (minimum gap)."
+reproducibility_notes: |
+  The paper is theoretical and contains full proofs but no public code release.
+  Theorem 1 assumes rewards in [0,1]; the BPR analysis assumes 1-sub-Gaussian rewards
+  and a Gaussian posterior derivation as a tractable proxy.
+licensing: "arXiv.org perpetual, non-exclusive license (see arXiv abstract page)."
+feasibility_for_nexus:
+  level: "high"
+  rationale: |
+    Directly underpins Thompson Sampling routing in NEXUS. The prior-free bound
+    justifies informed Beta priors, and the BPR-style bounded regret justifies using
+    known gap information to tighten skill selection regret.
+extracted_gaps:
+  - "PERF-1"

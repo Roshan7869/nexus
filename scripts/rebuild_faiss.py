@@ -57,14 +57,26 @@ def rebuild_faiss(dry_run: bool = False) -> dict:
     print("=" * 60)
     t0 = time.time()
 
-    # Step 1: Read embeddings from DB
+    # Step 1: Read embeddings from DB (P2: active/degraded only by default)
+    active_only = "--all-status" not in sys.argv
     conn = sqlite3.connect(str(DB_PATH))
-    rows = conn.execute(
-        "SELECT re.resource_id, re.embedding, r.name, r.status "
-        "FROM resource_embeddings re "
-        "JOIN resources r ON re.resource_id = r.id "
-        "WHERE re.embedding IS NOT NULL"
-    ).fetchall()
+    if active_only:
+        rows = conn.execute(
+            "SELECT re.resource_id, re.embedding, r.name, r.status "
+            "FROM resource_embeddings re "
+            "JOIN resources r ON re.resource_id = r.id "
+            "WHERE re.embedding IS NOT NULL "
+            "AND r.status IN ('active', 'degraded')"
+        ).fetchall()
+        print("  Filter: status IN (active, degraded)  [pass --all-status to include archived]")
+    else:
+        rows = conn.execute(
+            "SELECT re.resource_id, re.embedding, r.name, r.status "
+            "FROM resource_embeddings re "
+            "JOIN resources r ON re.resource_id = r.id "
+            "WHERE re.embedding IS NOT NULL"
+        ).fetchall()
+        print("  Filter: all statuses")
     conn.close()
 
     print(f"  Read {len(rows)} embeddings from DB")

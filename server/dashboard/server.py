@@ -10,16 +10,59 @@ Usage:
     python3 server/dashboard/server.py          # Port 8765
     python3 server/dashboard/server.py --port 9000
 """
-import json, sqlite3, sys, time
+import json, os, sqlite3, sys, time
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
-DB_PATH = Path.home() / 'nexus/db/nexus.db'
-PORT = 8765
+NEXUS_ROOT = Path(__file__).resolve().parent.parent.parent
+DB_PATH = Path(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db")))
+PORT = int(os.environ.get("NEXUS_DASHBOARD_PORT", "8765"))
 
 
 def get_metrics():
+    # P5: prefer ops_metrics module when available
+    try:
+        sys.path.insert(0, str(NEXUS_ROOT))
+        sys.path.insert(0, str(NEXUS_ROOT / "server"))
+        from server.ops_metrics import build_ops_report
+        report = build_ops_report(include_ab=False)
+        # Keep legacy shape + embed full P5 report
+        cov = report["routing_coverage"]
+        cat = report["catalog"]
+        return {
+            "outcome_coverage": {
+                "total_routes": cov["total_routes"],
+                "closed": cov["terminal_count"],
+                "correct": cov["by_outcome"].get("correct", 0),
+                "wrong": cov["by_outcome"].get("wrong", 0),
+                "partial": cov["by_outcome"].get("partial", 0),
+                "routed": cov["by_outcome"].get("routed", 0),
+                "close_rate": cov["terminal_close_rate_pct"],
+                "accuracy": cov["binary_accuracy_excl_partial_pct"],
+                "weighted_accuracy": cov["weighted_accuracy_pct"],
+                "gate_pass": cov["terminal_close_gate_pass"],
+                "target_pct": cov["terminal_close_target_pct"],
+            },
+            "7_day_window": cov.get("window_7d", {}),
+            "resource_health": {
+                "active": cat.get("active"),
+                "archived": cat.get("archived"),
+                "never_triggered_pct": cat.get("never_triggered_pct"),
+                "zero_token_active": cat.get("zero_token_active"),
+                "cluster_divergence": cat.get("cluster_divergence"),
+            },
+            "gates": report["gates"],
+            "overall_pass": report["overall_pass"],
+            "harness": report.get("harness"),
+            "router": report.get("router"),
+            "p5": report,
+            "legacy": True,
+        }
+    except Exception as exc:
+        # fall through to legacy path
+        _ = exc
+
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
 
@@ -122,6 +165,16 @@ def get_metrics():
     }
 
 
+def get_ops():
+    sys.path.insert(0, str(NEXUS_ROOT))
+    sys.path.insert(0, str(NEXUS_ROOT / "server"))
+    from server.process_supervisor import get_ops_snapshot
+    from server.research_service import get_research_status
+    snap = get_ops_snapshot()
+    snap["research"] = get_research_status()
+    return snap
+
+
 class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -131,6 +184,36 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(get_metrics(), indent=2).encode())
+        elif parsed.path == '/api/ops':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(get_ops(), indent=2).encode())
+        elif parsed.path == '/api/p5' or parsed.path == '/api/ops/eval':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            try:
+                sys.path.insert(0, str(NEXUS_ROOT))
+                sys.path.insert(0, str(NEXUS_ROOT / "server"))
+                from server.ops_metrics import build_ops_report
+                payload = build_ops_report(include_ab=False)
+            except Exception as e:
+                payload = {"error": str(e)}
+            self.wfile.write(json.dumps(payload, indent=2, default=str).encode())
+        elif parsed.path == '/api/health':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            payload = {
+                "status": "ok",
+                "service": "nexus-dashboard",
+                "port": PORT,
+                "db": str(DB_PATH),
+            }
+            self.wfile.write(json.dumps(payload).encode())
         elif parsed.path == '/' or parsed.path == '/index.html':
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')

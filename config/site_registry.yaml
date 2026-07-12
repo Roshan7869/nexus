@@ -1,0 +1,136 @@
+# NEXUS Research Site Registry — Phase 3
+# Publishers (Harvard, SSRN, journals) + per-project doc URLs for harness routing.
+
+version: 1
+
+publishers:
+  harvard:
+    label: Harvard University
+    keywords:
+      - harvard
+      - hbr
+      - harvard business review
+      - harvard law review
+      - hks
+      - kennedy school
+      - harvard gazette
+    channel: openalex_harvard
+    openalex_filter: "authorships.institutions.id:I136199984"
+    priority: 0.92
+
+  harvard_business_review:
+    label: Harvard Business Review
+    keywords:
+      - hbr
+      - harvard business review
+      - digital transformation hbr
+    channel: openalex_publisher
+    openalex_filter: "primary_location.source.display_name.search:Harvard Business Review"
+    priority: 0.94
+
+  ssrn:
+    label: SSRN (Social Science Research Network)
+    keywords:
+      - ssrn
+      - social science research network
+      - working paper
+      - nber
+    channel: openalex_ssrn
+    priority: 0.9
+
+  ieee:
+    label: IEEE
+    keywords: [ieee, ieeexplore, "10.1109"]
+    channel: crossref
+    crossref_prefix: "10.1109"
+    priority: 0.9
+
+  acm:
+    label: ACM Digital Library
+    keywords: [acm, "acm digital library", "10.1145"]
+    channel: crossref
+    crossref_prefix: "10.1145"
+    priority: 0.9
+
+  nature:
+    label: Nature Publishing Group
+    keywords: [nature, "nature.com", "10.1038"]
+    channel: crossref
+    crossref_prefix: "10.1038"
+    priority: 0.85
+
+domain_rules:
+  github.com:
+    type: github_readme
+    content_hint: "article.markdown-body, div[role='main']"
+  raw.githubusercontent.com:
+    type: raw_markdown
+  developer.mozilla.org:
+    type: mdn
+    content_hint: "article.main-page-content, main#content"
+  docs.python.org:
+    type: sphinx_docs
+    content_hint: "div.body, div.document, section"
+  rust-lang.org:
+    type: mdbook
+    content_hint: "main, article#content"
+  kubernetes.io:
+    type: hugo_docs
+    content_hint: "div.content, main td-content"
+  fastapi.tiangolo.com:
+    type: mkdocs_material
+    content_hint: "div.md-content, article.md-content__inner"
+  cloudinary.com:
+    type: docs
+    content_hint: "main, article, div.doc-content"
+  impeccable.style:
+    type: blog
+  systemdesign.one:
+    type: blog
+  martinfowler.com:
+    type: blog
+  bytebytego.com:
+    type: blog
+
+projects:
+  nexus:
+    label: NEXUS Second Brain
+    keywords: [nexus, routing, thompson sampling, cluster, mcp, second brain]
+    sites:
+      - url: https://arxiv.org/abs/2604.21816
+        title: Tool Attention paper
+        tags: [research, routing]
+      - url: https://arxiv.org/abs/2605.29682
+        title: EFC feedback paper
+        tags: [research, learning]
+    local_paths:
+      - /home/roshan/nexus/docs/second-brain-execution-plan.md
+      - /home/roshan/nexus/docs/research/ADR-002-research-authority-second-brain-v2.md
+
+  kaari:
+    label: Kaari e-commerce
+    keywords: [kaari, cloudinary, ecommerce, gallery, storefront, supabase]
+    sites:
+      - url: https://cloudinary.com/documentation/image_transformations
+        title: Cloudinary image transformations
+        tags: [docs, images]
+      - url: https://cloudinary.com/documentation/upload_images
+        title: Cloudinary upload guide
+        tags: [docs, upload]
+    local_paths: []
+
+  impeccable:
+    label: Impeccable UI polish
+    keywords: [impeccable, ui polish, design system, frontend]
+    sites:
+      - url: https://impeccable.style
+        title: Impeccable style guide
+        tags: [design]
+    local_paths:
+      - /home/roshan/projects/impeccable/DESIGN.md
+
+  general:
+    label: Default project
+    keywords: []
+    sites: []
+    local_paths: []

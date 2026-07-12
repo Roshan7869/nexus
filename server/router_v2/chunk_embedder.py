@@ -39,7 +39,8 @@ _SCHEMA = [
         chunk_id   INTEGER PRIMARY KEY,
         text_hash  TEXT NOT NULL,
         embedding  BLOB NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        resource_id INTEGER
     )""",
     """CREATE TABLE IF NOT EXISTS chunk_embed_cache (
         text_hash   TEXT PRIMARY KEY,
@@ -47,6 +48,7 @@ _SCHEMA = [
         created_at  TEXT NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_chunk_emb_hash ON chunk_embeddings(text_hash)",
+    "CREATE INDEX IF NOT EXISTS idx_chunk_emb_resource ON chunk_embeddings(resource_id)",
 ]
 
 
@@ -212,14 +214,53 @@ class ChunkEmbedder:
         return {int(r[0]) for r in con.execute("SELECT chunk_id FROM chunk_embeddings").fetchall()}
 
     def store_chunks(self, con: sqlite3.Connection, items: list[tuple[int, str, np.ndarray]]) -> int:
-        """Persist (chunk_id, text_hash, vec) rows. Returns rows inserted."""
+        """Persist (chunk_id, text_hash, vec[, resource_id]) rows. Returns rows inserted.
+
+        Gap 6: also denormalize resource_id from ingestion_chunks when present.
+        """
         if not items:
             return 0
         ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        # Ensure column exists on older DBs
+        try:
+            from server.chunk_resource_link import ensure_resource_id_column
+            ensure_resource_id_column(con)
+        except Exception:
+            try:
+                cols = {
+                    r[1] for r in con.execute("PRAGMA table_info(chunk_embeddings)").fetchall()
+                }
+                if "resource_id" not in cols:
+                    con.execute(
+                        "ALTER TABLE chunk_embeddings ADD COLUMN resource_id INTEGER"
+                    )
+            except Exception:
+                pass
+
+        cids = [int(cid) for cid, _, _ in items]
+        rid_map: dict[int, int | None] = {}
+        if cids:
+            ph = ",".join("?" for _ in cids)
+            try:
+                for r in con.execute(
+                    f"SELECT id, resource_id FROM ingestion_chunks WHERE id IN ({ph})",
+                    cids,
+                ).fetchall():
+                    rid_map[int(r["id"] if hasattr(r, "keys") else r[0])] = (
+                        r["resource_id"] if hasattr(r, "keys") else r[1]
+                    )
+            except Exception:
+                rid_map = {}
+
+        rows = []
+        for cid, h, v in items:
+            rid = rid_map.get(int(cid))
+            rows.append((int(cid), h, _to_blob(v), ts, rid))
         con.executemany(
-            "INSERT OR REPLACE INTO chunk_embeddings(chunk_id, text_hash, embedding, created_at) "
-            "VALUES (?,?,?,?)",
-            [(int(cid), h, _to_blob(v), ts) for cid, h, v in items],
+            "INSERT OR REPLACE INTO chunk_embeddings"
+            "(chunk_id, text_hash, embedding, created_at, resource_id) "
+            "VALUES (?,?,?,?,?)",
+            rows,
         )
         return len(items)
 

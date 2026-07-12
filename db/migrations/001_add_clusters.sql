@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS cluster_definitions (
     centroid_embedding BLOB,
     auto_activate_threshold REAL DEFAULT 0.35,
     max_resources INTEGER DEFAULT 200,
+    resource_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

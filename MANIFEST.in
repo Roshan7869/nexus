@@ -1,0 +1,22 @@
+# MANIFEST.in — additional non-Python files for sdist/wheel
+include README.md
+include requirements.txt
+include nexus.yaml
+include supervisord.conf
+
+# Include all shell scripts
+recursive-include scripts *.sh
+recursive-include scripts *.py
+
+# Include docs
+recursive-include docs *.md *.txt
+
+# Exclude generated/cached files
+prune venv/
+prune .venv/
+prune inbox/.done/
+prune logs/
+prune run/
+prune __pycache__
+prune *.pyc
+prune *.pyo

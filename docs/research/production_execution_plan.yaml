@@ -1,0 +1,468 @@
+# Production execution plan — machine-readable DAG
+# Human: PRODUCTION_EXECUTION_PLAN.md
+# Authority: ADR-002 + gap-paper-map.yaml
+# Generated: 2026-07-11
+
+meta:
+  goal: "Production-grade NEXUS second brain: restore → fleet → unified route → feedback → gate"
+  branch: second-brain-v2
+  gitnexus_repo: nexus
+  critical_path: [G1, G2, G3, G4, G11, G13, G7, G12, G9, G26, G22, G32]
+
+dependency_graph:
+  level_0: [G1]
+  level_1: [G2, G3, G25]
+  level_2: [G4, G6, G11]
+  level_3: [G5, G13, G21, G29, G30]
+  level_4: [G7, G9, G8]
+  level_5: [G12, G14, G15]
+  level_6: [G10, G18, G22, G26]
+  level_7: [G16, G17, G19, G20, G24]
+  level_8: [G23, G27, G28, G31, G32]
+
+phases:
+  - id: P0
+    name: Pre-flight
+    risk: LOW
+    session: either
+    tasks:
+      - id: T0.1
+        name: Snapshot git and DB
+        subtasks:
+          - {id: T0.1.S1, action: "git status / commit or stash", files: [".git"]}
+          - {id: T0.1.S2, action: "cp live db snapshot", files: ["db/nexus.db"]}
+          - {id: T0.1.S3, action: "record MCP/HTTP PIDs", files: ["logs/"]}
+        gate: "snapshot path recorded"
+      - id: T0.2
+        name: Confirm ADR + gap map
+        files: ["docs/research/ADR-002-research-authority-second-brain-v2.md", "docs/research/gap-paper-map.yaml"]
+        gate: "operator ACK"
+      - id: T0.3
+        name: GitNexus baseline
+        files: [".gitnexus/"]
+        gate: "repo nexus indexed"
+
+  - id: P1
+    name: Brain restore and data contract
+    risk: CRITICAL
+    session: out_of_session
+    gaps: [G1, G2, G3, G25]
+    tasks:
+      - id: G1
+        title: Restore authoritative DB
+        best_fit: R1a
+        primary_files:
+          - db/nexus.db
+          - db/nexus.db.pre-cutover-1782612021
+          - server/db.py
+        gitnexus_symbols: []
+        risk: CRITICAL
+        subtasks:
+          - id: G1.S1
+            action: "Stop HTTP + MCP writers"
+            files: ["supervisord.conf"]
+            gate: "no process holds nexus.db"
+          - id: G1.S2
+            action: "Score backups; prefer pre-cutover"
+            files: ["db/nexus.db.pre-cutover-1782612021", "db/nexus.db.pre-restore.1782906626"]
+            gate: "backup chosen with resources>=2000"
+          - id: G1.S3
+            action: "Atomic cp backup → db/nexus.db; clear wal/shm if clean"
+            files: ["db/nexus.db"]
+            gate: "file size >> 1MB"
+          - id: G1.S4
+            action: "Align NEXUS_DB_PATH and daemon DB_PATH"
+            files: ["server/db.py", "server/nexus_http_daemon.py"]
+            gate: "single resolved path"
+          - id: G1.S5
+            action: "SQL smoke counts"
+            files: ["db/nexus.db"]
+            gate: "resources >= 2000"
+      - id: G2
+        title: EFC schema contract
+        best_fit: R2a
+        primary_files:
+          - db/schema.sql
+          - migrations/
+          - server/efc.py
+          - server/learning.py
+        gitnexus_symbols:
+          - "Function:server/learning.py:_bridge_outcome_log"
+          - "Function:server/efc.py:compute_efc"
+        risk: HIGH
+        subtasks:
+          - id: G2.S1
+            action: "PRAGMA outcome_log for efc_* columns"
+            gate: "efc_score column exists"
+          - id: G2.S2
+            action: "Update schema.sql to document EFC columns"
+            files: ["db/schema.sql"]
+            gate: "schema.sql matches live"
+          - id: G2.S3
+            action: "Dry-run bridge insert via record_outcome"
+            files: ["server/learning.py", "server/efc.py"]
+            gate: "row with efc_score NOT NULL"
+          - id: G2.S4
+            action: "Migrations idempotent"
+            files: ["migrations/", "scripts/migrate.py"]
+            gate: "re-run safe"
+      - id: G3
+        title: Embedding and FAISS integrity
+        best_fit: R3a
+        primary_files:
+          - db/faiss/
+          - server/numpy_router.py
+          - server/tool_attention_v4.py
+          - scripts/rebuild_faiss.py
+        gitnexus_symbols:
+          - "Class:server/tool_attention_v4.py:ToolAttentionV4"
+          - "Class:server/tool_attention_v4.py:IntentRouter"
+        risk: HIGH
+        subtasks:
+          - id: G3.S1
+            action: "Count resource_embeddings"
+            gate: "count > 0"
+          - id: G3.S2
+            action: "Load NumpyRouter / TA intent router"
+            files: ["server/numpy_router.py", "server/tool_attention_v4.py"]
+            gate: "no zero routable embeddings warning"
+          - id: G3.S3
+            action: "Rebuild FAISS only if checksum mismatch"
+            files: ["scripts/rebuild_faiss.py", "db/faiss/"]
+            gate: "index consistent with DB"
+          - id: G3.S4
+            action: "Warm route latency smoke"
+            files: ["server/nexus_http_daemon.py"]
+            gate: "route returns skills"
+      - id: G25
+        title: KG densify integrity
+        best_fit: R25a
+        primary_files:
+          - db/nexus.db
+          - scripts/densify_kg.py
+        risk: MED
+        subtasks:
+          - id: G25.S1
+            action: "Count resource_edges"
+            gate: "edges >> 0 (target >=5000 if pre-cutover)"
+          - id: G25.S2
+            action: "Densify if needed (edge_type column)"
+            files: ["scripts/densify_kg.py"]
+            gate: "0-edge resources reduced"
+          - id: G25.S3
+            action: "cluster_membership populated"
+            gate: "count > 0"
+    phase_gate:
+      sql:
+        - "resources >= 2000"
+        - "resource_embeddings > 0"
+        - "resource_edges >> 0"
+        - "outcome_log has efc_*"
+      http: "GET /stats multi-type resources"
+
+  - id: P2
+    name: Production process fleet
+    risk: CRITICAL
+    session: out_of_session
+    gaps: [G4, G6, G11]
+    tasks:
+      - id: G11
+        title: Apply supervisord
+        best_fit: R11a
+        primary_files: ["supervisord.conf", "run/", "logs/"]
+        risk: CRITICAL
+        subtasks:
+          - {id: G11.S1, action: "Validate supervisord.conf venv paths", gate: "parses"}
+          - {id: G11.S2, action: "autostart policy for http+mcp", files: ["supervisord.conf"], gate: "documented"}
+          - {id: G11.S3, action: "supervisord -c; supervisorctl status", gate: "RUNNING"}
+      - id: G4
+        title: HTTP uses venv Python
+        best_fit: R4a
+        primary_files: ["supervisord.conf", "server/nexus_http_daemon.py"]
+        risk: HIGH
+        subtasks:
+          - {id: G4.S1, action: "Verify process cmdline is venv python", gate: "not /usr/bin/python3"}
+          - {id: G4.S2, action: "GET /health and /stats", gate: "counts match Phase1"}
+      - id: G6
+        title: MCP single owner stability
+        best_fit: R6a
+        primary_files: ["supervisord.conf", "server/nexus-mcp-enhanced.py", ".mcp.json"]
+        risk: HIGH
+        subtasks:
+          - {id: G6.S1, action: "One MCP under supervisor", gate: "single pid"}
+          - {id: G6.S2, action: "Client reconnect docs", gate: "documented"}
+          - {id: G6.S3, action: "Tools list handshake", gate: "no broken pipe"}
+    phase_gate: "supervisorctl all RUNNING; MCP listable; health OK"
+
+  - id: P3
+    name: Safety and test bulkheads
+    risk: LOW_TO_MED
+    session: in_session_ok
+    gaps: [G5, G13, G21, G29, G30]
+    tasks:
+      - id: G13
+        title: Fail-loud routing_log insert
+        best_fit: R13a
+        primary_files: ["server/nexus-mcp-enhanced.py"]
+        gitnexus_symbols: ["Function:server/nexus-mcp-enhanced.py:find_skills"]
+        impact_required: true
+        risk: LOW
+        subtasks:
+          - {id: G13.S1, action: "gitnexus impact find_skills", gate: "blast listed"}
+          - {id: G13.S2, action: "replace except pass with logger.exception", files: ["server/nexus-mcp-enhanced.py"], gate: "log on fail"}
+          - {id: G13.S3, action: "optional metric counter", gate: "optional"}
+          - {id: G13.S4, action: "tests feedback loop still pass", files: ["tests/test_feedback_loop.py"], gate: "pytest green"}
+      - id: G5
+        title: Fixture-only unit tests
+        best_fit: R5a
+        primary_files: ["tests/conftest.py", "server/db.py"]
+        risk: MED
+        subtasks:
+          - {id: G5.S1, action: "conftest never defaults to live prod path", gate: "tmp db"}
+          - {id: G5.S2, action: "pytest isolation no locks", gate: "0 database is locked"}
+      - id: G21
+        title: Quarantine root tests
+        best_fit: R21a
+        primary_files: ["test_epsilon.py", "test_degradation.py", "test_edges_and_reflection.py"]
+        risk: MED
+        subtasks:
+          - {id: G21.S1, action: "move under tests/ or mark integration non-default", gate: "not against live"}
+      - id: G29
+        title: cluster_membership test
+        best_fit: R29a
+        primary_files: ["tests/test_unified.py"]
+        risk: LOW
+        subtasks:
+          - {id: G29.S1, action: "fixture membership or skip if empty with mark", gate: "test pass"}
+      - id: G30
+        title: Relative thresholds in test_v3
+        best_fit: R30a
+        primary_files: ["server/test_v3.py"]
+        risk: LOW
+        subtasks:
+          - {id: G30.S1, action: "replace magic 1096 with min gates / NEXUS_LIVE_TESTS", gate: "no hardcode"}
+    phase_gate: "pytest tests/ -q green (network skips OK)"
+
+  - id: P4
+    name: Unified routing canary
+    risk: MED
+    session: ops_restart_plus_code
+    gaps: [G7, G9, G8]
+    tasks:
+      - id: G7
+        title: Canary USE_UNIFIED_ROUTER
+        best_fit: R7a
+        primary_files:
+          - server/nexus-mcp-enhanced.py
+          - server/router_v2/__init__.py
+          - server/router_v2/v5.py
+          - server/router.py
+        gitnexus_symbols:
+          - "Function:server/nexus-mcp-enhanced.py:find_skills"
+          - "Function:server/nexus-mcp-enhanced.py:_route_unified"
+          - "Function:server/nexus-mcp-enhanced.py:_route_unified_v5"
+          - "Function:server/router_v2/__init__.py:unified_route"
+          - "Function:server/router.py:route_task"
+        risk: MED
+        subtasks:
+          - {id: G7.S1, action: "route_ab_compare baseline", gate: "JSON report"}
+          - {id: G7.S2, action: "USE_UNIFIED_ROUTER=1 on canary MCP", gate: "env visible"}
+          - {id: G7.S3, action: "20-query top-1 agreement suite", gate: ">=95% or documented deltas"}
+          - {id: G7.S4, action: "promote USE_UNIFIED_ROUTER=2", gate: "v5 canary green"}
+          - {id: G7.S5, action: "production default env in supervisord", files: ["supervisord.conf"], gate: "default >=1"}
+      - id: G9
+        title: Cold-start activation
+        best_fit: R9a
+        primary_files:
+          - server/router_v2/scoring.py
+          - server/router_v2/fusion.py
+          - scripts/cold_warm.py
+        gitnexus_symbols:
+          - "Function:server/router_v2/scoring.py:route_two_tier"
+          - "Function:server/router_v2/fusion.py:two_tier_split"
+        risk: MED
+        subtasks:
+          - {id: G9.S1, action: "confirm two-tier on unified path", gate: "cold_fraction 0.3"}
+          - {id: G9.S2, action: "cold_warm preview", gate: "never-triggered listed"}
+          - {id: G9.S3, action: "optional --commit exposure only", gate: "outcome=routed"}
+          - {id: G9.S4, action: "7-day never_triggered KPI query", gate: "tracked"}
+      - id: G8
+        title: Deprecate parallel routers
+        best_fit: R8a
+        primary_files: ["server/router.py", "server/router_v2/", "docs/research/ADR-002-research-authority-second-brain-v2.md"]
+        risk: MED
+        subtasks:
+          - {id: G8.S1, action: "document SoT v5 + v4 fallback", gate: "docs"}
+          - {id: G8.S2, action: "no silent third path", gate: "flag only"}
+    phase_gate: "USE_UNIFIED_ROUTER>=1; A/B recorded"
+
+  - id: P5
+    name: Closed feedback loop
+    risk: MED
+    session: in_session_ok
+    gaps: [G12, G14, G15]
+    tasks:
+      - id: G12
+        title: Outcome coverage
+        best_fit: R12a
+        primary_files:
+          - server/learning.py
+          - scripts/auto_close_routes.py
+          - server/nexus-mcp-enhanced.py
+          - server/tool_attention_v4.py
+        gitnexus_symbols:
+          - "Function:server/learning.py:record_outcome"
+          - "Function:server/learning.py:_bridge_outcome_log"
+          - "Function:server/learning.py:_auto_close_routed"
+          - "Method:server/tool_attention_v4.py:ToolAttentionV4.complete_route_turn"
+        impact_required: true
+        risk: MED
+        subtasks:
+          - {id: G12.S1, action: "route_id open on find_skills", gate: "id returned"}
+          - {id: G12.S2, action: "auto-close cron/script", files: ["scripts/auto_close_routes.py"], gate: "stale NULL closed"}
+          - {id: G12.S3, action: "EFC bridge on terminal outcomes", gate: "efc_score rate high"}
+          - {id: G12.S4, action: "enforce log_outcome policy", gate: "coverage >= 0.8 window"}
+      - id: G14
+        title: Reflexion wire optional
+        best_fit: R14a
+        primary_files: ["server/autonomous_pipeline.py"]
+        gitnexus_symbols: ["Class:server/autonomous_pipeline.py:AutonomousToolCaller"]
+        risk: MED
+        subtasks:
+          - {id: G14.S1, action: "inject cheap LLM on wrong/partial", gate: "reflection stored"}
+          - {id: G14.S2, action: "perplexity remains OFF", gate: "flag off"}
+      - id: G15
+        title: Dual bandit layers
+        best_fit: R15a
+        primary_files: ["core/learner.py", "server/learning.py", "server/nexus-mcp-enhanced.py"]
+        risk: MED
+        subtasks:
+          - {id: G15.S1, action: "document skill vs model arms", gate: "docs"}
+          - {id: G15.S2, action: "neutral model field or cascade hook in _route_unified", gate: "no fake tier truth"}
+    phase_gate: "coverage KPI; EFC on new outcomes"
+
+  - id: P6
+    name: Production quality path
+    risk: MED
+    session: in_session_ok
+    gaps: [G10, G18, G22, G26]
+    tasks:
+      - id: G26
+        title: Active-set hallucination gate
+        best_fit: R26a
+        primary_files: ["server/hallucination.py", "server/autonomous_pipeline.py"]
+        gitnexus_symbols: ["Class:server/hallucination.py:HallucinationGate"]
+        impact_required: true
+        risk: MED
+        subtasks:
+          - {id: G26.S1, action: "impact HallucinationGate", gate: "callers listed"}
+          - {id: G26.S2, action: "verify intersects active_set", files: ["server/hallucination.py"], gate: "reject not in set"}
+          - {id: G26.S3, action: "after_model OOS reject", files: ["server/autonomous_pipeline.py"], gate: "100% unit"}
+      - id: G22
+        title: Wire autonomy into broker
+        best_fit: R22a
+        primary_files: ["server/autonomous_pipeline.py", "server/broker_runtime.py", "server/nexus-mcp-enhanced.py"]
+        gitnexus_symbols: ["Class:server/autonomous_pipeline.py:AutonomousToolCaller"]
+        risk: MED
+        subtasks:
+          - {id: G22.S1, action: "before_model inject on autopilot", gate: "tools in context"}
+          - {id: G22.S2, action: "after_model gate", gate: "no OOS exec"}
+          - {id: G22.S3, action: "task_run smoke", gate: "e2e"}
+      - id: G18
+        title: Core MCP tool surface
+        best_fit: R18a
+        primary_files: [".mcp.json", "server/tool_attention_v4.py"]
+        risk: LOW
+        subtasks:
+          - {id: G18.S1, action: "client allowlist core tools", gate: "config"}
+          - {id: G18.S2, action: "top_k 8-12", gate: "config"}
+      - id: G10
+        title: Chunk resource linking
+        best_fit: R10a
+        primary_files: ["server/router_v2/", "server/ingest/"]
+        risk: MED
+        subtasks:
+          - {id: G10.S1, action: "measure link rate", gate: "baseline"}
+          - {id: G10.S2, action: "ingest reject null resource_id", gate: "enforced"}
+    phase_gate: "gate tests + autonomy smoke"
+
+  - id: P7
+    name: Architecture hygiene
+    risk: MED
+    session: in_session_ok
+    gaps: [G16, G17, G19, G20, G24]
+    tasks:
+      - id: G16
+        title: Three HTTP surfaces
+        primary_files: ["core/server.py", "server/nexus_http_daemon.py", "server/unified.py"]
+        subtasks:
+          - {id: G16.S1, action: "document MCP primary :8080 ops :8000 optional", gate: "README"}
+      - id: G17
+        title: Break import cycle
+        primary_files: ["server/context_harness/engine.py", "server/learning.py", "server/router.py", "server/context_harness/server.py"]
+        subtasks:
+          - {id: G17.S1, action: "dependency invert record_outcome port", gate: "gitnexus cycles=0"}
+      - id: G19
+        title: Tag orphan HTTP as ops
+        primary_files: ["server/nexus_http_daemon.py"]
+        subtasks:
+          - {id: G19.S1, action: "docs/OpenAPI tags", gate: "documented"}
+      - id: G20
+        title: FastAPI lifespan
+        primary_files: ["server/unified.py", "server/nexus_http_daemon.py"]
+        subtasks:
+          - {id: G20.S1, action: "replace on_event", gate: "no deprecation warn"}
+      - id: G24
+        title: Harness default sources
+        primary_files: ["server/context_harness/engine.py", "server/context_harness/server.py"]
+        subtasks:
+          - {id: G24.S1, action: "default nexus+memory", gate: "context_doctor OK"}
+    phase_gate: "docs + cycles target + lifespan"
+
+  - id: P8
+    name: Hardening and CI
+    risk: MED
+    session: either
+    gaps: [G23, G27, G28, G31, G32]
+    tasks:
+      - id: G32
+        title: brain_health_gate
+        best_fit: R32a
+        primary_files: ["scripts/brain_health_gate.py"]
+        risk: MED
+        subtasks:
+          - {id: G32.S1, action: "implement gate script", gate: "exit 0/1"}
+          - {id: G32.S2, action: "wire CI or cron", gate: "scheduled"}
+      - id: G27
+        title: Plan smoke
+        primary_files: ["server/orchestrator.py", "server/nexus_plan_executor.py"]
+        subtasks:
+          - {id: G27.S1, action: "design_plan execute verify smoke", gate: "plan_id"}
+      - id: G23
+        title: Multi-IDE test
+        primary_files: ["server/ide_manager.py", "server/nexus_http_daemon.py"]
+        subtasks:
+          - {id: G23.S1, action: "2 sessions independent metrics", gate: "pass"}
+      - id: G28
+        title: Coach boundary
+        primary_files: ["server/coach/"]
+        subtasks:
+          - {id: G28.S1, action: "notes only coupling", gate: "doc"}
+      - id: G31
+        title: Skip inventory
+        primary_files: ["tests/"]
+        subtasks:
+          - {id: G31.S1, action: "mark network; default offline green", gate: "pytest -m not network"}
+    phase_gate: "brain_health_gate + offline pytest green"
+
+production_dod:
+  - "resources >= 2000 + efc cols + embeddings load"
+  - "supervisord venv MCP + HTTP"
+  - "USE_UNIFIED_ROUTER >= 1 (target 2) with A/B record"
+  - "outcome coverage >= 0.8 window"
+  - "active-set gate on autonomous path"
+  - "pytest tests green offline + brain_health_gate"
+
+runbooks:
+  restore: "docs/research/PRODUCTION_EXECUTION_PLAN.md#41-out-of-session-restore-phase-1"
+  canary: "docs/research/PRODUCTION_EXECUTION_PLAN.md#42-canary-unified-router-phase-4"

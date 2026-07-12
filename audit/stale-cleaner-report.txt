@@ -1,0 +1,264 @@
+================================================================================
+NEXUS STALE RESOURCE CLEANER REPORT
+Generated: 2026-06-28
+Agent: stale-cleaner (ruflo swarm)
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+Total active resources:  2,181
+Stale (zero triggers):  1,068
+Stale rate:              49.0%
+
+This means nearly half of all indexed NEXUS resources have NEVER been
+triggered by any routing request. This represents significant index bloat
+and potential routing noise.
+
+2. STALE RATE BY CLUSTER
+--------------------------------------------------------------------------------
+  Cluster             Total   Stale   Stale%
+  general             150     131     87.3%     <<< CRITICAL
+  knowledge_wiki      276     165     59.8%
+  analyzer_planner    557     279     50.1%
+  backend_api         147      73     49.7%
+  architect           299     127     42.5%
+  frontend_ui         458     193     42.1%
+  quality_security    120      41     34.2%
+  devops_infra        174      59     33.9%
+
+KEY FINDING: The general cluster has 87.3% stale rate — nearly 2x the
+next highest cluster and 1.8x the overall average. This confirms the
+general cluster is a dumping ground for orphaned/failed resources.
+
+3. STALE RATE BY RESOURCE_TYPE
+--------------------------------------------------------------------------------
+  Type                Total   Stale   Stale%
+  mcp                 287     241     84.0%     <<< CRITICAL
+  design_system       173     101     58.4%
+  hook                 77      41     53.2%
+  agent               170      85     50.0%
+  command             276     134     48.6%
+  skill               686     310     45.2%
+  doc                 191      86     45.0%
+  cli_tool            160      60     37.5%
+  craft                12       3     25.0%
+  spec                149       7      4.7%
+
+KEY FINDING: MCP resources are disproportionately stale at 84.0%.
+Of the 241 stale MCPs, 238 (98.8%) have <= 5 tokens — these are
+plain registration stubs with effectively zero body content.
+
+4. SAMPLE STALE RESOURCES PER CLUSTER
+--------------------------------------------------------------------------------
+
+--- general (87.3% stale) ---
+  india-post-pincode-geocode        skill    tier=1  tokens=61
+  property-search                   skill    tier=1  tokens=22
+  geolocation-lookup                skill    tier=1  tokens=24
+  image-upload-webp                 skill    tier=1  tokens=30
+  admin-role-management             skill    tier=1  tokens=21
+  coupon-discount-system            skill    tier=1  tokens=24
+  property-image-gallery            skill    tier=1  tokens=20
+  C4b-source-provenance             skill    tier=1  tokens=26
+  algotrading                       skill    tier=1  tokens=18
+  freqtrade-commands                skill    tier=1  tokens=15
+
+--- knowledge_wiki (59.8% stale) ---
+  nutrient-document-processing      skill    tier=1  tokens=9
+  content-hash-cache-pattern        skill    tier=1  tokens=8
+  visa-doc-translate                skill    tier=1  tokens=6
+  investor-materials                skill    tier=1  tokens=6
+  context-engineering               skill    tier=1  tokens=6
+  using-agent-skills                skill    tier=1  tokens=6
+  inbox-triage                      skill    tier=1  tokens=6
+  transcribe                        skill    tier=1  tokens=5
+  reasoningbank-agentdb             skill    tier=1  tokens=66
+  dual-mode                         skill    tier=1  tokens=15
+
+--- analyzer_planner (50.1% stale) ---
+  eval-harness                      skill    tier=1  tokens=4
+  market-research                   skill    tier=1  tokens=5
+  autonomous-loops                  skill    tier=1  tokens=5
+  plankton-code-quality             skill    tier=1  tokens=7
+  code-simplification               skill    tier=1  tokens=6
+  review-pr                         skill    tier=1  tokens=5
+  agent-orchestrator-main           skill    tier=1  tokens=9
+  deep-clean                        skill    tier=1  tokens=5
+  weekly-agenda                     skill    tier=1  tokens=6
+  deadline-radar                    skill    tier=1  tokens=6
+
+--- backend_api (49.7% stale) ---
+  springboot-verification           skill    tier=1  tokens=7
+  jpa-patterns                      skill    tier=1  tokens=4
+  django-verification               skill    tier=1  tokens=6
+  swift-actor-persistence           skill    tier=1  tokens=7
+  investor-outreach                 skill    tier=1  tokens=5
+  springboot-security               skill    tier=1  tokens=6
+  django-patterns                   skill    tier=1  tokens=5
+  springboot-patterns               skill    tier=1  tokens=6
+  insforge-dev                      skill    tier=1  tokens=6
+  doc-author                        skill    tier=1  tokens=5
+
+--- architect (42.5% stale) ---
+  golang-patterns                   skill    tier=1  tokens=5
+  regex-vs-llm-structured-text      skill    tier=1  tokens=9
+  enlighter-content                 skill    tier=1  tokens=16
+  v3-cli-modernization              skill    tier=1  tokens=62
+  trading-agents-autopilot          skill    tier=1  tokens=15
+  v3-security-architect             agent    tier=1  tokens=7
+  v3-performance-engineer           agent    tier=1  tokens=7
+  v3-integration-architect          agent    tier=1  tokens=8
+  pseudocode                        agent    tier=1  tokens=7
+  security-architect                agent    tier=1  tokens=9
+
+--- frontend_ui (42.1% stale) ---
+  swiftui-patterns                  skill    tier=1  tokens=5
+  autobrowse                        skill    tier=1  tokens=5
+  zustand-cart-store                skill    tier=1  tokens=58
+  flow-nexus-platform               skill    tier=2  tokens=6
+  go-build-resolver                 agent    tier=1  tokens=7
+  build-error-resolver              agent    tier=1  tokens=8
+  quick-start                       hook     tier=1  tokens=6
+  guidance-hook                     hook     tier=1  tokens=6
+  go-build                          command  tier=1  tokens=5
+  multi-frontend                    command  tier=1  tokens=7
+
+--- quality_security (34.2% stale) ---
+  swift-protocol-di-testing         skill    tier=1  tokens=8
+  cookie-sync                       skill    tier=1  tokens=5
+  functions                         skill    tier=1  tokens=5
+  server-side-price-verification    skill    tier=1  tokens=53
+  wiki-linting                      skill    tier=1  tokens=29
+  C6-coverage                       skill    tier=1  tokens=24
+  freqtrade-freqai                  skill    tier=1  tokens=15
+  queue-backtest                    skill    tier=1  tokens=14
+  test-suite                        skill    tier=1  tokens=16
+  e2e-runner                        agent    tier=1  tokens=5
+
+--- devops_infra (33.9% stale) ---
+  config-backtest                   skill    tier=1  tokens=19
+  config-live-trading               skill    tier=1  tokens=13
+  config-shared                     skill    tier=1  tokens=12
+  deployment-wsl                    skill    tier=1  tokens=11
+  SessionStart                      hook     tier=1  tokens=26
+  hook-PreToolUse                   hook     tier=1  tokens=6
+  auto-commit                       hook     tier=1  tokens=6
+  github-safe                       hook     tier=1  tokens=6
+  health-monitor                    hook     tier=1  tokens=7
+  statusline                        hook     tier=1  tokens=5
+
+5. TIER VS STALE RATE
+--------------------------------------------------------------------------------
+  Tier    Stale    Used    Stale%
+  1       453      384     54.1%     <- Highest stale rate
+  2       599      707     45.9%
+  3        16       22     42.1%
+
+Tier 1 (lowest priority) resources are disproportionately stale.
+This is expected — tier is a routing priority signal and lower-tier
+resources get selected less. But 54.1% is still high.
+
+6. MISSING DATA ANALYSIS
+--------------------------------------------------------------------------------
+  Indicator                   Stale     Used     Notes
+  Empty body text             0         0        No empty bodies
+  No embedding vector         0         0        All have embeddings
+  Zero token count          235        26        MASSIVE disparity
+
+235 stale resources have zero token count (vs only 26 used). This is
+a STRONG signal these are incomplete/poorly ingested resources.
+
+7. MCP STALE DEEP DIVE
+--------------------------------------------------------------------------------
+  241 stale MCP resources (84.0% of all MCPs)
+  238 of those (98.8%) have <= 5 tokens
+  Average tokens for stale MCP: 0.2
+
+  MCP stale by cluster:
+    cluster             stale_mcp
+    general             90
+    analyzer_planner    72
+    architect           25
+    knowledge_wiki      16
+    backend_api         14
+    devops_infra        11
+    frontend_ui          9
+    quality_security     4
+
+These MCP entries are almost certainly auto-registration stubs created
+when MCP servers were synced via nexus_sync_mcp_tools. They have no
+body text, no description beyond the tool name, and no routing value.
+
+8. RESOURCES TRIGGERED BUT WITH ZERO TOKENS (broken)
+--------------------------------------------------------------------------------
+  26 resources have been triggered at least once but have zero tokens.
+  These are "walking dead" resources — they are being found and routed
+  but have no content. Examples:
+    session_info              (mcp, frontend_ui,     triggered=2)
+    browser_snapshot          (mcp, analyzer_planner, triggered=2)
+    wasm_agent_files          (mcp, general,          triggered=2)
+    wasm_agent_export         (mcp, devops_infra,     triggered=2)
+
+9. STALE RESOURCES WITH <= 10 TOKENS BY TYPE
+--------------------------------------------------------------------------------
+  Type                Stub Count (<=10 tokens)
+  mcp                 239
+  command             104
+  agent                44
+  skill                42
+  hook                 30
+  cli_tool              1
+
+These are extremely low-content resources. The 239 MCP stubs are
+the most urgent cleanup target.
+
+10. RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+[A] ARCHIVE IMMEDIATELY (241 resources)
+  All 241 MCP resources with <= 5 tokens. These are auto-registration
+  stubs with zero body content (avg 0.2 tokens). They provide no routing
+  value and increase FAISS search noise. If the MCP server is still
+  active, the tools will be re-synced on next nexus_sync_mcp_tools call.
+
+[B] ARCHIVE WITH REVIEW (290 resources)
+  - 104 commands with <= 10 tokens (likely registration stubs)
+  - 44 agents with <= 10 tokens
+  - 42 skills with <= 10 tokens
+  - 30 hooks with <= 10 tokens
+  These are too small to contain meaningful routing information.
+  Manual review recommended before archive.
+
+[C] KEEP BUT DEPRIORITIZE (tier=4) (180 resources)
+  - Tier 1 stale resources with > 10 tokens but zero triggers
+  - These have actual content but have not been found useful
+  - Downgrade to tier 4 (lowest routing priority) so they don't
+    compete with proven resources
+
+[D] INVESTIGATE FURTHER (26 resources)
+  Resources that ARE being triggered but have zero tokens:
+  They are somehow being matched in routing but have no content.
+  This suggests the name matching is working but content ingestion
+  failed. These should be re-ingested or fixed.
+
+[E] GENERAL CLUSTER CLEANUP (131 resources)
+  The general cluster has 87.3% stale rate — the highest of any
+  cluster. 90 of its 100 MCPs are stale stubs, and 25 of its 32
+  skills are never triggered. This cluster should be purged and
+  rebuilt with only validated resources.
+
+11. SUMMARY IMPACT
+--------------------------------------------------------------------------------
+  If recommendations A+B are implemented:
+    ~531 resources archived (49.7% of all stale)
+    Stale rate drops from 49.0% to ~27.3%
+    FAISS search space reduced by 24%
+
+  If recommendation C is also implemented:
+    ~711 resources deprioritized or removed
+    Stale rate drops to ~19.4%
+    Clean index with validated resources only
+
+================================================================================
+END OF REPORT
+================================================================================

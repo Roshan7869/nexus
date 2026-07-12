@@ -1,0 +1,1815 @@
+{
+  "metadata": {
+    "created": "2026-07-01T13:11:56.624762+00:00",
+    "source_files": [
+      "/home/roshan/NEXUS_MASTER_REMEDIATION_PLAN.json",
+      "/home/roshan/NEXUS_DAG_MANIFEST.md",
+      "/home/roshan/NEXUS_BENCHMARK_GATE_VERIFICATION.md",
+      "/home/roshan/nexus_architecture_gaps_research.json",
+      "/home/roshan/nexus_research/NEXUS_PERFORMANCE_GAPS_RESEARCH_REPORT.json",
+      "/home/roshan/nexus/docs/nexus_complete_optimisation_999.md"
+    ],
+    "total_gaps_active": 35,
+    "total_effort_hours": 286,
+    "total_gaps_removed": 0,
+    "removed_gap_ids": [],
+    "by_domain": {
+      "architecture": 10,
+      "performance": 9,
+      "integration": 8,
+      "connectivity": 4,
+      "communication": 4
+    },
+    "by_severity": {
+      "high": 13,
+      "medium": 13,
+      "critical": 3,
+      "low": 6
+    }
+  },
+  "phase_status": {
+    "phase-1": "complete (7/8 gaps verified; ARCH-8 blocked on ARCH-2)"
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Quick Wins",
+      "type": "quick_wins",
+      "effort_hours": 38,
+      "gaps": [
+        {
+          "id": "ARCH-6",
+          "title": "NO CIRCUIT BREAKER",
+          "domain": "architecture",
+          "severity": "high",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/arch/test_circuit_breaker.py",
+          "effort_hours": 6,
+          "owner_agent": "arch-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/arch/test_circuit_breaker.py -v && python -m nexus.health | jq -e '.circuit_breaker.state == \"CLOSED\"'",
+          "rationale": "External MCP tool failures (ruflo, cashfree) can cascade and block all routing. pybreaker with Redis state storage isolates failures and enables graceful degradation.",
+          "papers": [
+            "arXiv:1609.05830"
+          ],
+          "code_change": {
+            "target_file": "nexus/resilience/circuit_breaker.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "pybreaker",
+              "redis.asyncio"
+            ],
+            "functions": [
+              {
+                "name": "get_breaker",
+                "signature": "def get_breaker(name: str) -> pybreaker.CircuitBreaker",
+                "description": "Return per-tool circuit breaker with Redis-backed state."
+              },
+              {
+                "name": "breaker_protected",
+                "signature": "def breaker_protected(name: str)",
+                "description": "Decorator factory applying circuit breaker + bulkhead semaphore."
+              }
+            ],
+            "classes": [
+              {
+                "name": "Bulkhead",
+                "description": "asyncio.Semaphore wrapper per tool category."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_circuit_breaker.py::test_opens_after_five_failures",
+              "tests/arch/test_circuit_breaker.py::test_half_open_after_reset"
+            ],
+            "migrations": [],
+            "rollback": [
+              "redis-cli DEL nexus:circuit:*",
+              "git checkout nexus/resilience/circuit_breaker.py"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-8",
+          "title": "NO SCHEMA MIGRATIONS",
+          "domain": "architecture",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 4,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-2"
+          ],
+          "verification_command": "pytest tests/arch/test_migrations.py -v && alembic upgrade head && alembic current | grep -q 'add_outcome_tokens'",
+          "rationale": "Schema changes currently happen ad-hoc. Alembic with SQLAlchemy 2.0 async support ensures every schema change is versioned, reviewed, and reversible.",
+          "papers": [],
+          "code_change": {
+            "target_file": "alembic/env.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "alembic",
+              "sqlalchemy.ext.asyncio",
+              "nexus.models"
+            ],
+            "functions": [
+              {
+                "name": "run_migrations_online",
+                "signature": "async def run_migrations_online() -> None",
+                "description": "Run Alembic migrations against async engine."
+              }
+            ],
+            "classes": [],
+            "tests": [
+              "tests/arch/test_migrations.py::test_migration_files_exist",
+              "tests/arch/test_migrations.py::test_upgrade_downgrade"
+            ],
+            "migrations": [
+              "alembic/versions/003_add_outcome_tokens.py"
+            ],
+            "rollback": [
+              "alembic downgrade base",
+              "rm -rf alembic/versions/*"
+            ]
+          }
+        },
+        {
+          "id": "PERF-2",
+          "title": "ZERO-TOKEN RESOURCES (261 dead entries)",
+          "domain": "performance",
+          "severity": "medium",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/perf/test_zero_token_purge.py",
+          "effort_hours": 4,
+          "owner_agent": "perf-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/perf/test_zero_token_purge.py -v && python -m nexus.maintenance validate_resources | jq -e '.zero_token_count == 0'",
+          "rationale": "261 resources have empty bodies and pollute centroids/classification. A 3-gate validation pipeline plus Z-score anomaly detection purges dead entries.",
+          "papers": [
+            "arXiv:2006.16189",
+            "arXiv:1707.03869",
+            "arXiv:2406.04710"
+          ],
+          "code_change": {
+            "target_file": "nexus/maintenance/resource_validator.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "statistics",
+              "numpy"
+            ],
+            "functions": [
+              {
+                "name": "validate_resources",
+                "signature": "def validate_resources(resources: list) -> tuple[list, list]",
+                "description": "Apply 3 gates: token>0, body non-empty, embed succeeds."
+              },
+              {
+                "name": "flag_anomalies",
+                "signature": "def flag_anomalies(resources: list) -> list",
+                "description": "Flag resources with token_count Z-score below threshold."
+              }
+            ],
+            "classes": [
+              {
+                "name": "ResourceQualityContract",
+                "description": "Dataclass defining minimum token/body quality rules."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_zero_token_purge.py::test_zero_token_count_after_purge",
+              "tests/perf/test_zero_token_purge.py::test_nightly_validation_cron"
+            ],
+            "migrations": [
+              "alembic/versions/006_add_resource_quality_table.py"
+            ],
+            "rollback": [
+              "alembic downgrade -1",
+              "git checkout nexus/maintenance/resource_validator.py"
+            ]
+          }
+        },
+        {
+          "id": "PERF-6",
+          "title": "CACHE HIT RATE UNKNOWN",
+          "domain": "performance",
+          "severity": "medium",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/perf/test_cache_telemetry.py",
+          "effort_hours": 4,
+          "owner_agent": "perf-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/perf/test_cache_telemetry.py -v && curl -s http://localhost:8765/health | jq -e '.cache_hit_rate != null'",
+          "rationale": "The embedding cache has no observability. CacheTelemetry with LRU-K eviction exposes hit/miss rates and reduces tail latency.",
+          "papers": [
+            "OSDI 2019 cache telemetry",
+            "FAST 2015 Tail at Store",
+            "SIGMOD 1993 LRU-K"
+          ],
+          "code_change": {
+            "target_file": "nexus/router/chunk_embedder.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "dataclasses",
+              "collections"
+            ],
+            "functions": [
+              {
+                "name": "_cache_lookup",
+                "signature": "def _cache_lookup(key: str) -> tuple[bool, np.ndarray | None]",
+                "description": "Increment hit/miss counters and return cached embedding."
+              },
+              {
+                "name": "_evict_lru_k",
+                "signature": "def _evict_lru_k() -> None",
+                "description": "Evict lowest LRU-K score entry when cache exceeds max_size."
+              }
+            ],
+            "classes": [
+              {
+                "name": "CacheTelemetry",
+                "description": "Dataclass tracking hits, misses, and rolling hit rate."
+              },
+              {
+                "name": "LRUKCache",
+                "description": "LRU-K eviction cache for embedding vectors."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_cache_telemetry.py::test_hit_rate_exposed",
+              "tests/perf/test_cache_telemetry.py::test_lru_k_eviction"
+            ],
+            "migrations": [
+              "alembic/versions/009_add_cache_stats_table.py"
+            ],
+            "rollback": [
+              "git checkout nexus/router/chunk_embedder.py",
+              "alembic downgrade -1"
+            ]
+          }
+        },
+        {
+          "id": "INT-1",
+          "title": "RUFLO PROXY: no health check or circuit breaker",
+          "domain": "integration",
+          "severity": "critical",
+          "status": "verified",
+          "implemented_at": "2026-07-01T15:00:00+00:00",
+          "verified_by": "tests/int/test_ruflo_proxy.py",
+          "effort_hours": 6,
+          "owner_agent": "int-agent",
+          "dependencies": [
+            "ARCH-6"
+          ],
+          "verification_command": "pytest tests/int/test_ruflo_proxy.py -v && python -m nexus.benchmarks.ruflo_resilience | jq -e '.hang_blocked_s <= 5'",
+          "rationale": "ruflo_invoke calls 261 tools without isolation; one hung ruflo call blocks all routing. A pybreaker wrapper with 5s timeout and 30s health ping prevents this.",
+          "papers": [
+            "Hystrix wiki Nygard"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/ruflo_proxy.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "pybreaker",
+              "asyncio"
+            ],
+            "functions": [
+              {
+                "name": "invoke_ruflo_tool",
+                "signature": "async def invoke_ruflo_tool(tool_name: str, arguments_json: str) -> dict",
+                "description": "Wrap mcp_nexus_ruflo_invoke in breaker + asyncio.wait_for(5.0)."
+              },
+              {
+                "name": "health_check_ping",
+                "signature": "async def health_check_ping() -> bool",
+                "description": "Ping ruflo proxy health every 30s."
+              }
+            ],
+            "classes": [
+              {
+                "name": "RufloCircuitBreaker",
+                "description": "Per-tool-category circuit breaker for ruflo integrations."
+              }
+            ],
+            "tests": [
+              "tests/int/test_ruflo_proxy.py::test_hung_call_blocked",
+              "tests/int/test_ruflo_proxy.py::test_failed_tool_auto_degraded"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/integrations/ruflo_proxy.py"
+            ]
+          }
+        },
+        {
+          "id": "INT-2",
+          "title": "CASHFREE MCP: no rate limiting / quota tracking",
+          "domain": "integration",
+          "severity": "high",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/int/test_rate_limited_proxy.py",
+          "effort_hours": 4,
+          "owner_agent": "int-agent",
+          "dependencies": [
+            "ARCH-5"
+          ],
+          "verification_command": "pytest tests/int/test_cashfree_rate_limiter.py -v && curl -s http://localhost:8765/health | jq -e '.cashfree_quota_remaining != null'",
+          "rationale": "Cashfree production v3 has hard quotas but current calls are unbounded. Token bucket rate limiter + Redis quota counter prevents 429 errors.",
+          "papers": [
+            "Stripe API rate limiting best practice"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/cashfree_rate_limiter.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "asyncio",
+              "redis.asyncio"
+            ],
+            "functions": [
+              {
+                "name": "acquire",
+                "signature": "async def acquire(self, tokens: int = 1) -> bool",
+                "description": "Token bucket acquire with Redis-backed state."
+              }
+            ],
+            "classes": [
+              {
+                "name": "TokenBucket",
+                "description": "Async token bucket with rate=10/s, burst=20."
+              },
+              {
+                "name": "CashfreeQuotaTracker",
+                "description": "Per-tool daily quota counter with TTL=86400."
+              }
+            ],
+            "tests": [
+              "tests/int/test_cashfree_rate_limiter.py::test_rate_limit_enforced",
+              "tests/int/test_cashfree_rate_limiter.py::test_quota_tracked"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/integrations/cashfree_rate_limiter.py"
+            ]
+          }
+        },
+        {
+          "id": "CONN-4",
+          "title": "WebSocket / SSE connection: no reconnect/backoff",
+          "domain": "connectivity",
+          "severity": "medium",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/conn/test_sse_reconnect.py",
+          "effort_hours": 4,
+          "owner_agent": "conn-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/conn/test_sse_reconnect.py -v && python -m nexus.benchmarks.sse_resilience | jq -e '.reconnect_s < 3'",
+          "rationale": "MCP SSE streams die silently on network blips. Client-side exponential backoff with jitter plus server heartbeat pings keeps connections alive.",
+          "papers": [
+            "MDN EventSource reconnect"
+          ],
+          "code_change": {
+            "target_file": "nexus/connectivity/sse_client.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "asyncio",
+              "random"
+            ],
+            "functions": [
+              {
+                "name": "connect_with_backoff",
+                "signature": "async def connect_with_backoff(url: str, max_delay: float = 16.0) -> EventSource",
+                "description": "Reconnect SSE with exponential backoff and jitter."
+              }
+            ],
+            "classes": [
+              {
+                "name": "ResilientEventSource",
+                "description": "Wraps EventSource with automatic reconnect and heartbeat detection."
+              }
+            ],
+            "tests": [
+              "tests/conn/test_sse_reconnect.py::test_survives_30s_network_drop",
+              "tests/conn/test_sse_reconnect.py::test_reconnect_within_3s"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/connectivity/sse_client.py"
+            ]
+          }
+        },
+        {
+          "id": "COMM-3",
+          "title": "No real-time skill review notification (email/Telegram)",
+          "domain": "communication",
+          "severity": "low",
+          "status": "verified",
+          "implemented_at": "2026-07-01T14:00:00+00:00",
+          "verified_by": "tests/comm/test_notifier.py",
+          "effort_hours": 6,
+          "owner_agent": "comm-agent",
+          "dependencies": [
+            "PERF-5"
+          ],
+          "verification_command": "pytest tests/comm/test_notifier.py -v && python -m nexus.benchmarks.notification_latency | jq -e '.notification_latency_s < 60'",
+          "rationale": "Skill degradation is detected but does not alert humans. Telegram bot + SES email + Slack webhook route severity-based alerts.",
+          "papers": [
+            "PagerDuty incident response patterns"
+          ],
+          "code_change": {
+            "target_file": "nexus/comm/notifier.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "httpx",
+              "boto3"
+            ],
+            "functions": [
+              {
+                "name": "send_alert",
+                "signature": "async def send_alert(severity: str, message: str, channels: list[str] | None = None) -> None",
+                "description": "Route alert to Telegram/SES/Slack based on severity."
+              }
+            ],
+            "classes": [
+              {
+                "name": "SeverityRouter",
+                "description": "Maps severity levels to notification channels."
+              }
+            ],
+            "tests": [
+              "tests/comm/test_notifier.py::test_p0_telegram_and_sms",
+              "tests/comm/test_notifier.py::test_degraded_skill_notifies_within_60s"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/comm/notifier.py"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Core Upgrades",
+      "type": "core_upgrades",
+      "effort_hours": 106,
+      "gaps": [
+        {
+          "id": "ARCH-1",
+          "title": "NO EVENT BUS (point-to-point only)",
+          "domain": "architecture",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-6"
+          ],
+          "verification_command": "pytest tests/arch/test_event_bus.py -v && curl -s http://localhost:8765/health | jq -e '.event_bus_latency_ms < 50'",
+          "rationale": "NEXUS currently uses point-to-point calls. NATS + JetStream provides exactly-once event delivery and decouples routing_log writes from FAISS index updates.",
+          "papers": [
+            "arXiv:1609.05830"
+          ],
+          "code_change": {
+            "target_file": "nexus/bus/event_publisher.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "asyncio",
+              "nats",
+              "json"
+            ],
+            "functions": [
+              {
+                "name": "publish_routing_event",
+                "signature": "async def publish_routing_event(subject: str, payload: dict) -> None",
+                "description": "Publish a JSON-encoded routing event to NATS JetStream."
+              },
+              {
+                "name": "subscribe_routing_events",
+                "signature": "async def subscribe_routing_events(subject: str, cb: Callable) -> None",
+                "description": "Subscribe to routing events with async callback."
+              }
+            ],
+            "classes": [
+              {
+                "name": "NexusEventBus",
+                "description": "Manages NATS connection, JetStream context, and retry policy."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_event_bus.py::test_publish_consume_latency",
+              "tests/arch/test_event_bus.py::test_zero_loss_under_load"
+            ],
+            "migrations": [],
+            "rollback": [
+              "pkill nats-server",
+              "git checkout nexus/bus/event_publisher.py"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-2",
+          "title": "SINGLE SQLite DATABASE",
+          "domain": "architecture",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 16,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-6"
+          ],
+          "verification_command": "pytest tests/arch/test_postgres_dual_write.py -v && psql -c 'SELECT count(*) FROM routing_log;' $DATABASE_URL",
+          "rationale": "SQLite is single-writer and cannot scale with concurrent MCP load. PostgreSQL 16 + asyncpg + PgBouncer provides pooled async connections and RLS for multi-tenancy.",
+          "papers": [
+            "arXiv:2201.07226"
+          ],
+          "code_change": {
+            "target_file": "nexus/db/async_engine.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "sqlalchemy.ext.asyncio",
+              "asyncpg"
+            ],
+            "functions": [
+              {
+                "name": "get_async_engine",
+                "signature": "def get_async_engine() -> AsyncEngine",
+                "description": "Return a pooled asyncpg SQLAlchemy engine."
+              },
+              {
+                "name": "dual_write_routing_log",
+                "signature": "async def dual_write_routing_log(sqlite_conn, pg_conn, row: dict) -> None",
+                "description": "Write routing_log row to both SQLite and PostgreSQL during migration."
+              }
+            ],
+            "classes": [
+              {
+                "name": "RoutingLog",
+                "description": "SQLAlchemy 2.0 mapped class for routing_log with tenant_id RLS column."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_postgres_dual_write.py::test_dual_write_consistency",
+              "tests/arch/test_postgres_dual_write.py::test_read_p95"
+            ],
+            "migrations": [
+              "alembic/versions/001_create_routing_log_pg.py"
+            ],
+            "rollback": [
+              "alembic downgrade -1",
+              "git checkout nexus/db/async_engine.py"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-3",
+          "title": "NO DISTRIBUTED CACHE",
+          "domain": "architecture",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 6,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-6"
+          ],
+          "verification_command": "pytest tests/arch/test_redis_cache.py -v && redis-cli GET nexus:centroids:backend_api | jq -e '.hits > 0'",
+          "rationale": "Skill lookups and cluster centroids are repeatedly recomputed. Redis 7 with redis-py asyncio caches embeddings and lookup results with TTL-based invalidation.",
+          "papers": [
+            "arXiv:2510.08863"
+          ],
+          "code_change": {
+            "target_file": "nexus/cache/redis_client.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "redis.asyncio",
+              "json"
+            ],
+            "functions": [
+              {
+                "name": "get_redis",
+                "signature": "async def get_redis() -> redis.Redis",
+                "description": "Return async Redis connection."
+              },
+              {
+                "name": "cache_centroids",
+                "signature": "async def cache_centroids(cluster: str, centroids: list, ttl: int = 300) -> None",
+                "description": "Store cluster centroids as RedisJSON with TTL."
+              }
+            ],
+            "classes": [
+              {
+                "name": "NexusCache",
+                "description": "Thin wrapper around Redis with cluster-key prefixing."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_redis_cache.py::test_cache_hit_rate",
+              "tests/arch/test_redis_cache.py::test_p99_get"
+            ],
+            "migrations": [],
+            "rollback": [
+              "redis-cli FLUSHDB",
+              "git checkout nexus/cache/redis_client.py"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-4",
+          "title": "NO AUTH/AUTHZ",
+          "domain": "architecture",
+          "severity": "critical",
+          "status": "pending",
+          "effort_hours": 12,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-6"
+          ],
+          "verification_command": "pytest tests/arch/test_auth.py -v && curl -s -o /dev/null -w '%{http_code}' http://localhost:8765/mcp/call | grep -q '401'",
+          "rationale": "MCP tool calls currently run unauthenticated. FastAPI OAuth2 + python-jose JWT scopes plus OpenFGA checks enforce role/permission per tool.",
+          "papers": [
+            "arXiv:1403.2043",
+            "arXiv:1503.06154"
+          ],
+          "code_change": {
+            "target_file": "nexus/auth/dependencies.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "fastapi.security",
+              "python_jose",
+              "openfga_sdk"
+            ],
+            "functions": [
+              {
+                "name": "get_current_user",
+                "signature": "async def get_current_user(token: str = Depends(oauth2_scheme)) -> User",
+                "description": "Decode JWT and return user with roles/scopes."
+              },
+              {
+                "name": "require_tool_permission",
+                "signature": "async def require_tool_permission(user: User, tool_name: str) -> None",
+                "description": "Call OpenFGA Check before executing an MCP tool."
+              }
+            ],
+            "classes": [
+              {
+                "name": "User",
+                "description": "Pydantic model for JWT payload with roles and scopes."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_auth.py::test_unauth_call_rejected",
+              "tests/arch/test_auth.py::test_auth_check_latency"
+            ],
+            "migrations": [
+              "alembic/versions/002_add_users_roles_tables.py"
+            ],
+            "rollback": [
+              "alembic downgrade -1",
+              "git checkout nexus/auth/"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-5",
+          "title": "NO API GATEWAY",
+          "domain": "architecture",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-4"
+          ],
+          "verification_command": "pytest tests/arch/test_gateway.py -v && curl -s http://localhost:8765/health | jq -e '.gateway_p95_ms < 5'",
+          "rationale": "NEXUS exposes tools directly. A gateway (FastAPI + slowapi + Traefik) centralizes auth, rate limiting, and MCP protocol transformation.",
+          "papers": [
+            "arXiv:1609.05830"
+          ],
+          "code_change": {
+            "target_file": "nexus/gateway/mcp_gateway.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "fastapi",
+              "slowapi",
+              "slowapi.util"
+            ],
+            "functions": [
+              {
+                "name": "mcp_call",
+                "signature": "@app.post('/mcp/call')\n@limiter.limit('100/minute')\nasync def mcp_call(request: Request, user: User = Depends(get_current_user))",
+                "description": "Rate-limited MCP JSON-RPC entry point."
+              }
+            ],
+            "classes": [
+              {
+                "name": "MCPGateway",
+                "description": "FastAPI app with limiter, auth dependency, and tool routing."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_gateway.py::test_rate_limit_enforced",
+              "tests/arch/test_gateway.py::test_gateway_overhead"
+            ],
+            "migrations": [],
+            "rollback": [
+              "docker stop traefik",
+              "git checkout nexus/gateway/"
+            ]
+          }
+        },
+        {
+          "id": "PERF-1",
+          "title": "ROUTING ACCURACY 60.6% → target 85%",
+          "domain": "performance",
+          "severity": "critical",
+          "status": "pending",
+          "effort_hours": 16,
+          "owner_agent": "perf-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/perf/test_routing_accuracy.py -v && python -m nexus.benchmarks.routing_accuracy --tasks 500 | jq -e '.close_rate >= 0.80'",
+          "rationale": "Close rate is 60.6% because cold-start resources use uniform Beta(1,1) priors. Informed priors, LLM semantic seeding, info-gain bonus, and latent-factor MF raise close rate toward 85%.",
+          "papers": [
+            "arXiv:1304.5758",
+            "arXiv:2411.09065",
+            "arXiv:2110.00871",
+            "arXiv:2106.10898"
+          ],
+          "code_change": {
+            "target_file": "nexus/rl/thompson.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "numpy",
+              "scipy.stats"
+            ],
+            "functions": [
+              {
+                "name": "_llm_prior_seed",
+                "signature": "def _llm_prior_seed(resource_name: str, task_type: str) -> tuple[float, float]",
+                "description": "Predict initial alpha/beta from LLM semantic prior for resources with <5 outcomes."
+              },
+              {
+                "name": "_info_gain_bonus",
+                "signature": "def _info_gain_bonus(alpha: float, beta: float) -> float",
+                "description": "Compute feel-good exploration bonus."
+              },
+              {
+                "name": "_latent_factor_prior",
+                "signature": "def _latent_factor_prior(resource_id: int, task_embedding: np.ndarray) -> tuple[float, float]",
+                "description": "Predict prior from latent-factor dot product."
+              }
+            ],
+            "classes": [
+              {
+                "name": "LatentFactorThompson",
+                "description": "Matrix-factorization outcome model coupled with Thompson Sampling."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_routing_accuracy.py::test_close_rate_after_500_tasks",
+              "tests/perf/test_routing_accuracy.py::test_weighted_accuracy"
+            ],
+            "migrations": [
+              "alembic/versions/005_add_latent_factors_table.py"
+            ],
+            "rollback": [
+              "git checkout nexus/rl/thompson.py",
+              "alembic downgrade -1"
+            ]
+          }
+        },
+        {
+          "id": "PERF-7",
+          "title": "WRITEWORKER THROUGHPUT (single-threaded SQLite)",
+          "domain": "performance",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "perf-agent",
+          "dependencies": [
+            "ARCH-2"
+          ],
+          "verification_command": "pytest tests/perf/test_write_worker.py -v && python -m nexus.benchmarks.write_throughput | jq -e '.routing_p95_ms < 200'",
+          "rationale": "Synchronous sqlite3.connect() blocks the async event loop. aiosqlite + WriteWorker batching + WAL tuning improves write throughput 10-50x.",
+          "papers": [
+            "SQLite WAL Hipp",
+            "aiosqlite aio-libs",
+            "SQLite batch insert optimization"
+          ],
+          "code_change": {
+            "target_file": "nexus/db/connection.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "aiosqlite",
+              "asyncio",
+              "collections"
+            ],
+            "functions": [
+              {
+                "name": "get_async_connection",
+                "signature": "async def get_async_connection() -> aiosqlite.Connection",
+                "description": "Return aiosqlite connection with WAL pragmas."
+              }
+            ],
+            "classes": [
+              {
+                "name": "WriteWorker",
+                "description": "Batches outcome_log INSERTs in deque and flushes every 100ms or 50 entries."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_write_worker.py::test_batch_flush",
+              "tests/perf/test_write_worker.py::test_throughput_improvement"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/db/connection.py",
+              "git checkout nexus/learner/write_worker.py"
+            ]
+          }
+        },
+        {
+          "id": "PERF-8",
+          "title": "ROUTER LATENCY P95 (no HdrHistogram)",
+          "domain": "performance",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 6,
+          "owner_agent": "perf-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/perf/test_latency_histogram.py -v && python -m nexus.benchmarks.latency | jq -e '.p95_ms < 200'",
+          "rationale": "Current p95 calculation is coarse for small samples. HdrHistogram plus SLO tracking and hedged top-2 routing reduces tail latency.",
+          "papers": [
+            "HdrHistogram Tene 2014",
+            "Google SRE book",
+            "Dean/Barroso Tail at Scale 2013"
+          ],
+          "code_change": {
+            "target_file": "nexus/metrics/latency.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "hdrhistogram",
+              "prometheus_client"
+            ],
+            "functions": [
+              {
+                "name": "record_latency",
+                "signature": "def record_latency(latency_us: int, task_type: str) -> None",
+                "description": "Record routing latency into HdrHistogram."
+              },
+              {
+                "name": "hedged_route",
+                "signature": "async def hedged_route(task: str, top_k: int = 2) -> list",
+                "description": "Dispatch to top-2 resources in parallel and return first success."
+              }
+            ],
+            "classes": [
+              {
+                "name": "SLO",
+                "description": "Defines p95/p99 thresholds and breach detection windows."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_latency_histogram.py::test_p95_accuracy",
+              "tests/perf/test_latency_histogram.py::test_hedged_route_reduces_tail"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/metrics/latency.py"
+            ]
+          }
+        },
+        {
+          "id": "INT-3",
+          "title": "CONTEXT HARNESS: no schema validation for MCP tool I/O",
+          "domain": "integration",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "int-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/int/test_context_harness_validation.py -v && python -m nexus.benchmarks.harness_schema | jq -e '.invalid_input_rejected_ms < 5'",
+          "rationale": "37 context_harness files accept arbitrary input. Strict Pydantic V2 models on all MCP tool entry points enforce schemas and reject invalid input quickly.",
+          "papers": [
+            "Pydantic V2 docs"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/context_harness_models.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "pydantic"
+            ],
+            "functions": [
+              {
+                "name": "validate_tool_input",
+                "signature": "def validate_tool_input(model: type[BaseModel], data: dict) -> BaseModel",
+                "description": "Validate input dict against Pydantic model with extra=forbid."
+              }
+            ],
+            "classes": [
+              {
+                "name": "HarnessQueryRequest",
+                "description": "Pydantic model for context_harness query input."
+              },
+              {
+                "name": "HarnessSearchResponse",
+                "description": "Pydantic model for context_harness search output."
+              }
+            ],
+            "tests": [
+              "tests/int/test_context_harness_validation.py::test_all_tools_have_models",
+              "tests/int/test_context_harness_validation.py::test_invalid_input_rejected"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/integrations/context_harness_models.py"
+            ]
+          }
+        },
+        {
+          "id": "INT-6",
+          "title": "NEXUS MCP: no request_id tracing across tool calls",
+          "domain": "integration",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "int-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/int/test_tracing.py -v && python -m nexus.benchmarks.trace --request_id test-123 | jq -e '.span_count > 0'",
+          "rationale": "Tool calls are logged separately with no way to trace a full agent loop. contextvars-based request_id propagation plus structured JSON logs enable end-to-end tracing.",
+          "papers": [
+            "OpenTelemetry semantic conventions"
+          ],
+          "code_change": {
+            "target_file": "nexus/tracing/request_context.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "contextvars",
+              "uuid",
+              "functools"
+            ],
+            "functions": [
+              {
+                "name": "set_request_id",
+                "signature": "def set_request_id(request_id: str | None = None) -> str",
+                "description": "Set contextvar request_id for current async context."
+              },
+              {
+                "name": "traced",
+                "signature": "def traced(func: Callable) -> Callable",
+                "description": "Decorator emitting structured log with request_id, trace_id, span_id."
+              }
+            ],
+            "classes": [
+              {
+                "name": "RequestContext",
+                "description": "Holds contextvars for request_id, trace_id, span_id."
+              }
+            ],
+            "tests": [
+              "tests/int/test_tracing.py::test_request_id_propagation",
+              "tests/int/test_tracing.py::test_full_loop_traceable"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/tracing/"
+            ]
+          }
+        },
+        {
+          "id": "CONN-3",
+          "title": "No OpenTelemetry tracing (only custom JSON logs)",
+          "domain": "connectivity",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 10,
+          "owner_agent": "conn-agent",
+          "dependencies": [
+            "INT-6"
+          ],
+          "verification_command": "pytest tests/conn/test_opentelemetry.py -v && curl -s http://jaeger:16686/api/traces?service=nexus-router | jq -e '.data | length > 0'",
+          "rationale": "INT-6 adds request_id but no distributed spans. OpenTelemetry auto-instruments FastAPI/SQLAlchemy and exports traces to Jaeger/Tempo.",
+          "papers": [
+            "OpenTelemetry spec"
+          ],
+          "code_change": {
+            "target_file": "nexus/connectivity/tracing.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "opentelemetry.sdk.trace",
+              "opentelemetry.exporter.otlp",
+              "opentelemetry.instrumentation.fastapi"
+            ],
+            "functions": [
+              {
+                "name": "init_tracer",
+                "signature": "def init_tracer(service_name: str, endpoint: str) -> TracerProvider",
+                "description": "Configure TracerProvider with OTLP exporter and batch span processor."
+              }
+            ],
+            "classes": [
+              {
+                "name": "OTelMiddleware",
+                "description": "FastAPI middleware propagating span context across requests."
+              }
+            ],
+            "tests": [
+              "tests/conn/test_opentelemetry.py::test_full_request_trace_visible",
+              "tests/conn/test_opentelemetry.py::test_span_context_propagated"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/connectivity/tracing.py"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Algorithmic",
+      "type": "algorithmic",
+      "effort_hours": 106,
+      "gaps": [
+        {
+          "id": "ARCH-9",
+          "title": "STATIC RRF WEIGHTS",
+          "domain": "architecture",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 10,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "PERF-1"
+          ],
+          "verification_command": "pytest tests/arch/test_adaptive_rrf.py -v && python -m nexus.benchmarks.rrf --dataset test_set | jq -e '.ndcg_at_10_improvement >= 0.08'",
+          "rationale": "RRF currently uses fixed weights. Per-cluster Thompson Sampling over retrievers (FAISS/BM25/keyword) adapts fusion weights to observed outcomes.",
+          "papers": [
+            "SIGIR 2022 10.1145/3477495.3531737"
+          ],
+          "code_change": {
+            "target_file": "nexus/router/adaptive_rrf.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "scipy.stats",
+              "numpy"
+            ],
+            "functions": [
+              {
+                "name": "sample_retriever_weights",
+                "signature": "def sample_retriever_weights(cluster: str, alphas: dict, betas: dict) -> dict",
+                "description": "Sample normalized RRF weights from per-retriever Beta posteriors."
+              },
+              {
+                "name": "update_retriever_beta",
+                "signature": "def update_retriever_beta(cluster: str, retriever: str, outcome: str) -> None",
+                "description": "Increment alpha on correct, beta on wrong."
+              }
+            ],
+            "classes": [
+              {
+                "name": "AdaptiveRRF",
+                "description": "Maintains Beta beliefs per cluster/retriever and computes weighted RRF scores."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_adaptive_rrf.py::test_ndcg_improvement",
+              "tests/arch/test_adaptive_rrf.py::test_weights_sum_to_one"
+            ],
+            "migrations": [
+              "alembic/versions/004_add_retriever_beliefs_table.py"
+            ],
+            "rollback": [
+              "alembic downgrade -1",
+              "git checkout nexus/router/adaptive_rrf.py"
+            ]
+          }
+        },
+        {
+          "id": "PERF-3",
+          "title": "LOW CLUSTER CONFIDENCE 41%",
+          "domain": "performance",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 12,
+          "owner_agent": "perf-agent",
+          "dependencies": [
+            "PERF-1"
+          ],
+          "verification_command": "pytest tests/perf/test_cluster_confidence.py -v && python -m nexus.benchmarks.cluster_confidence | jq -e '.low_confidence_ratio <= 0.25'",
+          "rationale": "41% of resources have low cluster confidence with 384-dim all-MiniLM. Upgrading to 768-dim mpnet, hierarchical super-clusters, and semantic text compression improves separability.",
+          "papers": [
+            "arXiv:1809.09924",
+            "arXiv:2309.10809",
+            "arXiv:1908.10084"
+          ],
+          "code_change": {
+            "target_file": "nexus/router/lazy_embedder.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "sentence_transformers",
+              "numpy"
+            ],
+            "functions": [
+              {
+                "name": "load_embedder",
+                "signature": "def load_embedder() -> SentenceTransformer",
+                "description": "Load multi-qa-mpnet-base-dot-v1 768-dim model."
+              },
+              {
+                "name": "compress_text",
+                "signature": "def compress_text(text: str) -> str",
+                "description": "Extract first paragraph + signatures + docstring summary."
+              }
+            ],
+            "classes": [
+              {
+                "name": "HierarchicalClusterClassifier",
+                "description": "Two-level classifier using 4 super-clusters then domain clusters."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_cluster_confidence.py::test_silhouette_score",
+              "tests/perf/test_cluster_confidence.py::test_low_confidence_ratio"
+            ],
+            "migrations": [
+              "alembic/versions/007_add_768_dim_centroids_table.py"
+            ],
+            "rollback": [
+              "git checkout nexus/router/lazy_embedder.py",
+              "git checkout nexus/router/chunk_embedder.py",
+              "alembic downgrade -1"
+            ]
+          }
+        },
+        {
+          "id": "PERF-4",
+          "title": "ARCHITECT CLUSTER AFFINITY 0.697 (lowest)",
+          "domain": "performance",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 10,
+          "owner_agent": "perf-agent",
+          "dependencies": [
+            "PERF-3"
+          ],
+          "verification_command": "pytest tests/perf/test_architect_affinity.py -v && python -m nexus.benchmarks.cluster_affinity --cluster architect | jq -e '.affinity >= 0.80'",
+          "rationale": "The architect cluster poorly captures design-pattern/ADR concepts. Pattern extraction + domain keyword triggers + contrastive fine-tuning on ADR corpus raise affinity.",
+          "papers": [
+            "Chopade 2025 Semantic Scholar",
+            "Ugras 2025 Semantic Scholar",
+            "Yang 2022"
+          ],
+          "code_change": {
+            "target_file": "nexus/cluster/architect_pattern_extractor.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "re",
+              "sentence_transformers",
+              "torch"
+            ],
+            "functions": [
+              {
+                "name": "extract_architect_patterns",
+                "signature": "def extract_architect_patterns(text: str) -> list[str]",
+                "description": "Extract ADR numbers, pattern names, and tech mentions."
+              },
+              {
+                "name": "fine_tune_architect_model",
+                "signature": "def fine_tune_architect_model(corpus: list, epochs: int = 3, margin: float = 0.3) -> SentenceTransformer",
+                "description": "Contrastive fine-tune on architecture corpus."
+              }
+            ],
+            "classes": [
+              {
+                "name": "ArchitectPatternEmbedder",
+                "description": "Dual-channel embedder combining general and pattern-guided embeddings."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_architect_affinity.py::test_pattern_extraction",
+              "tests/perf/test_architect_affinity.py::test_affinity_after_fine_tuning"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/cluster/architect_pattern_extractor.py"
+            ]
+          }
+        },
+        {
+          "id": "PERF-5",
+          "title": "HIGH-ERROR SKILLS (33-50% error rate)",
+          "domain": "performance",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "perf-agent",
+          "dependencies": [
+            "PERF-1"
+          ],
+          "verification_command": "pytest tests/perf/test_skill_health.py -v && python -m nexus.benchmarks.skill_health --window 1h | jq -e '.auto_degraded_within_1h == true'",
+          "rationale": "Specific skills show 33-50% error rates but are not auto-sidelined. SkillHealthMonitor with Isolation Forest anomaly detection auto-degrades skills above the threshold.",
+          "papers": [
+            "2020 MAS failure prediction RF",
+            "IEEE 2021 LSTM autoencoder",
+            "ACM CSur 2020 online failure prediction"
+          ],
+          "code_change": {
+            "target_file": "nexus/metrics/skill_health.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "sklearn.ensemble",
+              "numpy",
+              "collections"
+            ],
+            "functions": [
+              {
+                "name": "compute_health_score",
+                "signature": "def compute_health_score(skill_name: str, outcomes: list) -> float",
+                "description": "Compute weighted 1h/1d/7d error rate."
+              },
+              {
+                "name": "auto_degrade_skill",
+                "signature": "def auto_degrade_skill(skill_name: str, score: float) -> None",
+                "description": "Set resource.status='degraded' and log warning."
+              }
+            ],
+            "classes": [
+              {
+                "name": "SkillHealthMonitor",
+                "description": "Tracks rolling error rates and runs Isolation Forest for anomalies."
+              }
+            ],
+            "tests": [
+              "tests/perf/test_skill_health.py::test_high_error_skill_degraded",
+              "tests/perf/test_skill_health.py::test_anomaly_score_threshold"
+            ],
+            "migrations": [
+              "alembic/versions/008_add_skill_health_table.py"
+            ],
+            "rollback": [
+              "alembic downgrade -1",
+              "git checkout nexus/metrics/skill_health.py"
+            ]
+          }
+        },
+        {
+          "id": "PERF-9",
+          "title": "NEVER-TRIGGERED RESOURCES 59%",
+          "domain": "performance",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 6,
+          "owner_agent": "perf-agent",
+          "dependencies": [
+            "PERF-1"
+          ],
+          "verification_command": "pytest tests/perf/test_never_triggered.py -v && python -m nexus.benchmarks.exploration | jq -e '.never_triggered_ratio <= 0.30'",
+          "rationale": "59% of resources never receive routing attempts. Epsilon-greedy exploration, exposure fairness, and content-based cold inclusion surface relevant long-tail resources.",
+          "papers": [
+            "NIPS 2012 epsilon-greedy bandits",
+            "RecSys 2018 long tail exposure",
+            "ACM TKDD 2021 cold start survey"
+          ],
+          "code_change": {
+            "target_file": "nexus/router/scoring.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "random",
+              "numpy"
+            ],
+            "functions": [
+              {
+                "name": "epsilon_greedy_cold_explore",
+                "signature": "def epsilon_greedy_cold_explore(epsilon: float = 0.2, decay: float = 0.98) -> bool",
+                "description": "Decide whether to explore a cold resource this request."
+              },
+              {
+                "name": "content_based_cold_inclusion",
+                "signature": "def content_based_cold_inclusion(task_query: str, candidates: list, threshold: float = 0.75) -> list",
+                "description": "Force-include high cosine-similarity cold resources."
+              }
+            ],
+            "classes": [],
+            "tests": [
+              "tests/perf/test_never_triggered.py::test_epsilon_decay",
+              "tests/perf/test_never_triggered.py::test_exposure_fairness_boost"
+            ],
+            "migrations": [
+              "alembic/versions/010_add_last_routed_at.py"
+            ],
+            "rollback": [
+              "git checkout nexus/router/scoring.py",
+              "git checkout nexus/router/fusion.py",
+              "alembic downgrade -1"
+            ]
+          }
+        },
+        {
+          "id": "INT-4",
+          "title": "SCRAPLING/SCRAPECRAFT/SHERLOCK: no freshness checks",
+          "domain": "integration",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 4,
+          "owner_agent": "int-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/int/test_scraper_freshness.py -v && curl -s http://localhost:8765/health | jq -e '.scraper_max_age_s < 3600'",
+          "rationale": "Scrapers cache results indefinitely, feeding stale data into routing. Per-source TTL + Last-Modified checks + exponential backoff ensure freshness.",
+          "papers": [
+            "Holt-Winters forecasting for cache invalidation"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/scrapling.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "datetime",
+              "httpx"
+            ],
+            "functions": [
+              {
+                "name": "get_cached_or_fetch",
+                "signature": "async def get_cached_or_fetch(url: str, max_age: int = 3600) -> dict",
+                "description": "Return cached result only if within max_age and Last-Modified unchanged."
+              }
+            ],
+            "classes": [
+              {
+                "name": "ScraperFreshnessPolicy",
+                "description": "Defines TTL and backoff rules per scraper source."
+              }
+            ],
+            "tests": [
+              "tests/int/test_scraper_freshness.py::test_freshness_metric",
+              "tests/int/test_scraper_freshness.py::test_stale_result_refetched"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/integrations/scrapling.py"
+            ]
+          }
+        },
+        {
+          "id": "INT-5",
+          "title": "GRAPHIFY MCP: no batch operations (single-node only)",
+          "domain": "integration",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 6,
+          "owner_agent": "int-agent",
+          "dependencies": [
+            "INT-6"
+          ],
+          "verification_command": "pytest tests/int/test_graphify_batch.py -v && python -m nexus.benchmarks.graphify_batch | jq -e '.batch_100_nodes_ms < 500'",
+          "rationale": "graphify_read_resource is called per-resource, slowing DAG builds. A batch read endpoint with DataLoader-style coalescing reduces round-trips.",
+          "papers": [
+            "GraphQL DataLoader pattern"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/graphify_client.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "asyncio",
+              "collections"
+            ],
+            "functions": [
+              {
+                "name": "batch_read_resources",
+                "signature": "async def batch_read_resources(uris: list[str]) -> list",
+                "description": "Coalesce multiple read requests into one batched MCP call."
+              }
+            ],
+            "classes": [
+              {
+                "name": "GraphifyDataLoader",
+                "description": "Batches and caches graphify reads by request_id."
+              }
+            ],
+            "tests": [
+              "tests/int/test_graphify_batch.py::test_batch_100_nodes",
+              "tests/int/test_graphify_batch.py::test_coalescing_by_request_id"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/integrations/graphify_client.py"
+            ]
+          }
+        },
+        {
+          "id": "INT-7",
+          "title": "STRATEGY_KB MCP: no incremental index updates",
+          "domain": "integration",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 4,
+          "owner_agent": "int-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/int/test_strategy_kb_incremental.py -v && python -m nexus.benchmarks.outcome_sync --chunks 1000 | jq -e '.duration_s < 30'",
+          "rationale": "outcome_sync re-embeds the entire corpus each call. Delta detection via content hash and ChromaDB upsert re-indexes only changed chunks.",
+          "papers": [
+            "ChromaDB incremental upsert docs"
+          ],
+          "code_change": {
+            "target_file": "nexus/integrations/strategy_kb/outcome_sync.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "hashlib"
+            ],
+            "functions": [
+              {
+                "name": "sync_outcomes",
+                "signature": "async def sync_outcomes(chunks: list[dict]) -> dict",
+                "description": "Hash chunk text, skip unchanged hashes, upsert changed chunks."
+              }
+            ],
+            "classes": [
+              {
+                "name": "ChunkHashIndex",
+                "description": "Maps chunk ids to content hashes for delta detection."
+              }
+            ],
+            "tests": [
+              "tests/int/test_strategy_kb_incremental.py::test_only_delta_reindexed",
+              "tests/int/test_strategy_kb_incremental.py::test_1000_chunks_under_30s"
+            ],
+            "migrations": [
+              "alembic/versions/011_add_chunk_hash_table.py"
+            ],
+            "rollback": [
+              "git checkout nexus/integrations/strategy_kb/outcome_sync.py",
+              "alembic downgrade -1"
+            ]
+          }
+        },
+        {
+          "id": "INT-8",
+          "title": "NEXUS MCP: 261 tools, no tool grouping/namespace",
+          "domain": "integration",
+          "severity": "low",
+          "status": "pending",
+          "effort_hours": 4,
+          "owner_agent": "int-agent",
+          "dependencies": [
+            "INT-6"
+          ],
+          "verification_command": "pytest tests/int/test_tool_namespaces.py -v && python -m nexus.benchmarks.tool_registry | jq -e '.all_tools_have_namespace == true'",
+          "rationale": "Flat tool list confuses LLM clients and prevents namespace-scoped permissions. Group tools by domain cluster prefix.",
+          "papers": [
+            "MCP tool annotations spec"
+          ],
+          "code_change": {
+            "target_file": "nexus/mcp_server.py",
+            "action": "modify",
+            "language": "python",
+            "imports": [
+              "functools"
+            ],
+            "functions": [
+              {
+                "name": "register_namespaced_tool",
+                "signature": "def register_namespaced_tool(cluster: str, name: str)",
+                "description": "Decorator registering tool as nexus.{cluster}.{name}."
+              }
+            ],
+            "classes": [],
+            "tests": [
+              "tests/int/test_tool_namespaces.py::test_tools_grouped_by_cluster",
+              "tests/int/test_tool_namespaces.py::test_permission_per_namespace"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/mcp_server.py"
+            ]
+          }
+        },
+        {
+          "id": "CONN-1",
+          "title": "No mTLS between NEXUS nodes (single-host only)",
+          "domain": "connectivity",
+          "severity": "high",
+          "status": "pending",
+          "effort_hours": 12,
+          "owner_agent": "conn-agent",
+          "dependencies": [
+            "ARCH-4",
+            "INT-6"
+          ],
+          "verification_command": "pytest tests/conn/test_mtls.py -v && openssl s_client -connect node-1:8443 -verify_return_error | grep -q 'Verify return code: 0'",
+          "rationale": "Multi-host NEXUS plan lacks transport security. SPIFFE workload identities with SPIRE and mTLS verify node identities and encrypt inter-node traffic.",
+          "papers": [
+            "Istio security docs",
+            "SPIFFE/SPIRE spec"
+          ],
+          "code_change": {
+            "target_file": "nexus/connectivity/mtls.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "ssl",
+              "uvicorn",
+              "fastapi"
+            ],
+            "functions": [
+              {
+                "name": "verify_spiffe_id",
+                "signature": "async def verify_spiffe_id(request: Request) -> None",
+                "description": "Middleware verifying client SPIFFE ID matches allowed set."
+              }
+            ],
+            "classes": [
+              {
+                "name": "MTLSConfig",
+                "description": "Loads keyfile/certfile and trusted CA for uvicorn."
+              }
+            ],
+            "tests": [
+              "tests/conn/test_mtls.py::test_inter_node_encrypted",
+              "tests/conn/test_mtls.py::test_spiffe_verified"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/connectivity/mtls.py"
+            ]
+          }
+        },
+        {
+          "id": "CONN-2",
+          "title": "No service mesh / traffic shaping",
+          "domain": "connectivity",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "conn-agent",
+          "dependencies": [
+            "CONN-1"
+          ],
+          "verification_command": "pytest tests/conn/test_service_mesh.py -v && linkerd stat deploy/nexus-router | grep -q 'retry_budget'",
+          "rationale": "No L4 retry/timeout/CB policy exists for multi-node deployment. Linkerd service profiles add bounded retries, per-route timeouts, and mesh metrics.",
+          "papers": [
+            "Linkerd 2.x production guide"
+          ],
+          "code_change": {
+            "target_file": "config/k8s/linkerd-profile.yaml",
+            "action": "create",
+            "language": "yaml",
+            "imports": [],
+            "functions": [],
+            "classes": [],
+            "tests": [
+              "tests/conn/test_service_mesh.py::test_retries_bounded",
+              "tests/conn/test_service_mesh.py::test_timeouts_enforced"
+            ],
+            "migrations": [],
+            "rollback": [
+              "rm config/k8s/linkerd-profile.yaml"
+            ]
+          }
+        },
+        {
+          "id": "COMM-1",
+          "title": "No team dashboard (metrics buried in /health endpoint)",
+          "domain": "communication",
+          "severity": "medium",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "comm-agent",
+          "dependencies": [
+            "PERF-8",
+            "CONN-3"
+          ],
+          "verification_command": "pytest tests/comm/test_dashboard.py -v && curl -s http://grafana:3000/api/dashboards/uid/nexus-overview | jq -e '.dashboard.panels | length >= 5'",
+          "rationale": "35 gap metrics exist but have no human-friendly view. Prometheus + Grafana dashboard surfaces routing accuracy, latency, errors, cache, and never-triggered metrics.",
+          "papers": [
+            "Tidwell 'Designing Interfaces'",
+            "Grafana dashboard design patterns"
+          ],
+          "code_change": {
+            "target_file": "config/grafana/dashboards/nexus-overview.json",
+            "action": "create",
+            "language": "json",
+            "imports": [],
+            "functions": [],
+            "classes": [],
+            "tests": [
+              "tests/comm/test_dashboard.py::test_all_gap_metrics_visible",
+              "tests/comm/test_dashboard.py::test_alert_threshold_breach"
+            ],
+            "migrations": [],
+            "rollback": [
+              "rm config/grafana/dashboards/nexus-overview.json"
+            ]
+          }
+        },
+        {
+          "id": "COMM-2",
+          "title": "No session sharing between Hermes <-> NEXUS",
+          "domain": "communication",
+          "severity": "low",
+          "status": "pending",
+          "effort_hours": 8,
+          "owner_agent": "comm-agent",
+          "dependencies": [
+            "ARCH-4"
+          ],
+          "verification_command": "pytest tests/comm/test_session_sharing.py -v && curl -s -H 'Authorization: Bearer $TOKEN' http://localhost:8765/api/sessions?user=alice | jq -e '.sessions | length > 0'",
+          "rationale": "Hermes users cannot share context with NEXUS routing. A JWT-protected read-only sessions endpoint lets Hermes query NEXUS history.",
+          "papers": [
+            "CRDT Shapiro et al. INRIA 2011"
+          ],
+          "code_change": {
+            "target_file": "nexus/api/sessions.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "fastapi",
+              "nexus.auth.dependencies"
+            ],
+            "functions": [
+              {
+                "name": "list_user_sessions",
+                "signature": "@app.get('/api/sessions')\nasync def list_user_sessions(user: str, limit: int = 20, current_user: User = Depends(get_current_user))",
+                "description": "Return paginated NEXUS session history for authorized user."
+              }
+            ],
+            "classes": [],
+            "tests": [
+              "tests/comm/test_session_sharing.py::test_hermes_queries_nexus_sessions",
+              "tests/comm/test_session_sharing.py::test_bidirectional_jwt_auth"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/api/sessions.py"
+            ]
+          }
+        },
+        {
+          "id": "COMM-4",
+          "title": "No onboarding wizard for new NEXUS users",
+          "domain": "communication",
+          "severity": "low",
+          "status": "pending",
+          "effort_hours": 6,
+          "owner_agent": "comm-agent",
+          "dependencies": [],
+          "verification_command": "pytest tests/comm/test_wizard.py -v && python -m nexus.cli.wizard --non-interactive | jq -e '.completed == true'",
+          "rationale": "1097 resources overwhelm new users. Interactive CLI wizard walks through project, goals, common tasks, and cluster preview.",
+          "papers": [
+            "First-time user experience design (NN/g)"
+          ],
+          "code_change": {
+            "target_file": "nexus/cli/wizard.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "inquirer",
+              "json"
+            ],
+            "functions": [
+              {
+                "name": "run_wizard",
+                "signature": "def run_wizard(non_interactive: bool = False) -> dict",
+                "description": "7-step onboarding wizard saving config to ~/.nexus/config.json."
+              }
+            ],
+            "classes": [
+              {
+                "name": "OnboardingWizard",
+                "description": "Guides new users through project setup and resource discovery."
+              }
+            ],
+            "tests": [
+              "tests/comm/test_wizard.py::test_wizard_completes",
+              "tests/comm/test_wizard.py::test_config_saved"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/cli/wizard.py"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Architecture",
+      "type": "architecture",
+      "effort_hours": 36,
+      "gaps": [
+        {
+          "id": "ARCH-7",
+          "title": "MONOLITHIC DEPLOYMENT",
+          "domain": "architecture",
+          "severity": "low",
+          "status": "pending",
+          "effort_hours": 24,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-2",
+            "ARCH-9",
+            "PERF-3",
+            "PERF-4"
+          ],
+          "verification_command": "pytest tests/arch/test_module_boundaries.py -v && python -c 'import nexus.ruflo; import nexus.router; import nexus.strategy'",
+          "rationale": "All code is deployed as one unit. Modular monolith with DDD bounded contexts and Hatch packages lets nexus-ruflo and nexus-strategy deploy independently when needed.",
+          "papers": [
+            "arXiv:2201.07226"
+          ],
+          "code_change": {
+            "target_file": "pyproject.toml",
+            "action": "modify",
+            "language": "toml",
+            "imports": [],
+            "functions": [],
+            "classes": [],
+            "tests": [
+              "tests/arch/test_module_boundaries.py::test_no_cross_module_imports",
+              "tests/arch/test_module_boundaries.py::test_ruflo_package_installable"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout pyproject.toml"
+            ]
+          }
+        },
+        {
+          "id": "ARCH-10",
+          "title": "NO RESOURCE VERSIONING",
+          "domain": "architecture",
+          "severity": "low",
+          "status": "pending",
+          "effort_hours": 12,
+          "owner_agent": "arch-agent",
+          "dependencies": [
+            "ARCH-7"
+          ],
+          "verification_command": "pytest tests/arch/test_resource_versioning.py -v && python -m nexus.versioning.resolve --name find_skills --constraint '>=1.0.0,<2.0.0' | jq -e '.version'",
+          "rationale": "Skills are loaded from embedded Python dicts without version control. Git-backed YAML manifests with python-semver constraints allow multiple skill versions to coexist.",
+          "papers": [],
+          "code_change": {
+            "target_file": "nexus/versioning/manifest.py",
+            "action": "create",
+            "language": "python",
+            "imports": [
+              "semver",
+              "yaml",
+              "git"
+            ],
+            "functions": [
+              {
+                "name": "load_skill_manifests",
+                "signature": "def load_skill_manifests(repo_path: str) -> list",
+                "description": "Load all Skill manifests from Git repo."
+              },
+              {
+                "name": "resolve_version",
+                "signature": "def resolve_version(name: str, constraint: str, available: list) -> str",
+                "description": "Resolve highest version matching semver constraint."
+              }
+            ],
+            "classes": [
+              {
+                "name": "SkillManifest",
+                "description": "Pydantic model for nexus.io/v1 Skill CRD."
+              }
+            ],
+            "tests": [
+              "tests/arch/test_resource_versioning.py::test_semver_constraint_resolution",
+              "tests/arch/test_resource_versioning.py::test_major_version_coexistence"
+            ],
+            "migrations": [],
+            "rollback": [
+              "git checkout nexus/versioning/"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

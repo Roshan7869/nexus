@@ -1,0 +1,1018 @@
+{
+  "phase": "P5",
+  "generated_at": "2026-07-11T22:35:48Z",
+  "latency_ms": 5118.2,
+  "overall_pass": true,
+  "gates": {
+    "terminal_close_rate": {
+      "pass": true,
+      "value": 99.81,
+      "target": 80.0
+    },
+    "router_mode_match": {
+      "pass": true,
+      "value": "2",
+      "target": "2"
+    },
+    "zero_token_active": {
+      "pass": true,
+      "value": 0,
+      "target": 0
+    },
+    "cluster_divergence": {
+      "pass": true,
+      "value": 0,
+      "target": 0
+    },
+    "db_ok": {
+      "pass": true,
+      "value": true,
+      "target": true
+    },
+    "invoke_cold_rate": {
+      "pass": true,
+      "value": 21.83,
+      "target": 35.0
+    },
+    "process_topology": {
+      "pass": true,
+      "value": 100.0,
+      "target": 100.0,
+      "detail": "HTTP=systemd, MCP=IDE stdio, harness=MCP bridge in-process, dashboard=supervisord. Supervisor STOPPED for MCP/HTTP/harness is intentional."
+    },
+    "edge_learning": {
+      "pass": true,
+      "value": 9186,
+      "target": 10,
+      "detail": "co_triggered=9190 with_count=9186"
+    },
+    "ide_event_loop": {
+      "pass": true,
+      "value": 14,
+      "target": 5,
+      "detail": "7d=22 total=52"
+    },
+    "okf_residual": {
+      "pass": true,
+      "value": 0,
+      "target": 20
+    },
+    "chunk_resource_link": {
+      "pass": true,
+      "value": 54.41,
+      "target": 50.0,
+      "detail": "linked=36177/66495"
+    }
+  },
+  "routing_coverage": {
+    "total_routes": 6670,
+    "by_outcome": {
+      "correct": 3998,
+      "partial": 1991,
+      "routed": 13,
+      "wrong": 668
+    },
+    "terminal_count": 6657,
+    "non_terminal_count": 13,
+    "terminal_close_rate_pct": 99.81,
+    "terminal_close_target_pct": 80.0,
+    "terminal_close_gate_pass": true,
+    "binary_accuracy_excl_partial_pct": 85.68,
+    "weighted_accuracy_pct": 75.01,
+    "window_7d": {
+      "total": 215,
+      "terminal": 202,
+      "terminal_close_rate_pct": 93.95
+    },
+    "tool_sessions": {
+      "total": 17,
+      "closed": 12,
+      "active": 5,
+      "correct": 12,
+      "close_rate_pct": 70.59,
+      "success_rate_pct": 100.0
+    }
+  },
+  "catalog": {
+    "active": 1315,
+    "archived": 1527,
+    "never_triggered_active": 215,
+    "never_triggered_pct": 16.35,
+    "invoke_active": 985,
+    "invoke_never_triggered": 215,
+    "invoke_never_triggered_pct": 21.83,
+    "invoke_cold_target_pct": 35.0,
+    "invoke_cold_gate_pass": true,
+    "reference_active": 330,
+    "reference_never_triggered": 0,
+    "skill_active": 491,
+    "skill_never_triggered": 111,
+    "skill_never_triggered_pct": 22.61,
+    "cold_without_sections": 0,
+    "zero_token_active": 0,
+    "cluster_divergence": 0,
+    "multi_membership": 0,
+    "resource_embeddings": 1834,
+    "never_triggered_target_pct": 35.0,
+    "never_triggered_gate_pass": true,
+    "zero_token_gate_pass": true,
+    "divergence_gate_pass": true
+  },
+  "router": {
+    "router_status": {
+      "issue": null,
+      "use_unified_router": 2,
+      "mode": "unified_v5",
+      "path": "unified_route_v5",
+      "production_sot": true,
+      "default_flag": 2,
+      "cold_fraction": 0.3,
+      "top1_agreement_target": 0.95,
+      "env_source": "USE_UNIFIED_ROUTER"
+    },
+    "health_v1": {
+      "router_mode": "unified_v5",
+      "router_flag": 2,
+      "db_ok": true,
+      "git_sha": "40a708b",
+      "contract": "nexus.execution_plane.v1"
+    },
+    "expected_flag": "2",
+    "actual_flag": "2",
+    "router_mode_match": true,
+    "production_sot": true
+  },
+  "harness": {
+    "metrics": {
+      "project": "all",
+      "ftsr": 60.06,
+      "mrc": 6.882,
+      "tlt": 86.03,
+      "cdr": 4.03,
+      "harness_efficiency": 0.8568,
+      "routing_accuracy_pct": 60.06,
+      "active_tool_sessions": 5,
+      "closed_routes": 6657,
+      "sources": {
+        "ftsr": "routing_log",
+        "mrc": "tool_sessions.tools_json",
+        "tlt": "tool_sessions.tools_json",
+        "cdr": "resources.last_used_at"
+      }
+    },
+    "dashboard": {
+      "status": "ok",
+      "global": {
+        "project": "all",
+        "ftsr": 60.06,
+        "mrc": 6.882,
+        "tlt": 86.03,
+        "cdr": 4.03,
+        "harness_efficiency": 0.8568,
+        "routing_accuracy_pct": 60.06,
+        "active_tool_sessions": 5,
+        "closed_routes": 6657,
+        "sources": {
+          "ftsr": "routing_log",
+          "mrc": "tool_sessions.tools_json",
+          "tlt": "tool_sessions.tools_json",
+          "cdr": "resources.last_used_at"
+        }
+      },
+      "scoped": {
+        "project": "all",
+        "ftsr": 60.06,
+        "mrc": 6.882,
+        "tlt": 86.03,
+        "cdr": 4.03,
+        "harness_efficiency": 0.8568,
+        "routing_accuracy_pct": 60.06,
+        "active_tool_sessions": 5,
+        "closed_routes": 6657,
+        "sources": {
+          "ftsr": "routing_log",
+          "mrc": "tool_sessions.tools_json",
+          "tlt": "tool_sessions.tools_json",
+          "cdr": "resources.last_used_at"
+        }
+      },
+      "projects": {
+        "Aashiyaana": {
+          "project": "Aashiyaana",
+          "ftsr": 0.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 0.0,
+          "routing_accuracy_pct": 0.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 1,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "Algotrading": {
+          "project": "Algotrading",
+          "ftsr": 73.33,
+          "mrc": 1.0,
+          "tlt": 50.83,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 73.33,
+          "active_tool_sessions": 0,
+          "closed_routes": 15,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "aashiyaana": {
+          "project": "aashiyaana",
+          "ftsr": 62.07,
+          "mrc": 1.0,
+          "tlt": 38.79,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 62.07,
+          "active_tool_sessions": 0,
+          "closed_routes": 29,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "algotrading": {
+          "project": "algotrading",
+          "ftsr": 100.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 1,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "auto": {
+          "project": "auto",
+          "ftsr": 95.24,
+          "mrc": 1.0,
+          "tlt": 12.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 95.24,
+          "active_tool_sessions": 0,
+          "closed_routes": 42,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "auto_invoke": {
+          "project": "auto_invoke",
+          "ftsr": 0.0,
+          "mrc": 1.0,
+          "tlt": 25.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.0,
+          "routing_accuracy_pct": 0.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 18,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "cebo": {
+          "project": "cebo",
+          "ftsr": 0.0,
+          "mrc": 1.0,
+          "tlt": 100.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.0,
+          "routing_accuracy_pct": 0.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 1,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "competitive-analysis": {
+          "project": "competitive-analysis",
+          "ftsr": 100.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 4,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "default": {
+          "project": "default",
+          "ftsr": 55.74,
+          "mrc": 1.0,
+          "tlt": 30.55,
+          "cdr": 4.03,
+          "harness_efficiency": 0.7841,
+          "routing_accuracy_pct": 55.74,
+          "active_tool_sessions": 0,
+          "closed_routes": 4085,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "frontend-design-inspiration": {
+          "project": "frontend-design-inspiration",
+          "ftsr": 66.67,
+          "mrc": 1.0,
+          "tlt": 41.67,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 66.67,
+          "active_tool_sessions": 0,
+          "closed_routes": 3,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "gcode-harness": {
+          "project": "gcode-harness",
+          "ftsr": 100.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 1,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hermes": {
+          "project": "hermes",
+          "ftsr": 58.82,
+          "mrc": 1.0,
+          "tlt": 53.68,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 58.82,
+          "active_tool_sessions": 0,
+          "closed_routes": 17,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hyPE": {
+          "project": "hyPE",
+          "ftsr": 0.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 0.0,
+          "routing_accuracy_pct": 0.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 3,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hype": {
+          "project": "hype",
+          "ftsr": 66.67,
+          "mrc": 1.0,
+          "tlt": 41.67,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 66.67,
+          "active_tool_sessions": 0,
+          "closed_routes": 6,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hype-1": {
+          "project": "hype-1",
+          "ftsr": 100.0,
+          "mrc": 1.0,
+          "tlt": 0.0,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 2,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hype-collective-hub": {
+          "project": "hype-collective-hub",
+          "ftsr": 66.67,
+          "mrc": 1.0,
+          "tlt": 41.67,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 66.67,
+          "active_tool_sessions": 0,
+          "closed_routes": 3,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hype-collective-hub-main": {
+          "project": "hype-collective-hub-main",
+          "ftsr": 71.43,
+          "mrc": 1.0,
+          "tlt": 33.93,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 71.43,
+          "active_tool_sessions": 0,
+          "closed_routes": 7,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "hype-next": {
+          "project": "hype-next",
+          "ftsr": 62.75,
+          "mrc": 1.0,
+          "tlt": 41.67,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 62.75,
+          "active_tool_sessions": 0,
+          "closed_routes": 51,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "impeccable": {
+          "project": "impeccable",
+          "ftsr": 88.89,
+          "mrc": 8.0,
+          "tlt": 100.0,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 88.89,
+          "active_tool_sessions": 0,
+          "closed_routes": 18,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "tool_sessions.tools_json",
+            "tlt": "tool_sessions.tools_json",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "insforge": {
+          "project": "insforge",
+          "ftsr": 20.0,
+          "mrc": 1.0,
+          "tlt": 0.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.2,
+          "routing_accuracy_pct": 20.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 5,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "kaari": {
+          "project": "kaari",
+          "ftsr": 51.95,
+          "mrc": 8.0,
+          "tlt": 100.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.8889,
+          "routing_accuracy_pct": 51.95,
+          "active_tool_sessions": 0,
+          "closed_routes": 77,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "tool_sessions.tools_json",
+            "tlt": "tool_sessions.tools_json",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "leadiq": {
+          "project": "leadiq",
+          "ftsr": 100.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 3,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "nexus": {
+          "project": "nexus",
+          "ftsr": 66.75,
+          "mrc": 7.091,
+          "tlt": 88.64,
+          "cdr": 4.03,
+          "harness_efficiency": 0.9884,
+          "routing_accuracy_pct": 66.75,
+          "active_tool_sessions": 5,
+          "closed_routes": 2039,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "tool_sessions.tools_json",
+            "tlt": "tool_sessions.tools_json",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "pgwaala": {
+          "project": "pgwaala",
+          "ftsr": 50.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 50.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 2,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "ruh": {
+          "project": "ruh",
+          "ftsr": 50.0,
+          "mrc": 1.0,
+          "tlt": 62.5,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 50.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 2,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "ruh-editorial-jewel": {
+          "project": "ruh-editorial-jewel",
+          "ftsr": 47.06,
+          "mrc": 1.0,
+          "tlt": 47.79,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 47.06,
+          "active_tool_sessions": 0,
+          "closed_routes": 17,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "smoke": {
+          "project": "smoke",
+          "ftsr": 100.0,
+          "mrc": 3.5,
+          "tlt": 43.75,
+          "cdr": 4.03,
+          "harness_efficiency": 1.0,
+          "routing_accuracy_pct": 100.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 9,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "tool_sessions.tools_json",
+            "tlt": "tool_sessions.tools_json",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "test": {
+          "project": "test",
+          "ftsr": 16.67,
+          "mrc": 1.0,
+          "tlt": 0.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.1667,
+          "routing_accuracy_pct": 16.67,
+          "active_tool_sessions": 0,
+          "closed_routes": 6,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "test_proj": {
+          "project": "test_proj",
+          "ftsr": 28.57,
+          "mrc": 1.0,
+          "tlt": 0.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.5,
+          "routing_accuracy_pct": 28.57,
+          "active_tool_sessions": 0,
+          "closed_routes": 7,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "trading": {
+          "project": "trading",
+          "ftsr": 78.68,
+          "mrc": 1.0,
+          "tlt": 24.91,
+          "cdr": 4.03,
+          "harness_efficiency": 0.9907,
+          "routing_accuracy_pct": 78.68,
+          "active_tool_sessions": 0,
+          "closed_routes": 136,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "vibeyard": {
+          "project": "vibeyard",
+          "ftsr": 84.78,
+          "mrc": 1.0,
+          "tlt": 23.37,
+          "cdr": 4.03,
+          "harness_efficiency": 0.8478,
+          "routing_accuracy_pct": 84.78,
+          "active_tool_sessions": 0,
+          "closed_routes": 46,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "vihaar": {
+          "project": "vihaar",
+          "ftsr": 0.0,
+          "mrc": 1.0,
+          "tlt": 0.0,
+          "cdr": 4.03,
+          "harness_efficiency": 0.0,
+          "routing_accuracy_pct": 0.0,
+          "active_tool_sessions": 0,
+          "closed_routes": 1,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "routing_log.repeat_count_1h",
+            "tlt": "routing_log.matched_skills",
+            "cdr": "resources.last_used_at"
+          }
+        }
+      },
+      "ide_sessions": {
+        "total_sessions": 0,
+        "sessions": [],
+        "global_metrics": {
+          "project": "all",
+          "ftsr": 60.06,
+          "mrc": 6.882,
+          "tlt": 86.03,
+          "cdr": 4.03,
+          "harness_efficiency": 0.8568,
+          "routing_accuracy_pct": 60.06,
+          "active_tool_sessions": 5,
+          "closed_routes": 6657,
+          "sources": {
+            "ftsr": "routing_log",
+            "mrc": "tool_sessions.tools_json",
+            "tlt": "tool_sessions.tools_json",
+            "cdr": "resources.last_used_at"
+          }
+        },
+        "by_project": {}
+      },
+      "summary": {
+        "ftsr": 60.06,
+        "mrc": 6.882,
+        "tlt": 86.03,
+        "cdr": 4.03,
+        "active_ide_sessions": 0,
+        "active_tool_sessions": 5
+      }
+    }
+  },
+  "learning_integrity": {
+    "recent_24h_routed": 13,
+    "recent_24h_terminal": 202,
+    "beliefs_total": 5267,
+    "beliefs_high_confidence": 335,
+    "note": "Non-terminal 'routed' rows are expected from session.open; they must not update Thompson (P0 guard)."
+  },
+  "process_status": {
+    "issue": "I-10",
+    "gap": "gap2",
+    "topology": {
+      "version": "gap2.v1",
+      "model": "split_ownership",
+      "summary": "HTTP=systemd, MCP=IDE stdio, harness=MCP bridge in-process, dashboard=supervisord. Supervisor STOPPED for MCP/HTTP/harness is intentional.",
+      "owners": {
+        "nexus-http-daemon": {
+          "primary": "systemd",
+          "unit": "nexus-daemon.service",
+          "port": 8080,
+          "supervisor_autostart": false,
+          "required_for_gate": true
+        },
+        "nexus-mcp-server": {
+          "primary": "ide_stdio",
+          "config": ".mcp.json \u2192 server/nexus-mcp-enhanced.py",
+          "supervisor_autostart": false,
+          "required_for_gate": false,
+          "note": "stdio owned by Claude Code / OpenCode / host; do not dual-start under supervisor"
+        },
+        "nexus-context-harness": {
+          "primary": "mcp_bridge",
+          "module": "server/harness_mcp_bridge.py",
+          "supervisor_autostart": false,
+          "required_for_gate": false,
+          "note": "Tools registered on main MCP; separate stdio process is optional dual path"
+        },
+        "nexus-dashboard": {
+          "primary": "supervisor",
+          "program": "nexus-dashboard",
+          "port": 8765,
+          "supervisor_autostart": true,
+          "required_for_gate": true
+        },
+        "supervisord": {
+          "primary": "self",
+          "required_for_gate": true
+        },
+        "nexus-unified": {
+          "primary": "external",
+          "port": 8000,
+          "required_for_gate": false,
+          "note": "LLM gateway \u2014 optional, not resource-brain path"
+        }
+      }
+    },
+    "supervisord_running": true,
+    "supervisor_programs": [
+      {
+        "name": "nexus-context-harness",
+        "state": "STOPPED",
+        "pid": null
+      },
+      {
+        "name": "nexus-dashboard",
+        "state": "RUNNING",
+        "pid": 94859
+      },
+      {
+        "name": "nexus-http-daemon",
+        "state": "STOPPED",
+        "pid": null
+      },
+      {
+        "name": "nexus-mcp-server",
+        "state": "STOPPED",
+        "pid": null
+      },
+      {
+        "name": "nexus-router-env",
+        "state": "STOPPED",
+        "pid": null
+      }
+    ],
+    "processes": [
+      {
+        "name": "supervisord",
+        "status": "running",
+        "pids": [
+          94858
+        ],
+        "port": 9001,
+        "port_open": true,
+        "managed_by": "self",
+        "required": true,
+        "supervisor_expected": null,
+        "program": null,
+        "note": null,
+        "systemd_unit": null,
+        "supervisor_state": null,
+        "supervisor_aligned": true
+      },
+      {
+        "name": "nexus-http-daemon",
+        "status": "running",
+        "pids": [
+          187633
+        ],
+        "port": 8080,
+        "port_open": true,
+        "managed_by": "systemd",
+        "required": true,
+        "supervisor_expected": "stopped_ok",
+        "program": "nexus-http-daemon",
+        "note": null,
+        "systemd_unit": "nexus-daemon.service",
+        "supervisor_state": "STOPPED",
+        "supervisor_aligned": true,
+        "supervisor_note": "STOPPED under supervisor is intentional"
+      },
+      {
+        "name": "nexus-mcp-server",
+        "status": "running",
+        "pids": [
+          4012
+        ],
+        "port": null,
+        "port_open": null,
+        "managed_by": "ide_stdio",
+        "required": false,
+        "supervisor_expected": "stopped_ok",
+        "program": "nexus-mcp-server",
+        "note": null,
+        "systemd_unit": null,
+        "supervisor_state": "STOPPED",
+        "supervisor_aligned": true,
+        "supervisor_note": "STOPPED under supervisor is intentional"
+      },
+      {
+        "name": "nexus-context-harness",
+        "status": "stopped",
+        "pids": [],
+        "port": null,
+        "port_open": null,
+        "managed_by": "mcp_bridge",
+        "required": false,
+        "supervisor_expected": "stopped_ok",
+        "program": "nexus-context-harness",
+        "note": "in-process via harness_mcp_bridge on main MCP",
+        "systemd_unit": null,
+        "supervisor_state": "STOPPED",
+        "supervisor_aligned": true,
+        "supervisor_note": "STOPPED under supervisor is intentional"
+      },
+      {
+        "name": "nexus-dashboard",
+        "status": "running",
+        "pids": [
+          94859
+        ],
+        "port": 8765,
+        "port_open": true,
+        "managed_by": "supervisor",
+        "required": true,
+        "supervisor_expected": "running",
+        "program": "nexus-dashboard",
+        "note": null,
+        "systemd_unit": null,
+        "supervisor_state": "RUNNING",
+        "supervisor_aligned": true
+      },
+      {
+        "name": "nexus-unified",
+        "status": "stopped",
+        "pids": [],
+        "port": 8000,
+        "port_open": false,
+        "managed_by": "external",
+        "required": false,
+        "supervisor_expected": null,
+        "program": null,
+        "note": null,
+        "systemd_unit": null,
+        "supervisor_state": null,
+        "supervisor_aligned": true
+      }
+    ],
+    "required_up": 3,
+    "required_total": 3,
+    "soft_up": 1,
+    "soft_total": 3,
+    "health_pct": 100.0,
+    "gate_pass": true,
+    "intentional_supervisor_stopped": [
+      "nexus-http-daemon",
+      "nexus-mcp-server",
+      "nexus-context-harness"
+    ],
+    "notes": [
+      "MCP STOPPED under supervisor is intentional (IDE owns stdio).",
+      "HTTP STOPPED under supervisor is intentional (systemd owns :8080).",
+      "context-harness STOPPED under supervisor is intentional (MCP bridge).",
+      "Do not flip MCP/HTTP autostart=true while IDE/systemd still own them."
+    ],
+    "checked_at": "2026-07-12T04:05:48Z"
+  },
+  "edge_learning": {
+    "edges_total": 14475,
+    "co_triggered": 9190,
+    "co_triggered_with_count": 9186,
+    "similar_to": 4008,
+    "co_triggered_avg_weight": 0.5113,
+    "edge_learning_gate_pass": true
+  },
+  "ide_events": {
+    "ide_events_total": 52,
+    "ide_events_real_30d": 14,
+    "ide_events_7d": 22,
+    "by_type": {
+      "task_completed": 33,
+      "error": 9,
+      "test_failed": 4,
+      "code_accepted": 2,
+      "build_passed": 1,
+      "edit_accepted": 1,
+      "lint_passed": 1,
+      "test_passed": 1
+    },
+    "ide_event_loop_gate_pass": true
+  },
+  "okf_residual": {
+    "cold_without_sections": 0,
+    "okf_residual_gate_pass": true
+  },
+  "chunk_resource_link": {
+    "has_resource_id_column": true,
+    "total_embeddings": 66495,
+    "linked": 36177,
+    "linked_pct": 54.41,
+    "chunk_resource_link_gate_pass": true
+  },
+  "ab_suite": null
+}

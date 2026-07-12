@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
 nexus-mcp-enhanced.py — Enhanced NEXUS MCP Server
-Includes find_skills, get_skill, log_outcome, audit_routing, list_resources
+Includes find_skills, get_skill, report_outcome, audit_routing, list_resources
 AND the new orchestrator tools: orchestrate, design_plan, execute_phase, verify_phase, audit_plan
 """
 import json, sqlite3, sqlite_vec, sys, time, os, shutil
 from pathlib import Path
 from typing import List, Dict, Optional
 from contextlib import contextmanager
+
+# ── Ensure project root is on sys.path BEFORE any local imports ──
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_script_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+if _script_dir not in sys.path:
+    sys.path.insert(0, _script_dir)
 
 # ── FastMCP import
 from fastmcp import FastMCP
@@ -50,13 +58,6 @@ def db_conn():
         conn.close()
 
 # ── Router import ──────────────────────────────────────
-import sys, os
-_script_dir = os.path.dirname(os.path.abspath(__file__))
-_project_root = os.path.dirname(_script_dir)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-if _script_dir not in sys.path:
-    sys.path.insert(0, _script_dir)
 from server.router import route_task, find_matching_skills
 
 # ── Learning pipeline import ──
@@ -70,6 +71,7 @@ from broker_runtime import (
     search_user_learnings,
     _close_routing_outcomes,
 )
+from server.tool_session_broker import get_tool_session_broker
 
 # ── Existing Tools ─────────────────────────────────────
 
@@ -84,251 +86,207 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
 
     Returns JSON with tier, recommended model, token limit, and matched skills.
 
-    P2/P4 wiring: route selection by USE_UNIFIED_ROUTER env var.
-      =0 (default)        → legacy v4 route_task (kept for canary A/B controls)
-      =1                  → router_v2 unified_route (P2 v2 unifier — bit[384] RRF)
-      =2                  → router_v2.unified_route_v5 (HGMF intent→cluster→rerank,
-                            the single PRODUCTION source of truth per T4 of
-                            second-brain-v2 cutover, 2026-06-28)
+    Phase 7 cutover — route selection by USE_UNIFIED_ROUTER env var:
+      =0 → legacy v4 route_task (rollback / A/B baseline)
+      =1 → router_v2 unified_route (v2 unifier)
+      =2 → unified_route_v5 (production SoT, default after Phase 7)
 
-    Default OFF (=0) leaves the legacy v4 pipeline running until the
-    canary (T7) flips the env on a single MCP process and T10 verifies
-    parity. Set USE_UNIFIED_ROUTER=2 + restart the canary MCP process
-    to activate v5 in production.
+    Rollback: export USE_UNIFIED_ROUTER=0 and restart MCP.
     """
-    router_flag = os.environ.get("USE_UNIFIED_ROUTER", "0")
-    if router_flag == "2":
-        result = _route_unified_v5(task, project, max_results)
-    elif router_flag == "1":
-        result = _route_unified(task, project, max_results)
-    else:
-        result = route_task(task, project, use_embedding=True,
-                            ide=os.environ.get("NEXUS_IDE", "claude-code"))
-
-    try:
-        with db_conn() as conn:
-            conn.execute("""
-                INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
-                                       matched_skills, outcome, skill_name, ide)
-                VALUES(?,?,?,?,?,NULL,?,?)
-            """, (
-                task, project, result['tier'], result['model'],
-                json.dumps([s['name'] for s in result.get('skills', [])]),
-                result['skills'][0]['name'] if result.get('skills') else None,
-                os.environ.get("NEXUS_IDE", "claude-code")
-            ))
-            conn.commit()
-    except Exception:
-        pass
+    from server.router_cutover import route_for_task
+    # P1: route_for_task opens session with outcome='routed' (no Thompson).
+    result = route_for_task(
+        task, project, max_results,
+        open_session=True,
+        ide=os.environ.get("NEXUS_IDE", "claude-code"),
+    )
 
     # Limit results
     result['skills'] = result.get('skills', [])[:max_results]
     return json.dumps(result, indent=2)
 
 
-def _route_unified(task: str, project: str, max_results: int) -> dict:
-    """Shape router_v2.unified_route output into the find_skills result schema.
-
-    The unified router does not run Thompson model selection (that stays in
-    v4 route_task); here we set tier=2 / model=sonnet as a neutral default and
-    populate ``skills`` from the merged 4-term-blended ranking. ``pipeline``
-    records which streams fed the result so callers can tell it came from the
-    unified router.
-    """
-    sys.path.insert(0, str(Path.home() / 'nexus/server'))
-    from router_v2 import unified_route
-    top_k = max(max_results, 10)  # pull a wider net, truncate after logging
-    ur = unified_route(task, top_k=top_k, cold_fraction=0.3, vec=True)
-    skills = []
-    for x in ur.get("merged", []):
-        name = x.get("name")
-        if not name:
-            continue
-        skills.append({
-            "name": name,
-            "score": round(x.get("final_score", 0.0), 4),
-            "category": "INVOKE",
-            "success_rate": 0,
-            "type": "skill",
-            "_source": "unified_router",
-            "cluster": x.get("cluster"),
-            "rrf_score": round(x.get("rrf_score", 0.0), 4),
-        })
-    return {
-        "task": task,
-        "project": project,
-        "tier": 2,
-        "tier_name": "Unified",
-        "model": "sonnet",
-        "token_limit": 200000,
-        "skills": skills,
-        "method": "unified_router_v2",
-        "cluster": skills[0]["cluster"] if skills else None,
-        "pipeline": ["unified_route", "rrf_resource", "blend_4term", "two_tier"],
-        "used_dense": ur.get("used_dense", False),
-        "vec_reason": ur.get("vec_reason", "disabled"),
-        "weights": ur.get("weights"),
-        "latency_ms": None,
-    }
-
-
-def _route_unified_v5(task: str, project: str, max_results: int) -> dict:
-    """Shape unified_route_v5 (HGMF intent→cluster→retrieve→rerank) output
-    into the find_skills result schema.
-
-    This is the PRODUCTION router per second-brain-v2 cutover T4
-    (2026-06-28). v5 adds an L3 refiner step on top of v2's hybrid
-    retrieval: L1 intent (route_task) → L2 cluster-bound topic
-    (unified_route) → L3 weighted convex blend
-    0.45·topic + 0.25·intent + 0.20·skill_match + 0.10·listwise
-    → L4 rank-gap autocut.
-    """
-    sys.path.insert(0, str(Path.home() / 'nexus/server'))
-    from router_v2.v5 import unified_route_v5
-    top_k = max(max_results, 10)
-    v5 = unified_route_v5(task, top_k=top_k, cold_fraction=0.3)
-    skills = []
-    for x in v5.get("merged", []):
-        name = x.get("name")
-        if not name:
-            continue
-        skills.append({
-            "name": name,
-            "score": round(x.get("final_score", 0.0), 4),
-            "category": "INVOKE",
-            "success_rate": 0,
-            "type": "skill",
-            "_source": "unified_router_v5",
-            "cluster": x.get("cluster"),
-            "l1_match": x.get("l1_match", False),
-            "intent_score": round(x.get("intent_score", 0.0), 4),
-        })
-    return {
-        "task": task,
-        "project": project,
-        "tier": 2,
-        "tier_name": "Unified v5",
-        "model": "sonnet",
-        "token_limit": 200000,
-        "skills": skills,
-        "method": "unified_router_v5",
-        "cluster": skills[0]["cluster"] if skills else None,
-        "pipeline": ["intent_route", "cluster_route", "topic_retrieve",
-                     "l3_rerank", "l4_autocut"],
-        "weights": v5.get("weights"),
-        "l1_short_circuit": v5.get("l1_short_circuit", False),
-        "agreement": v5.get("agreement"),
-        "latency_ms": v5.get("latency_ms"),
-    }
-
-
 @mcp.tool()
 def route_ab_compare(task: str, project: str = "default",
                      top_k: int = 10) -> str:
-    """A/B agreement comparison: v4 route_task vs router_v2 unified_route.
+    """A/B comparison: v4 vs v2 vs v5 on one query (no DB writes).
 
-    Runs BOTH pipelines on the same query (no DB writes, no live routing
-    effect) and reports the top-k name overlap so the unified router can be
-    evaluated before flipping USE_UNIFIED_ROUTER=1. This is the offline A/B
-    stub required by P2 — it never changes live behaviour.
-
-    Args:
-        task: task description to route.
-        project: project name.
-        top_k: number of top results to compare from each pipeline.
-
-    Returns JSON with both pipelines' top-k names, the intersection, and an
-    agreement score (intersection / union).
+    Offline gate check before/after USE_UNIFIED_ROUTER cutover. Reports
+    top-k overlap and top-1 match across all three router paths.
     """
-    sys.path.insert(0, str(Path.home() / 'nexus/server'))
-    # v4 path
-    try:
-        v4 = route_task(task, project, use_embedding=True,
-                        ide=os.environ.get("NEXUS_IDE", "claude-code"))
-        v4_names = [s.get("name") for s in v4.get("skills", [])[:top_k] if s.get("name")]
-    except Exception as e:
-        v4_names, v4 = [], {"error": str(e)}
-    # unified path
-    try:
-        from router_v2 import unified_route
-        ur = unified_route(task, top_k=top_k, cold_fraction=0.3, vec=True)
-        u_names = [x.get("name") for x in ur.get("merged", [])[:top_k] if x.get("name")]
-    except Exception as e:
-        u_names, ur = [], {"error": str(e)}
-    inter = sorted(set(v4_names) & set(u_names))
-    union = sorted(set(v4_names) | set(u_names))
-    agreement = round(len(inter) / max(len(union), 1), 3)
+    from server.router_cutover import compare_routers
+    return json.dumps(compare_routers(task, project, top_k), indent=2)
+
+
+@mcp.tool()
+def router_status() -> str:
+    """Active router flag, production SoT path, and cutover metadata (I-05)."""
+    from server.router_cutover import get_router_status
+    return json.dumps(get_router_status(), indent=2)
+
+
+@mcp.tool()
+def router_ab_suite(top_k: int = 5) -> str:
+    """20-query offline A/B suite — v4 vs v5 top-1 agreement gate."""
+    from server.router_cutover import run_ab_suite
+    return json.dumps(run_ab_suite(top_k=top_k), indent=2)
+
+
+@mcp.tool()
+def process_status() -> str:
+    """NEXUS process health — supervisord, MCP, HTTP daemon, dashboard (I-10)."""
+    from server.process_supervisor import get_process_status
+    return json.dumps(get_process_status(), indent=2)
+
+
+@mcp.tool()
+def ops_dashboard() -> str:
+    """Unified ops snapshot — processes, KG, router, harness, routing metrics."""
+    from server.process_supervisor import get_ops_snapshot
+    return json.dumps(get_ops_snapshot(), indent=2)
+
+
+@mcp.tool()
+def ops_bootstrap(start_dashboard: bool = True) -> str:
+    """Start supervisord + dashboard without restarting IDE-managed MCP."""
+    from server.process_supervisor import bootstrap_ops
+    return json.dumps(bootstrap_ops(start_dashboard=start_dashboard), indent=2)
+
+
+@mcp.tool()
+def research_synthesis(
+    topic: str,
+    project: str = "default",
+    sources: str = "",
+    ingest_top: int = 0,
+    persist: bool = False,
+) -> str:
+    """Multi-source research — arXiv, GitHub, SSRN, local FTS + gap mapping."""
+    from server.research_service import run_research_synthesis
+    src_list = [s.strip() for s in sources.split(",") if s.strip()] or None
+    return json.dumps(
+        run_research_synthesis(
+            topic,
+            sources=src_list,
+            project=project,
+            ingest_top=ingest_top,
+            persist=persist,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def research_sources() -> str:
+    """List research pipeline sources, publishers, and project sites."""
+    from server.research_service import list_research_sources, get_research_status
     return json.dumps({
-        "task": task,
-        "top_k": top_k,
-        "v4_names": v4_names,
-        "unified_names": u_names,
-        "intersection": inter,
-        "union": union,
-        "agreement": agreement,
-        "v4_method": v4.get("method") if isinstance(v4, dict) else None,
-        "unified_used_dense": ur.get("used_dense") if isinstance(ur, dict) else None,
-        "unified_vec_reason": ur.get("vec_reason") if isinstance(ur, dict) else None,
+        "status": get_research_status(),
+        "sources": list_research_sources(),
     }, indent=2)
 
 
 @mcp.tool()
 def get_skill(name: str) -> str:
-    """Read full skill body text by name.
+    """Read full skill/topic body by name, including OKF sections when indexed.
 
     Args:
-        name: Exact skill name (from find_skills result)
+        name: Exact resource name (from find_skills / wiki_brain_query)
     
-    Returns skill body text, or error if not found.
+    Returns body text plus structured OKF sections when available.
     """
     with db_conn() as conn:
         row = conn.execute("""
-            SELECT name, description, body_text, resource_type,
-                   times_triggered, times_correct, times_wrong
-            FROM resources WHERE name=?
+            SELECT id, name, description, body_text, resource_type, file_path,
+                   cluster, repo_name, times_triggered, times_correct, times_wrong
+            FROM resources WHERE name=? AND status='active'
         """, (name,)).fetchone()
-    
-    if not row:
-        return json.dumps({"error": f"Skill '{name}' not found"})
-    
-    return json.dumps({
+        if not row:
+            return json.dumps({"error": f"Resource '{name}' not found"})
+
+        sections = conn.execute("""
+            SELECT section_order, heading, content, token_count
+            FROM resource_sections WHERE resource_id=?
+            ORDER BY section_order ASC, id ASC
+        """, (row["id"],)).fetchall()
+
+    payload = {
         "name": row["name"],
         "description": row["description"],
         "body": row["body_text"],
         "type": row["resource_type"],
+        "cluster": row["cluster"],
+        "file_path": row["file_path"],
+        "repo": row["repo_name"],
+        "okf_sections": [
+            {
+                "order": s["section_order"],
+                "heading": s["heading"],
+                "content": s["content"],
+                "tokens": s["token_count"],
+            }
+            for s in sections
+        ],
         "stats": {
             "triggered": row["times_triggered"],
             "correct": row["times_correct"],
             "wrong": row["times_wrong"],
             "success_rate": round(row["times_correct"]*100.0/max(row["times_triggered"],1), 1)
-        }
-    }, indent=2)
+        },
+    }
+    if sections:
+        payload["okf_markdown"] = "\n\n".join(
+            f"## {s['heading']}\n\n{s['content']}" if s["heading"] else s["content"]
+            for s in sections
+        )
+    return json.dumps(payload, indent=2)
 
 
 @mcp.tool()
-def log_outcome(skill_name: str, outcome: str, task_summary: str = "",
-                project: str = "default", tokens_used: int = 0) -> str:
-    """Log whether a skill recommendation was correct or wrong.
-    
-    THIS IS THE PRIMARY LEARNING FEEDBACK LOOP. Every find_skills() call
-    should eventually report back via log_outcome(). This enables:
-    - Resource success tracking (times_correct/times_wrong)
-    - Thompson Sampling beliefs (Bayesian exploration/exploitation)
-    - Self-Reflection on failures (auto-find alternatives)
-    - Cluster affinity learning (which clusters are most useful)
-    
+def wiki_brain_query(task: str, top_k: int = 5, include_sections: bool = True) -> str:
+    """Query the wiki vault knowledge brain for IDE task assistance.
+
+    Searches OKF-indexed vault topics (system design, agents, security, v3, etc.)
+    via hybrid routing, then returns ranked topics with section snippets.
+
     Args:
-        skill_name: Name of the skill that was used
-        outcome: 'correct' or 'wrong'
-        task_summary: Brief description of what was done
-        project: Project name
-        tokens_used: Approximate tokens consumed
-    
-    Returns confirmation with learning pipeline status.
+        task: Natural-language task or question from the IDE
+        top_k: Number of topics to return (1-15)
+        include_sections: Include OKF section content in results
     """
-    result = record_outcome(skill_name, outcome, task_summary, project, 
-                            "mcp", tokens_used)
-    return json.dumps(result, indent=2)
+    from server.export.okf_export import search_export
+
+    top_k = max(1, min(top_k, 15))
+    hits = search_export(task, db_path=str(DB_PATH), top_k=top_k)
+    wiki_hits = [h for h in hits if "wiki" in (h.get("file_path") or "")
+                 or h.get("cluster") == "knowledge_wiki"]
+    results = wiki_hits or hits
+
+    formatted = []
+    for h in results[:top_k]:
+        entry = {
+            "name": h["name"],
+            "cluster": h.get("cluster"),
+            "score": h.get("score"),
+            "description": (h.get("description") or "")[:300],
+            "resource_type": h.get("resource_type"),
+        }
+        if include_sections:
+            entry["sections"] = [
+                {
+                    "heading": s.get("heading"),
+                    "content": (s.get("content") or "")[:1200],
+                }
+                for s in (h.get("sections") or [])[:6]
+            ]
+        formatted.append(entry)
+
+    return json.dumps({
+        "task": task,
+        "topics": formatted,
+        "count": len(formatted),
+        "hint": "Call get_skill(name) for full OKF body on any topic above.",
+    }, indent=2)
 
 
 @mcp.tool()
@@ -602,6 +560,125 @@ def audit_plan(plan_id: int) -> str:
 
 
 @mcp.tool()
+def task_start(
+    query: str,
+    project: str = "default",
+    ide: str = "claude-code",
+    max_tools: int = 8,
+    ide_session_id: str = "",
+) -> str:
+    """Start an ephemeral tool session — load only task-relevant tools into the IDE surface.
+
+    NEXUS routes the query, selects up to max_tools specialized resources, and
+    returns a context block. Call task_complete when done to dump tools and learn.
+    """
+    initialize_runtime()
+    broker = get_tool_session_broker()
+    session = broker.start_session(
+        project=project,
+        query=query,
+        ide=ide,
+        use_embedding=False,
+        max_tools=min(max(1, max_tools), 8),
+        ide_session_id=ide_session_id or None,
+    )
+    payload = session.to_dict()
+    payload["mcp_proxy"] = broker.get_mcp_proxy_config(session.session_id)
+    payload["instructions"] = (
+        "Use only visible_tools for this task. "
+        "Call task_complete(session_id, outcome, summary) when finished."
+    )
+    return json.dumps(payload, indent=2)
+
+
+@mcp.tool()
+def task_complete(
+    session_id: str,
+    outcome: str = "correct",
+    summary: str = "",
+    ide_session_id: str = "",
+) -> str:
+    """End an ephemeral tool session — dump tools from IDE surface and record learning."""
+    initialize_runtime()
+    # P4: prefer execution_plane report (belief_delta)
+    try:
+        from server.execution_plane import report_session
+        result = report_session(
+            session_id,
+            outcome,
+            notes=summary,
+            ide_session_id=ide_session_id or None,
+        )
+        return json.dumps(result, indent=2)
+    except Exception:
+        broker = get_tool_session_broker()
+        result = broker.end_session(
+            session_id, outcome=outcome, summary=summary,
+            ide_session_id=ide_session_id or None,
+        )
+        return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def nexus_session_open(
+    task: str,
+    project: str = "default",
+    budget: int = 8,
+    ide: str = "claude-code",
+) -> str:
+    """P4 execution-plane session open (stable contract alias)."""
+    initialize_runtime()
+    from server.execution_plane import open_session
+    return json.dumps(
+        open_session(task, project, budget=budget, ide=ide),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def nexus_session_report(
+    session_id: str,
+    outcome: str,
+    notes: str = "",
+    quality: float = 1.0,
+    skill_name: str = "",
+) -> str:
+    """P4 execution-plane session report with belief_delta."""
+    initialize_runtime()
+    from server.execution_plane import report_session
+    return json.dumps(
+        report_session(
+            session_id,
+            outcome,
+            notes=notes,
+            quality=quality,
+            skill_name=skill_name or None,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def harness_dashboard(project: str = "") -> str:
+    """Harness Engine dashboard — FTSR, MRC, TLT, CDR per project + active IDE sessions."""
+    from server.harness_metrics import build_harness_dashboard
+    return json.dumps(build_harness_dashboard(project or None), indent=2)
+
+
+@mcp.tool()
+def task_status(session_id: str) -> str:
+    """Inspect an active or completed tool session."""
+    initialize_runtime()
+    broker = get_tool_session_broker()
+    session = broker.get_session(session_id)
+    if session is None:
+        return json.dumps({"error": f"unknown session: {session_id}"})
+    data = session.to_dict()
+    data["mcp_proxy"] = broker.get_mcp_proxy_config(session_id)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
 def autopilot_run(task: str, project: str = "default", ide_name: str = "claude-code",
                   mode: str = "safemode", auto_execute: bool = True) -> str:
     """Run a task through the adaptive-imagining-cat broker/autopilot layer."""
@@ -657,126 +734,84 @@ def add_learning_note(note: str, project: str = "default", task_type: str = "gen
 
 @mcp.tool()
 def search_learnings(query: str = "", project: str = "default", limit: int = 20) -> str:
-    """Search user-authored learning notes."""
+    """Search project learnings — user notes, distilled patterns, session archives."""
     initialize_runtime()
-    return json.dumps(search_user_learnings(query=query, project=project, limit=limit), indent=2)
-
-
-# ═══════════════════════════════════════════════════════════════════
-# NEXUS v2: AUTONOMOUS TRIGGER TOOLS (Research-based)
-# ═══════════════════════════════════════════════════════════════════
-
-from auto_invoke import AutoInvoke, auto_trigger
-from hierarchy_router import HierarchicalRouter
-
-@mcp.tool()
-def auto_route(task: str, project: str = "default") -> str:
-    """NEXUS v2: Autonomous tool routing with hierarchical retrieval + self-reflection.
-    
-    Based on: AnyTool (hierarchical 3-layer), ToolkenGPT (tool embeddings),
-    ScaleMCP (TDWA embeddings), Tool-to-Agent (joint space)
-    
-    Args:
-        task: Task description (automatically triggers skills)
-        project: Project context
-    
-    Returns:
-        JSON with selected tool, reasoning, and execution result
-    """
-    print(f"\n[NEXUS v2 AUTO_ROUTE] {task}", file=sys.stderr, flush=True)
-    
-    router = HierarchicalRouter()
-    invoker = AutoInvoke()
-    
-    try:
-        # Step 1: Hierarchical routing (Layer 1-3)
-        route_result = router.route(task, project)
-        
-        # Step 2: Detect trigger type
-        trigger_type, confidence = invoker.detect_trigger(task)
-        
-        # Step 3: Execute with self-reflection
-        execution = invoker.execute_with_reflection(task, project)
-        
-        return json.dumps({
-            'route': {
-                'categories': [c[0] for c in route_result['layer1_categories'][:3]],
-                'final_tool': route_result['final_selection']['name'] if route_result['final_selection'] else None,
-                'parent_agent': route_result['final_selection'].get('parent_agent') if route_result['final_selection'] else None,
-                'method': 'hierarchical_tdwa'
-            },
-            'trigger': {
-                'type': trigger_type.value,
-                'confidence': confidence
-            },
-            'execution': execution,
-            'total_candidates': len(route_result['layer2_tools']),
-            'retries_used': execution.get('attempts', 0)
-        }, indent=2)
-        
-    finally:
-        router.close()
-        invoker.close()
+    from server.rl_feedback_loop import search_project_learnings
+    return json.dumps(search_project_learnings(query=query, project=project, limit=limit), indent=2)
 
 
 @mcp.tool()
-def trigger_on_event(event: str, context: str = "", project: str = "default") -> str:
-    """NEXUS v2: Automatically trigger skills when system events occur.
-    
-    No manual find_skills() needed - system monitors and responds autonomously.
-    
-    Args:
-        event: Error message, warning, or system event
-        context: Additional context about the situation
-        project: Project context
-    
-    Returns:
-        JSON with autonomous execution result
-    """
-    result = auto_trigger(event, context, project)
+def distill_project_learnings(project: str = "default", days: int = 7) -> str:
+    """Distill recent project session archives into searchable learning notes."""
+    initialize_runtime()
+    from server.rl_feedback_loop import distill_project_learnings as _distill
+    return json.dumps(_distill(project, days=days), indent=2)
+
+
+@mcp.tool()
+def feedback_coverage() -> str:
+    """RL loop coverage stats — routing outcomes, EFC, tool session success rate."""
+    initialize_runtime()
+    from server.rl_feedback_loop import get_feedback_coverage
+    return json.dumps(get_feedback_coverage(), indent=2)
+
+
+@mcp.tool()
+def kg_status() -> str:
+    """Knowledge graph health — edge count, zero-edge resources, community stats (I-04)."""
+    initialize_runtime()
+    from server.kg_service import get_kg_status
+    return json.dumps(get_kg_status(), indent=2)
+
+
+@mcp.tool()
+def kg_rebuild(
+    dry_run: bool = False,
+    restore_backup: bool = True,
+    write_communities: bool = True,
+    threshold: float = 0.65,
+) -> str:
+    """Rebuild collapsed KG — restore backup edges + semantic densification."""
+    initialize_runtime()
+    from server.kg_service import rebuild_kg
+    return json.dumps(
+        rebuild_kg(
+            dry_run=dry_run,
+            restore_backup=restore_backup,
+            write_communities=write_communities,
+            threshold=threshold,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def ide_event(
+    event_type: str,
+    project: str = "default",
+    skill_name: str = "",
+    query: str = "",
+    tool_session_id: str = "",
+    ide_session_id: str = "",
+    error: str = "",
+) -> str:
+    """Post an IDE event — auto task_complete on success, reflection on test_failed."""
+    initialize_runtime()
+    from server.rl_feedback_loop import handle_ide_event
+    result = handle_ide_event(
+        event_type,
+        ide="claude-code",
+        project=project,
+        metadata={
+            "project": project,
+            "skill_name": skill_name,
+            "query": query,
+            "tool_session_id": tool_session_id,
+            "ide_session_id": ide_session_id,
+            "error": error,
+        },
+    )
     return json.dumps(result, indent=2)
-
-
-@mcp.tool()
-def hierarchical_retrieve(query: str, categories: str = None, top_k: int = 5) -> str:
-    """NEXUS v2: Hierarchical tool retrieval with TDWA embeddings.
-    
-    Layer 1: Category routing (~5ms)
-    Layer 2: Tool retrieval with TDWA
-    Layer 3: Tool-to-Agent join
-    
-    Args:
-        query: Search query
-        categories: Comma-separated categories to filter (optional)
-        top_k: Number of results to return
-    
-    Returns:
-        JSON with ranked tools and scores
-    """
-    router = HierarchicalRouter()
-    
-    try:
-        cats = categories.split(',') if categories else None
-        result = router.route(query)
-        
-        return json.dumps({
-            'query': query,
-            'layer1_categories': [c[0] for c in result['layer1_categories'][:3]],
-            'layer2_tools': [{
-                'name': t['name'],
-                'tdwa_score': round(t.get('tdwa_score', 0), 3),
-                'category': t.get('category', 'unknown')
-            } for t in result['layer2_tools'][:top_k]],
-            'layer3_with_agents': [{
-                'name': t['name'],
-                'combined_score': round(t.get('combined_score', 0), 3),
-                'parent_agent': t.get('parent_agent'),
-                'parent_type': t.get('parent_type')
-            } for t in result['layer3_with_agents'][:5]]
-        }, indent=2)
-        
-    finally:
-        router.close()
 
 
 @mcp.tool()
@@ -1081,13 +1116,17 @@ def nexus_health() -> str:
         logs = conn.execute("SELECT COUNT(*) FROM routing_log").fetchone()[0]
         degraded = conn.execute("SELECT COUNT(*) FROM resources WHERE status='degraded'").fetchone()[0]
         plans = conn.execute("SELECT status, COUNT(*) FROM plans GROUP BY status").fetchall()
-    
+    from server.kg_service import get_kg_status
+    from server.process_supervisor import get_process_status
+    kg = get_kg_status()
     return json.dumps({
         "status": "healthy",
         "resources": {r[0]: r[1] for r in resources},
         "routing_logs_total": logs,
         "degraded_skills": degraded,
         "plans": {p[0]: p[1] for p in plans},
+        "knowledge_graph": kg,
+        "processes": get_process_status(),
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ')
     }, indent=2)
 
@@ -1154,71 +1193,6 @@ def nexus_route_to_cluster(task: str) -> str:
     return _route(task)
 
 
-# ── v4 Tool Attention (arxiv:2604.21816) — DEBUG-ONLY (demoted by T4) ────
-# 2026-06-28: unified_route_v5 is the sole production router. This MCP tool
-# is kept CALLABLE for A/B comparison (route_ab_compare invokes route_task
-# directly, not this tool, so demotion does not affect offline A/B) and for
-# offline diagnostics. Production routing traffic should not call this tool.
-
-@mcp.tool()
-def route_v4(query: str, resource_types: str = None,
-             theta: float = 0.28, top_k: int = 10,
-             use_clusters: bool = True, max_clusters: int = 2) -> str:
-    """DEBUG-ONLY — NEXUS v4 Tool Attention pipeline (arxiv:2604.21816).
-
-    DEMOTED 2026-06-28: unified_route_v5 is the production router.
-    This tool is retained callable for A/B comparison and offline
-    diagnostics only. Do NOT call from production routing flows.
-
-    Implements Algorithm 1 exactly:
-      1. Encode query → ISO scores for all N tools
-      2. Filter: ISO ≥ θ AND state preconditions satisfied
-      3. Top-k selection → active set A_t
-      4. Lazy-load full schemas for A_t
-      5. Return complete turn record with token accounting
-
-    Paper: 'Tool Attention Is All You Need: Dynamic Tool Gating and
-    Lazy Schema Loading for Eliminating the MCP/Tools Tax'
-    — Sadani & Kumar, 2025
-
-    Args:
-        query: User task description
-        resource_types: Comma-separated types (e.g. 'skill,mcp,agent')
-                        or None for all 1097 resources
-        theta: ISO score threshold (default 0.28, paper optimal)
-        top_k: Active set size (default 10, paper optimal)
-        use_clusters: Enable cluster routing pre-filter (default True)
-        max_clusters: Max clusters to activate (default 2)
-
-    Returns JSON with turn_id, gating decisions, active set,
-    promoted schemas, token accounting, and latency breakdown.
-    """
-    sys.path.insert(0, str(Path.home() / 'nexus/server'))
-    from tool_attention_v4 import route_v4 as _route_v4
-    return _route_v4(query, resource_types, theta, top_k,
-                     use_clusters=use_clusters, max_clusters=max_clusters)
-
-
-@mcp.tool()
-def hallucination_gate(tool_name: str, active_set_json: str) -> str:
-    """NEXUS v4: Reject hallucinated tool calls not in active set.
-
-    Algorithm 1, Line 8-9:
-      if model emits tool call c not in A_t: reject
-
-    Call this AFTER the model responds to verify its tool selection.
-
-    Args:
-        tool_name: The tool name the model emitted
-        active_set_json: JSON array from route_v4's gating.active_set
-
-    Returns JSON with allowed status and available alternatives.
-    """
-    sys.path.insert(0, str(Path.home() / 'nexus/server'))
-    from tool_attention_v4 import hallucination_gate as _gate
-    return _gate(tool_name, active_set_json)
-
-
 @mcp.tool()
 def close_outcomes(project: str = "default", max_rows: int = 500) -> str:
     """Close the feedback loop for routing_log entries that never got outcomes.
@@ -1260,13 +1234,13 @@ def learning_stats() -> str:
 
 @mcp.tool()
 def report_outcome(skill_name: str, outcome: str, task_summary: str = "",
-                   project: str = "default") -> str:
+                   project: str = "default", tokens_used: int = 0) -> str:
     """Report whether a skill/tool recommendation was correct or wrong.
     
-    THIS IS THE CRITICAL LEARNING FEEDBACK LOOP.
+    Primary learning feedback loop (replaces legacy log_outcome).
     
-    Every find_skills/tool_attention_route call MUST eventually report back
-    via this tool. Without it, NEXUS cannot learn:
+    Every find_skills call MUST eventually report back via this tool. Without it,
+    NEXUS cannot learn:
     - Which resources succeed → Thompson Sampling gets stronger beliefs
     - Which resources fail → Self-Reflection finds alternatives + degrades them
     - Which clusters are useful → Cluster affinity weights adjust
@@ -1279,9 +1253,8 @@ def report_outcome(skill_name: str, outcome: str, task_summary: str = "",
     
     Returns learning pipeline execution summary.
     """
-    import json
     result = record_outcome(skill_name, outcome, task_summary, project,
-                           "mcp", 0)
+                           "mcp", tokens_used)
     return json.dumps(result, indent=2)
 
 
@@ -1477,6 +1450,11 @@ def coach_analyze_sessions(harness: str = "", since_date: str = "", limit: int =
     """
     from server.coach.mcp_handlers import handle_coach_analyze_sessions
     return handle_coach_analyze_sessions(harness, since_date, min(limit, 100))
+
+
+from server.harness_mcp_bridge import register_harness_tools
+
+register_harness_tools(mcp)
 
 
 if __name__ == "__main__":

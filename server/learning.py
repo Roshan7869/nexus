@@ -18,12 +18,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-# P-v2faithful (2026-06-27): faithful sample-time TS mechanisms, isolated in a
-# sibling module so this file stays focused on DB I/O and the legacy path is
-# untouched. See server/learning_faithful.py for the research grounding
-# (Russo & Van Roy 2014 IDS; Kveton et al. 2021 Meta-TS). Lazy import inside
-# _thompson_sample_resource_v2 to avoid any import cost when NEXUS_TS_V2 is off.
-
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -173,10 +167,162 @@ def _bridge_outcome_log(conn, skill_name: str, outcome: str,
     return {"resource_id": resource_id, "efc": round(factors["efc"], 4)}
 
 
+# Terminal outcomes may update counters / Thompson / edges / affinity.
+# Non-terminal labels are telemetry only — never invent learning signal.
+TERMINAL_OUTCOMES = frozenset({"correct", "wrong", "partial", "skip"})
+NON_TERMINAL_OUTCOMES = frozenset({"routed", "pending", "null", ""})
+
+
+def _normalize_outcome_label(outcome: str | None) -> str:
+    if outcome is None:
+        return "routed"
+    label = str(outcome).strip().lower()
+    if label in ("none", "null", "nil"):
+        return "routed"
+    return label
+
+
+def _parse_skill_list(raw: Any) -> List[str]:
+    """Normalize matched_skills / tools_json into a unique name list."""
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        names = [str(x).strip() for x in raw if str(x).strip()]
+    else:
+        s = str(raw).strip()
+        if not s:
+            return []
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                names = [str(x).strip() for x in parsed if str(x).strip()]
+            else:
+                names = [p.strip() for p in s.split(",") if p.strip()]
+        except Exception:
+            names = [p.strip() for p in s.split(",") if p.strip()]
+    # preserve order, unique
+    seen: set[str] = set()
+    out: List[str] = []
+    for n in names:
+        if n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
+
+
+def learn_co_triggers(
+    conn: sqlite3.Connection,
+    skill_names: List[str],
+    outcome: str,
+    *,
+    min_pair: int = 2,
+) -> dict:
+    """Gap 3: upsert co_triggered edges for multi-skill terminal outcomes.
+
+    On correct/partial: increment co_trigger_count and raise weight.
+    On wrong: mild weight decay (still record co-occurrence so the pair is known).
+    Edges are undirected in practice via ordered (min_id, max_id) storage.
+    """
+    names = _parse_skill_list(skill_names)
+    if len(names) < min_pair:
+        return {"pairs": 0, "reason": "need_at_least_two_skills"}
+    if outcome not in TERMINAL_OUTCOMES or outcome == "skip":
+        return {"pairs": 0, "reason": "non_terminal"}
+
+    rows = conn.execute(
+        f"SELECT id, name FROM resources WHERE name IN ({','.join('?' * len(names))}) "
+        f"AND status IN ('active','degraded')",
+        names,
+    ).fetchall()
+    id_by_name = {r["name"]: r["id"] for r in rows}
+    ids = [id_by_name[n] for n in names if n in id_by_name]
+    if len(ids) < 2:
+        return {"pairs": 0, "reason": "skills_not_in_catalog", "resolved": len(ids)}
+
+    # ordered unique pairs
+    pairs = 0
+    upserted = 0
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            a, b = ids[i], ids[j]
+            if a == b:
+                continue
+            src, tgt = (a, b) if a < b else (b, a)
+            pairs += 1
+            existing = conn.execute(
+                "SELECT id, weight, co_trigger_count FROM resource_edges "
+                "WHERE source_id=? AND target_id=? AND edge_type='co_triggered'",
+                (src, tgt),
+            ).fetchone()
+            if outcome == "correct":
+                w_mul, count_delta = 1.08, 1
+            elif outcome == "partial":
+                w_mul, count_delta = 1.03, 1
+            else:  # wrong
+                w_mul, count_delta = 0.92, 1
+
+            if existing:
+                new_w = max(0.05, min(1.0, float(existing["weight"]) * w_mul))
+                new_c = int(existing["co_trigger_count"] or 0) + count_delta
+                conn.execute(
+                    "UPDATE resource_edges SET weight=?, co_trigger_count=?, "
+                    "updated_at=datetime('now') WHERE id=?",
+                    (new_w, new_c, existing["id"]),
+                )
+            else:
+                base = 0.55 if outcome == "correct" else (0.45 if outcome == "partial" else 0.35)
+                conn.execute(
+                    "INSERT INTO resource_edges"
+                    "(source_id, target_id, edge_type, weight, co_trigger_count) "
+                    "VALUES (?,?, 'co_triggered', ?, ?)",
+                    (src, tgt, base, count_delta),
+                )
+            upserted += 1
+    return {"pairs": pairs, "upserted": upserted, "skills": len(ids), "outcome": outcome}
+
+
+def edge_learning_stats(conn: sqlite3.Connection | None = None) -> dict:
+    """Gap 3 ops metrics for co-trigger graph learning."""
+    owns = conn is None
+    if owns:
+        conn = _get_conn()
+    try:
+        total = conn.execute("SELECT COUNT(*) AS n FROM resource_edges").fetchone()["n"]
+        co = conn.execute(
+            "SELECT COUNT(*) AS n FROM resource_edges WHERE edge_type='co_triggered'"
+        ).fetchone()["n"]
+        co_live = conn.execute(
+            "SELECT COUNT(*) AS n FROM resource_edges "
+            "WHERE edge_type='co_triggered' AND COALESCE(co_trigger_count,0) > 0"
+        ).fetchone()["n"]
+        similar = conn.execute(
+            "SELECT COUNT(*) AS n FROM resource_edges WHERE edge_type='similar_to'"
+        ).fetchone()["n"]
+        avg_w = conn.execute(
+            "SELECT AVG(weight) AS a FROM resource_edges WHERE edge_type='co_triggered'"
+        ).fetchone()["a"]
+        return {
+            "edges_total": total,
+            "co_triggered": co,
+            "co_triggered_with_count": co_live,
+            "similar_to": similar,
+            "co_triggered_avg_weight": round(float(avg_w or 0), 4),
+            # Gate: graph learning path has live co-occurrence signal
+            "edge_learning_gate_pass": co_live >= 10 or co >= 50,
+        }
+    finally:
+        if owns:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                    project: str = "default", ide: str = "unknown",
                    tokens_used: int = 0, routed_id: int = None,
-                   quality: float = 1.0) -> dict:
+                   quality: float = 1.0,
+                   co_skills: List[str] | None = None) -> dict:
     """
     Record whether a routing outcome was correct or wrong.
 
@@ -191,15 +337,64 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
     `quality` in [0,1] weights the Thompson belief update: a low-confidence
     derived verdict (e.g. perplexity gap near 0, from server/implicit_outcomes.py)
     should move the Beta posterior less than a confident one. Resource
-    counters still +1 per route (they count events, not confidence). 'routed'
-    outcomes must NOT call this — they carry no signal (IRC arXiv:2604.02869);
-    the caller filters them before calling. Default quality=1.0 preserves
-    legacy behavior for explicit human verdicts.
+    counters still +1 per route (they count events, not confidence).
+
+    Non-terminal outcomes {'routed','pending',NULL/empty} carry no learning
+    signal (IRC arXiv:2604.02869 / P0 design plan). They may update
+    routing_log telemetry only — never counters, Thompson, edges, or affinity.
+    Default quality=1.0 preserves legacy behavior for explicit human verdicts.
     """
+    outcome = _normalize_outcome_label(outcome)
+
+    # Sanitize ide for routing_log CHECK constraint
+    _IDE_OK = {
+        "opencode", "claude-code", "unknown", "hermes", "codex",
+        "mcp", "auto_invoke", "http",
+    }
+    ide_raw = (ide or "unknown").strip().lower()
+    ide = ide_raw if ide_raw in _IDE_OK else "unknown"
+
+    # ── P0: non-terminal early return (no invented learning) ──────────
+    if outcome not in TERMINAL_OUTCOMES:
+        conn = _get_conn()
+        try:
+            if routed_id:
+                conn.execute(
+                    "UPDATE routing_log SET outcome=? WHERE id=?",
+                    (outcome if outcome else "routed", routed_id),
+                )
+            else:
+                conn.execute("""
+                    INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
+                                           matched_skills, outcome, skill_name, tokens_used, ide)
+                    VALUES(?,?,?,?,?,?,?,?,?)
+                """, (task_summary or "outcome_reported", project, 0, "unknown", "[]",
+                      outcome or "routed", skill_name, tokens_used, ide))
+            conn.commit()
+            return {
+                "status": "logged_non_terminal",
+                "skill": skill_name,
+                "outcome": outcome or "routed",
+                "learning_applied": False,
+                "reason": "non_terminal_outcome_no_belief_update",
+            }
+        except Exception as e:
+            logger.warning(f"Non-terminal routing_log write failed: {e}")
+            return {
+                "status": "logged_non_terminal",
+                "skill": skill_name,
+                "outcome": outcome or "routed",
+                "learning_applied": False,
+                "error": str(e),
+            }
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
     conn = _get_conn()
     check_cooldown_restorations(conn)
-    _auto_close_routed(conn)   # P2-2: close stale routed/NULL outcomes before recording new one
-    _auto_close_stale_null(conn)  # GAP-P3 fix: convert stale NULL/routed to 'partial' on every write
     try:
         # ── 1a. Update routing_log ─────────────────────────────────────
         if routed_id:
@@ -324,6 +519,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         # ── 3. Trigger Self-Reflection on failure / high-error partial ────
         reflection_result = None
         auto_invoke_result = None
+        co_trigger_result = None
         error_rate = stats["times_wrong"] / max(stats["times_triggered"], 1) if stats else 0
         should_reflect = (
             outcome == "wrong"
@@ -336,7 +532,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                 logger.warning(f"Reflection trigger failed: {e}")
         
         # ── 4. Auto-Invoke Retry on failure ──────────────────────
-        if outcome == "wrong":
+        if outcome == "wrong" and AUTO_INVOKE_ENABLED:
             try:
                 auto_invoke_result = auto_invoke_retry(
                     conn, task_summary, skill_name, project
@@ -391,6 +587,30 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
             except Exception as e:
                 logger.warning(f"Edge weight update failed: {e}")
 
+        # ── 6b. Gap 3: co-trigger learning from multi-skill bundles ────
+        # Weight-only updates never create co_triggered edges; historical
+        # co_trigger_count stayed 0. Build pairs from co_skills, routed_id
+        # matched_skills, or explicit skill_name alone (no-op if single).
+        co_trigger_result = None
+        try:
+            bundle: List[str] = []
+            if skill_name:
+                bundle.append(skill_name)
+            if co_skills:
+                bundle.extend(_parse_skill_list(co_skills))
+            if routed_id:
+                row_ms = conn.execute(
+                    "SELECT matched_skills FROM routing_log WHERE id=?",
+                    (routed_id,),
+                ).fetchone()
+                if row_ms and row_ms["matched_skills"]:
+                    bundle.extend(_parse_skill_list(row_ms["matched_skills"]))
+            if len(_parse_skill_list(bundle)) >= 2:
+                co_trigger_result = learn_co_triggers(conn, bundle, outcome)
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"co-trigger learning failed: {e}")
+
         # ── 7. Bridge to outcome_log with EFC (P3/P8 structural fix) ───────
         # Primary feedback path must mirror into outcome_log with computed
         # EFC factors, else EFC coverage stays at ~34.8% (HTTP bridge only).
@@ -417,6 +637,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
             "reflection": reflection_result,
             "auto_invoke": auto_invoke_result,
             "outcome_log_bridge": outcome_log_bridge,
+            "co_triggers": co_trigger_result,
             "layers_active": {
                 "outcome_tracking": True,
                 "thompson_sampling": THOMPSON_ENABLED,
@@ -424,6 +645,8 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                 "auto_invoke_retry": auto_invoke_result is not None,
                 "cluster_affinity": CLUSTER_LEARNING,
                 "efc_outcome_log_bridge": outcome_log_bridge is not None,
+                "co_trigger_edges": co_trigger_result is not None
+                and (co_trigger_result or {}).get("upserted", 0) > 0,
             }
         }
     except Exception as e:
@@ -431,147 +654,6 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         logger.error(f"Outcome recording failed: {e}")
         return {"status": "error", "message": str(e)}
 
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# AUTO-CLOSE ROUTED — Closes stale NULL/routed outcomes
-# ══════════════════════════════════════════════════════════════════════════
-
-def _auto_close_routed(conn, max_age_hours: int = 24) -> int:
-    """Auto-close stale 'routed' or NULL routing_log entries.
-
-    DISABLED: This heuristic inflated Thompson beliefs by marking unverified
-    routes as 'correct' without real outcome reporting (alpha=473, beta=15).
-    Real outcomes must be reported via record_outcome() instead.
-
-    Returns 0 (no-op).
-    """
-    return 0
-
-
-def _auto_close_stale_null(conn, max_age_hours: int = 1) -> int:
-    """Convert stale NULL or 'routed' routing_log entries to 'partial'.
-
-    Closes GAP-P3: keeps the 'partial' (real-signal) bucket intact while
-    preventing truly-orphaned routes from blocking Thompson Sampling. Runs
-    on every record_outcome() call so coverage stays >99% organically.
-
-    Differs from _auto_close_routed (disabled): uses 'partial' not 'correct',
-    so it adds evidence WITHOUT biasing beliefs positive. Safe default.
-
-    Args:
-        conn: sqlite3 connection
-        max_age_hours: only close entries older than this (default 1h)
-
-    Returns:
-        Number of rows updated.
-    """
-    import datetime as _dt
-    cutoff = (_dt.datetime.now() - _dt.timedelta(hours=max_age_hours)).isoformat(sep=" ")
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE routing_log SET outcome = 'partial' "
-        "WHERE outcome IS NULL AND created_at < ?",
-        (cutoff,),
-    )
-    n_null = cur.rowcount
-    cur.execute(
-        "UPDATE routing_log SET outcome = 'partial' "
-        "WHERE outcome = 'routed' AND created_at < ?",
-        (cutoff,),
-    )
-    n_routed = cur.rowcount
-    if n_null or n_routed:
-        conn.commit()
-    return n_null + n_routed
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# TS-v2 (NEXUS_TS_V2, default OFF): informative priors (RC2 / HierTS MLR 2022
-# / Meta-TS arXiv:2102.06129) + SW-TS time-decay (RC3 / Trovò JAIR 2020) +
-# EFC reward shaping (RC3+RC4 convergence) + Information-Directed Sampling
-# (RC4 / Russo & Van Roy NeurIPS 2014, arXiv:1403.5556) + abstention gate
-# (RC3 / Yang ICML 2024 arXiv:2402.15127). Decay + prior + IDS + abstention
-# are READ-ONLY at sample time (use existing last_updated / times_* / alpha /
-# beta); only the update path writes, with EFC-shaped increments. Default
-# OFF = exact legacy behavior. No schema change, no caller change.
-# ══════════════════════════════════════════════════════════════════════════
-
-def _ts_v2_enabled() -> bool:
-    return os.environ.get("NEXUS_TS_V2", "").lower() in ("1", "true", "yes")
-
-
-def _ts_opt(name: str, default: str) -> float:
-    try:
-        return float(os.environ.get(name, default))
-    except (TypeError, ValueError):
-        return float(default)
-
-
-def _cluster_prior(cluster: Optional[str], affinities: Dict[str, float],
-                   lam: float) -> tuple:
-    """Empirical-Bayes informative prior INSPIRED BY HierTS (Hong et al. ICML
-    2022) / Meta-TS (Kveton et al. ICML 2021) — a λ-pseudo-count point-estimate
-    seeding, NOT a hierarchical/meta posterior. cluster affinity → λ pseudo-
-    observations. Returns (α_p, β_p) = (1+λ·aff, 1+λ·(1−aff)). Washed out as
-    data accrues (Bayesian shrinkage — a property of any Beta prior). Neutral
-    0.5 when cluster unknown / no data."""
-    aff = affinities.get(cluster, 0.5) if cluster else 0.5
-    aff = max(0.0, min(1.0, float(aff)))
-    return (1.0 + lam * aff, 1.0 + lam * (1.0 - aff))
-
-
-def _meta_cluster_posterior(conn, cluster: Optional[str], aff: float,
-                            kappa: float) -> tuple:
-    """Read the per-cluster Meta-TS meta-posterior Q_s = Beta(α_m, β_m) used to
-    SAMPLE the instance prior (Kveton et al. ICML 2021). Stored in model_beliefs
-    under provider='nexus', model='meta_cluster:<cluster>', task_type='__meta__'.
-
-    READ-ONLY at sample time: if no row exists yet (no cluster outcomes
-    accrued), warm-start from the affinity via meta_warm_start — the informative
-    meta-prior Q_0 (Meta-TS permits any meta-prior). The row is created lazily
-    by the UPDATE path in _update_thompson_belief (gated on NEXUS_TS_V2), so the
-    sample path never writes and flag-OFF stays byte-identical."""
-    from server.learning_faithful import meta_warm_start
-    if not cluster:
-        return meta_warm_start(0.5, kappa)
-    row = conn.execute(
-        "SELECT alpha, beta FROM model_beliefs "
-        "WHERE provider='nexus' AND model=? AND task_type='__meta__'",
-        (f"meta_cluster:{cluster}",)
-    ).fetchone()
-    if row:
-        return (float(row["alpha"]), float(row["beta"]))
-    return meta_warm_start(aff, kappa)
-
-
-def _sw_decay(alpha: float, beta: float, last_updated, gamma: float) -> tuple:
-    """Exponential time-decay (DISCOUNTED TS, NOT Sliding-Window TS / Trovò
-    et al. JAIR 2020 — SW-TS uses a hard fixed window τ, this fades
-    continuously): multiply stored (already-accumulated) counts by
-    gamma^hours_since_last_update so stale beliefs decay toward the prior.
-    Read-only on storage. No-op if last_updated unparseable."""
-    try:
-        if last_updated and gamma > 0.0:
-            lu = last_updated
-            if isinstance(lu, str):
-                lu = datetime.strptime(lu[:19], "%Y-%m-%d %H:%M:%S")
-            hrs = max(0.0, (datetime.utcnow() - lu).total_seconds() / 3600.0)
-            d = gamma ** hrs
-            if d < 1.0:
-                return (alpha * d, beta * d)
-    except Exception:
-        pass
-    return (alpha, beta)
-
-
-# NOTE: _update_thompson_belief_v2 (EFC R-shaped update) was REMOVED in the
-# P2 audit (2026-06-27). An offline replay benchmark proved R-shaping is
-# anti-Bayesian for a bandit — it correlates increment magnitude with outcome
-# direction, inflating the posterior mean (calibration 0.0549 vs 0.0243 flat;
-# symmetric R worse at 0.0871 via regression-to-prior). The honest flat Beta
-# update in _update_thompson_belief is the single calibration-preserving path;
-# all TS-v2 intelligence lives at sample time in _thompson_sample_resource_v2.
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -591,22 +673,8 @@ def _update_thompson_belief(conn, skill_name: str, outcome: str, task_summary: s
     `quality` in [0,1] scales the belief increment: a low-confidence derived
     verdict (from server/implicit_outcomes.py, e.g. perplexity gap near 0)
     moves the Beta posterior less than a confident one. This prevents
-    low-signal implicit outcomes from inflating beliefs the way the old
-    _auto_close_routed heuristic did. reward is also quality-scaled so
-    avg_reward stays calibrated.
-
-    NOTE (P2 audit 2026-06-27): the belief UPDATE is intentionally the honest
-    flat Beta increment (correct→α+q, partial→0.5q/0.5q, wrong→β+q per Riou
-    & Honda ALT 2020 randomized binarization). An earlier TS-v2 variant shaped
-    the increment by the EFC R-factor (non-redundancy), but an offline replay
-    benchmark proved that R-shaping is ANTI-BAYESIAN for a bandit: it
-    correlates the increment magnitude with the outcome direction (R<1 only on
-    wrong/partial), inflating the posterior mean ~2.3× (calibration error
-    0.0549 vs 0.0243 flat). Symmetric R was worse still (0.0871, regression-to-
-    prior). ALL TS-v2 value therefore lives at SAMPLE time (cluster priors,
-    SW-decay, IDS re-rank, abstention gate) in thompson_sample_resource_v2;
-    the update is one calibration-preserving path. Non-redundancy's correct home
-    is the outcome-recording layer (dedupe loop-repeats), not the belief update.
+    low-signal implicit outcomes from inflating beliefs. reward is also
+    quality-scaled so avg_reward stays calibrated.
     """
     global _coach_sync_counter
     q = max(0.0, min(1.0, float(quality)))  # clamp
@@ -649,48 +717,6 @@ def _update_thompson_belief(conn, skill_name: str, outcome: str, task_summary: s
     """, (alpha_inc, beta_inc, reward, reward, resource_key, task_type))
 
     conn.commit()
-
-    # ── Meta-cluster posterior (P-v2faithful; Kveton et al. ICML 2021) ──────
-    # GATED on NEXUS_TS_V2 so flag-OFF performs ZERO meta writes — the live
-    # legacy update path stays byte-identical (no new rows, no new commits).
-    # Updates the per-cluster meta-posterior Q_s = Beta(α^meta, β^meta) from the
-    # outcome so the instance prior is LEARNED online; the sample path in
-    # _thompson_sample_resource_v2 only READS it. Same quality-weighted,
-    # calibration-preserving flat increment as the resource belief. The row is
-    # warm-started from the cluster affinity (meta_warm_start) on first outcome
-    # — matching what the sample path uses before any outcomes accrue.
-    if os.environ.get("NEXUS_TS_V2", "false").lower() == "true":
-        cluster = resource["cluster"] if resource else None
-        if cluster:
-            from server.learning_faithful import meta_warm_start
-            meta_key = f"meta_cluster:{cluster}"
-            existing = conn.execute(
-                "SELECT id FROM model_beliefs "
-                "WHERE provider='nexus' AND model=? AND task_type='__meta__'",
-                (meta_key,)
-            ).fetchone()
-            if not existing:
-                aff = get_cluster_affinity_scores(conn).get(cluster, 0.5)
-                mk = _ts_opt("NEXUS_TS_META_PRIOR", "10")
-                am, bm = meta_warm_start(aff, mk)
-                conn.execute("""
-                    INSERT OR IGNORE INTO model_beliefs
-                        (provider, model, task_type, alpha, beta,
-                         total_requests, total_reward, avg_reward)
-                    VALUES (?, ?, '__meta__', ?, ?, 0, 0.0, 0.0)
-                """, ("nexus", meta_key, am, bm))
-                conn.commit()
-            conn.execute("""
-                UPDATE model_beliefs SET
-                    alpha = alpha + ?,
-                    beta = beta + ?,
-                    total_requests = total_requests + 1,
-                    total_reward = total_reward + ?,
-                    avg_reward = (total_reward + ?) / (total_requests + 1),
-                    last_updated = datetime('now')
-                WHERE provider = 'nexus' AND model = ? AND task_type = '__meta__'
-            """, (alpha_inc, beta_inc, reward, reward, meta_key))
-            conn.commit()
 
     # ── Phase 5: Periodically sync Coach practice scores → beliefs ──
     _coach_sync_counter += 1
@@ -738,166 +764,6 @@ def _ensure_belief(conn, provider: str, model: str, task_type: str):
         _BELIEF_SCHEMA_CHECKED = True
 
 
-def _thompson_sample_resource_v2(conn, task: str, candidates: List[Dict],
-                                  task_type: str = None) -> List[Dict]:
-    """TS-v2 sampling — RC2 informative priors + RC3 time-decay / abstention
-    + RC4 IDS-style re-rank. Read-only on storage (the UPDATE path is the
-    flat calibration-preserving Beta update in _update_thompson_belief).
-
-    HONEST RESEARCH LABELS (updated P-v2faithful 2026-06-27):
-      • Cluster priors: by default Meta-TS FAITHFUL (Kveton et al. ICML 2021,
-        arXiv:2102.06129) — instance prior P_s SAMPLED from a per-cluster
-        meta-posterior, updated online from outcomes. NEXUS_TS_META='empirical'
-        falls back to the prior empirical-Bayes λ-pseudo-count point-estimate
-        (inspired by HierTS, NOT a hierarchical posterior) for A/B.
-      • Time-decay: EXPONENTIAL discounting of stored counts by γ^hours — NOT
-        Sliding-Window TS (Trovò et al. JAIR 2020), which uses a hard fixed
-        window τ. Relabel: 'discounted TS'. Kept as-is (schema gap: skills have
-        no per-outcome timestamp log for a hard window).
-      • IDS re-rank: by default FAITHFUL Russo & Van Roy NeurIPS 2014
-        (arXiv:1403.5556) — Ψ=Δ²/g with canonical expected-regret Δ and mutual-
-        information g, computed by Monte-Carlo in learning_faithful.ids_rank_score;
-        INHERITS the IDS regret bound. NEXUS_TS_IDS_MODE='surrogate' falls back
-        to the prior gap-variance proxy (NO bound; leader=0 is a patch) for A/B.
-        NEXUS adaptation: canonical IDS selects one action; NEXUS returns a
-        ranked list, so we rank by Ψ ascending (argmin Ψ = top = the canonical
-        deterministic-IDS pick) and blend with TS+keyword.
-      • Abstention: a confidence GATE/flag — NOT Yang et al. ICML 2024's
-        abstention action with fixed regret c and LCB criterion. Kept as-is
-        (faithful abstention needs caller-side abstain-action handling = scope creep).
-    """
-    import random
-    if not task_type:
-        task_type = _classify_task_simple(task)
-
-    lam = _ts_opt("NEXUS_TS_PRIOR_STRENGTH", "10")
-    gamma = _ts_opt("NEXUS_TS_DECAY", "0.97")
-    w_ts = _ts_opt("NEXUS_TS_W_TS", "0.5")
-    w_kw = _ts_opt("NEXUS_TS_W_KW", "0.3")
-    w_ids = _ts_opt("NEXUS_TS_W_IDS", "0.2")
-    tau = _ts_opt("NEXUS_TS_ABSTAIN_TAU", "0.35")
-    abstain_info = _ts_opt("NEXUS_TS_ABSTAIN_INFO", "20")
-    affinities = get_cluster_affinity_scores(conn)
-    # Meta-TS prior source (P-v2faithful, 2026-06-27; Kveton et al. ICML 2021):
-    #   • 'faithful' (default) — SAMPLE the instance prior P_s ~ Beta(α^meta,β^meta)
-    #     drawn from the per-cluster meta-posterior, then seed the arm prior as
-    #     (1+λ·P_s, 1+λ·(1−P_s)). Sampling P_s is the Meta-TS exploration
-    #     mechanism; the meta-posterior is learned online in _update_thompson_belief.
-    #   • 'empirical' — the prior empirical-Bayes point-estimate P_s=aff via
-    #     _cluster_prior (NO Meta-TS sampling); A/B baseline for P5-bench.
-    meta_mode = os.environ.get("NEXUS_TS_META", "faithful").lower()
-    kappa = _ts_opt("NEXUS_TS_META_PRIOR", "10")
-
-    # Pass 1: effective (alpha, beta) per candidate (prior + counts + decay)
-    arms = []
-    for cand in candidates:
-        name = cand.get("name", "unknown")
-        res_row = conn.execute(
-            "SELECT times_correct, times_wrong, times_triggered, resource_type, cluster "
-            "FROM resources WHERE name = ?", (name,)
-        ).fetchone()
-        cluster = res_row["cluster"] if res_row else None
-        aff = affinities.get(cluster, 0.5) if cluster else 0.5
-        if meta_mode == "empirical":
-            a_p, b_p = _cluster_prior(cluster, affinities, lam)
-        else:
-            # faithful Meta-TS: sample P_s from the cluster meta-posterior and
-            # seed the arm prior (read-only; _meta_cluster_posterior never writes).
-            from server.learning_faithful import meta_sample_prior
-            am, bm = _meta_cluster_posterior(conn, cluster, aff, kappa)
-            a_p, b_p = meta_sample_prior(am, bm, lam, rng=random)
-        if res_row and res_row["resource_type"] == "skill":
-            alpha = a_p + (res_row["times_correct"] or 0)
-            beta = b_p + (res_row["times_wrong"] or 0)
-        else:
-            resource_key = f"resource:{name}"
-            _ensure_belief(conn, "nexus", resource_key, task_type)
-            row = conn.execute(
-                "SELECT alpha, beta, last_updated FROM model_beliefs "
-                "WHERE provider='nexus' AND model=? AND task_type=?",
-                (resource_key, task_type)
-            ).fetchone()
-            sa = (row["alpha"] if row else 1.0)
-            sb = (row["beta"] if row else 1.0)
-            lu = row["last_updated"] if row else None
-            # subtract the uniform seed (1.0), decay the rest, add the cluster prior
-            sa, sb = _sw_decay(max(sa - 1.0, 0.0), max(sb - 1.0, 0.0), lu, gamma)
-            alpha = a_p + sa
-            beta = b_p + sb
-        arms.append((cand, alpha, beta))
-
-    # IDS re-rank (P-v2faithful, 2026-06-27). Two modes via NEXUS_TS_IDS_MODE:
-    #   • 'faithful' (default) — canonical Russo & Van Roy NeurIPS 2014
-    #     (arXiv:1403.5556): Ψ(a)=Δ(a)²/g(a), Δ=expected regret to the unknown
-    #     optimal arm A* (averaged over the posterior P(A*)), g=mutual
-    #     information I(A*;Y_a). Ranked by Ψ ascending (argmin Ψ = top). The
-    #     Δ/g/Ψ quantities are computed faithfully (Monte-Carlo over the Beta
-    #     posteriors) in learning_faithful.ids_rank_score; this INHERITS the
-    #     IDS regret bound. Feasible because K is small (~5-10) → O(K·N).
-    #   • 'surrogate' — the prior gap-variance/info proxy (NO regret bound; the
-    #     leader=0 rule is a divide-by-zero patch, not IDS theory). Kept as an
-    #     A/B baseline for P5-bench.
-    # Both produce a [0,1] ids_norm array (higher = more worth sampling) fed
-    # into the same w_ts/w_kw/w_ids blend below.
-    ids_mode = os.environ.get("NEXUS_TS_IDS_MODE", "faithful").lower()
-    if ids_mode == "surrogate":
-        means = []
-        variances = []
-        for _, a, b in arms:
-            s = a + b
-            means.append(a / s if s > 0 else 0.5)
-            variances.append((a * b) / ((s * s) * (s + 1)) if s > 0 else 0.0)
-        best_mean = max(means) if means else 0.5
-        leader_var = 0.0
-        for m, v in zip(means, variances):
-            if abs(m - best_mean) < 1e-9:
-                leader_var = max(leader_var, v)
-        raw_ids = []
-        for m, v in zip(means, variances):
-            gap = max(0.0, best_mean - m)
-            if gap <= 1e-9:
-                info = 0.0  # the leader: sampling it teaches nothing about leadership
-            else:
-                info = v + leader_var  # Var(mean_i - mean_leader) for independent Betas
-            raw_ids.append(info / (gap + 1e-6))
-        mx = max(raw_ids) if raw_ids else 0.0
-        ids_norm = [(x / mx if mx > 0 else 0.0) for x in raw_ids]
-    else:
-        # faithful IDS — canonical Δ/g/Ψ via Monte-Carlo over the Beta arms.
-        from server.learning_faithful import ids_rank_score as _ids_rank
-        alphas = [max(a, 0.01) for _, a, _ in arms]
-        betas_ = [max(b, 0.01) for _, _, b in arms]
-        ids_norm = _ids_rank(alphas, betas_)
-
-    scored = []
-    for (cand, a, b), idn in zip(arms, ids_norm):
-        sampled = random.betavariate(max(a, 0.01), max(b, 0.01))
-        keyword_score = cand.get("score", 0.5)
-        combined = w_ts * sampled + w_kw * keyword_score + w_ids * idn
-        cc = dict(cand)
-        cc["thompson_score"] = round(sampled, 4)
-        cc["combined_score"] = round(combined, 4)
-        cc["belief_alpha"] = round(a, 2)
-        cc["belief_beta"] = round(b, 2)
-        cc["ids_score"] = round(idn, 4)
-        cc["ts_v2"] = True
-        scored.append(cc)
-
-    # Abstention GATE (NOT Yang et al. ICML 2024's abstention action — see
-    # docstring): flag the top result when globally low-confidence.
-    # Threshold = prior floor (1+λ) + abstain_info → "low total evidence".
-    if scored:
-        scored.sort(key=lambda x: (
-            0 if x.get("_source") == "intent" else 1,
-            -x["combined_score"],
-        ))
-        top = scored[0]
-        if top["thompson_score"] < tau and \
-                (top["belief_alpha"] + top["belief_beta"]) < (1.0 + lam + abstain_info):
-            top["abstain"] = True
-    return scored
-
-
 def thompson_sample_resource(conn, task: str, candidates: List[Dict], task_type: str = None) -> List[Dict]:
     """
     Thompson Sampling: sample from Beta(alpha, beta) for each candidate,
@@ -907,8 +773,6 @@ def thompson_sample_resource(conn, task: str, candidates: List[Dict], task_type:
     Phase 5: Reads times_correct/times_wrong directly from resources table
     for skill-level beliefs. Falls back to model_beliefs for non-skill resources.
     """
-    if _ts_v2_enabled():
-        return _thompson_sample_resource_v2(conn, task, candidates, task_type)
     import random
 
     if not task_type:
@@ -963,7 +827,6 @@ def thompson_sample_resource(conn, task: str, candidates: List[Dict], task_type:
         -x["combined_score"],
     ))
     return scored
-
 
 # ══════════════════════════════════════════════════════════════════════════
 # LAYER 3: SELF-REFLECTION — Diagnose failures, find alternatives
@@ -1026,23 +889,32 @@ def _trigger_reflection(conn, failed_skill: str, task_summary: str,
     if resource_id and alternatives:
         for alt in alternatives:
             alt_name = alt["name"]
+            # Resolve the alternative to a resource id so the router can join
+            # directly (migration 017) instead of parsing "Use X instead" text.
+            alt_id_row = conn.execute(
+                "SELECT id FROM resources WHERE name=?", (alt_name,)
+            ).fetchone()
+            alt_id = alt_id_row["id"] if alt_id_row else None
             # Check if this fix already exists in reflection_fixes
             row_fix = conn.execute("""
-                SELECT id, times_applied FROM reflection_fixes 
+                SELECT id, times_applied FROM reflection_fixes
                 WHERE resource_id = ? AND failure_summary = ? AND fix_description = ?
             """, (resource_id, f"Failed with {error_type}", f"Use {alt_name} instead")).fetchone()
-            
+
             if row_fix:
                 conn.execute("""
-                    UPDATE reflection_fixes 
-                    SET times_applied = times_applied + 1, last_applied_at = datetime('now')
+                    UPDATE reflection_fixes
+                    SET times_applied = times_applied + 1, last_applied_at = datetime('now'),
+                        alternative_resource_id = COALESCE(alternative_resource_id, ?)
                     WHERE id = ?
-                """, (row_fix["id"],))
+                """, (alt_id, row_fix["id"],))
             else:
                 conn.execute("""
-                    INSERT INTO reflection_fixes (resource_id, failure_summary, fix_description, times_applied, times_successful)
-                    VALUES (?, ?, ?, 1, 0)
-                """, (resource_id, f"Failed with {error_type}", f"Use {alt_name} instead"))
+                    INSERT INTO reflection_fixes
+                        (resource_id, failure_summary, fix_description, times_applied,
+                         times_successful, alternative_resource_id)
+                    VALUES (?, ?, ?, 1, 0, ?)
+                """, (resource_id, f"Failed with {error_type}", f"Use {alt_name} instead", alt_id))
         conn.commit()
 
     return {
@@ -1592,29 +1464,6 @@ def enhance_routing_result(route_result: dict, task: str, project: str) -> dict:
                         affinity_boost = affinities.get(cluster, 0.5) * 0.1
                         skill["combined_score"] = skill.get("combined_score", skill.get("score", 0)) + affinity_boost
         
-        # ── Phase P3: Orchestrator tools integration ────────────────
-        try:
-            from server.orchestrator_tools import resolve_orchestrators
-            orch_tools = resolve_orchestrators(task, max_results=3)
-            if orch_tools:
-                route_result["orchestrator_tools"] = orch_tools
-                # Inject orchestrator tools as fallback skills if routing found very few
-                existing_names = {s.get("name") for s in route_result.get("skills", [])}
-                if len(existing_names) < 2:
-                    for ot in orch_tools:
-                        if ot["name"] not in existing_names:
-                            route_result.setdefault("skills", []).append({
-                                "name": ot["name"],
-                                "score": 0.4,
-                                "category": "REVIEW",
-                                "success_rate": 0,
-                                "type": ot["type"],
-                                "_source": "orchestrator",
-                            })
-                            existing_names.add(ot["name"])
-        except Exception:
-            pass
-        
         # ── Tag which learning layers are active ────────────────────
         route_result["learning"] = {
             "thompson_sampling": THOMPSON_ENABLED,
@@ -1622,7 +1471,6 @@ def enhance_routing_result(route_result: dict, task: str, project: str) -> dict:
             "auto_invoke": AUTO_INVOKE_ENABLED,
             "cluster_affinity": CLUSTER_LEARNING,
             "outcome_tracking": True,
-            "orchestrator_integration": bool(route_result.get("orchestrator_tools")),
         }
         
         conn.close()

@@ -20,7 +20,7 @@ DETERMINISTIC FINGERPRINT CHECK:
   fingerprints and their canonical ide tags are:
     'tool-attention-v4' -> 'opencode'   (server/tool_attention_v4.py)
     'intent-classifier' -> 'opencode'   (server/intent_classifier.py)
-    'auto-router'       -> 'auto_invoke' (server/auto_invoke.py)
+    'auto-router'       -> 'auto_invoke' (legacy; module removed)
   These fingerprints are deterministic: a row whose matched_model is one of
   these strings was written by exactly one entrypoint.
 

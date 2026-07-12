@@ -112,9 +112,185 @@ import uvicorn
 
 app = FastAPI(
     title="NEXUS Resource Manager",
-    description="Persistent HTTP daemon for NEXUS v4 routing + learning pipeline",
-    version="4.1.0",
+    description="Persistent HTTP daemon for NEXUS routing + learning + execution plane",
+    version="4.2.0",
 )
+
+
+# ── P4 Execution plane (AgentRouter / Hermes / CodeNomad contract) ─────
+
+class SessionOpenRequest(BaseModel):
+    task: str
+    project: str = "default"
+    budget: int = 8
+    ide: str = "http"
+    use_embedding: bool = True
+    ide_session_id: Optional[str] = None
+
+
+class SessionReportRequest(BaseModel):
+    outcome: str
+    notes: str = ""
+    quality: float = 1.0
+    skill_name: Optional[str] = None
+    ide_session_id: Optional[str] = None
+
+
+class IDEEventRequest(BaseModel):
+    """Gap 4: IDE feedback on the resource-brain daemon (not LLM gateway)."""
+    event_type: str
+    ide: str = "unknown"
+    model: str = "unknown"
+    provider: str = "unknown"
+    task_type: str = "general"
+    project: str = "default"
+    reward: Optional[float] = None
+    confidence: float = 1.0
+    task_description: str = ""
+    metadata: Optional[dict] = None
+
+
+@app.get("/v1/health")
+async def v1_health():
+    """P4 execution-plane health: version, router_mode, flags, contract."""
+    try:
+        from server.execution_plane import health_v1
+        return await _run_sync(health_v1)
+    except Exception as e:
+        raise HTTPException(500, f"v1 health error: {e}")
+
+
+@app.get("/v1/ops")
+async def v1_ops(project: Optional[str] = None, ab: bool = False, full_ab: bool = False):
+    """P5 ops report: terminal close rate, catalog gates, harness metrics, optional AB."""
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+    try:
+        from server.ops_metrics import build_ops_report
+        return await _run_sync(
+            build_ops_report,
+            project=project,
+            include_ab=ab or full_ab,
+            ab_quick=not full_ab,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"ops error: {e}")
+
+
+@app.get("/v1/ops/coverage")
+async def v1_ops_coverage():
+    """P5 terminal close-rate coverage only."""
+    try:
+        from server.ops_metrics import routing_coverage
+        return await _run_sync(routing_coverage)
+    except Exception as e:
+        raise HTTPException(500, f"coverage error: {e}")
+
+
+@app.get("/v1/ops/harness")
+async def v1_ops_harness(project: Optional[str] = None):
+    """P5 FTSR/MRC/TLT/CDR harness metrics."""
+    try:
+        from server.ops_metrics import harness_ops
+        return await _run_sync(harness_ops, project)
+    except Exception as e:
+        raise HTTPException(500, f"harness ops error: {e}")
+
+
+@app.post("/v1/session/open")
+async def v1_session_open(body: SessionOpenRequest):
+    """Open execution session: route + tools + harness plan (stable contract)."""
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+    try:
+        from server.execution_plane import open_session
+        return await _run_sync(
+            open_session,
+            body.task,
+            body.project,
+            budget=body.budget,
+            ide=body.ide,
+            use_embedding=body.use_embedding,
+            ide_session_id=body.ide_session_id,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"session open error: {e}")
+
+
+@app.post("/v1/session/{session_id}/report")
+async def v1_session_report(session_id: str, body: SessionReportRequest):
+    """Report terminal outcome; returns belief_delta when learning applied."""
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+    try:
+        from server.execution_plane import report_session
+        return await _run_sync(
+            report_session,
+            session_id,
+            body.outcome,
+            notes=body.notes,
+            quality=body.quality,
+            skill_name=body.skill_name,
+            ide_session_id=body.ide_session_id,
+        )
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"session report error: {e}")
+
+
+def _handle_ide_event_sync(body: IDEEventRequest) -> dict:
+    from server.rl_feedback_loop import handle_ide_event
+
+    meta = dict(body.metadata or {})
+    if body.project and "project" not in meta:
+        meta["project"] = body.project
+    if body.task_description:
+        meta.setdefault("query", body.task_description[:500])
+        meta.setdefault("task_summary", body.task_description[:500])
+    return handle_ide_event(
+        body.event_type,
+        ide=body.ide,
+        project=meta.get("project", body.project),
+        task_type=body.task_type,
+        metadata=meta,
+        model=body.model,
+        provider=body.provider,
+        reward=body.reward,
+    )
+
+
+@app.post("/v1/event")
+async def v1_ide_event(body: IDEEventRequest):
+    """Gap 4: IDE feedback → ide_events + session close + record_outcome."""
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+    try:
+        return await _run_sync(_handle_ide_event_sync, body)
+    except Exception as e:
+        raise HTTPException(500, f"ide event error: {e}")
+
+
+@app.post("/nexus/event")
+async def nexus_event_alias(body: IDEEventRequest):
+    """Alias of /v1/event for clients that used the unified gateway path."""
+    return await v1_ide_event(body)
+
+
+@app.get("/v1/session/{session_id}")
+async def v1_session_get(session_id: str):
+    """Inspect active or completed execution session."""
+    try:
+        from server.execution_plane import get_session
+        return await _run_sync(get_session, session_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"session get error: {e}")
 
 
 # ── Pydantic request bodies for POST endpoints ─────────────────────
@@ -243,10 +419,26 @@ async def route_task_endpoint(
     REQUEST_COUNT += 1
     start = time.time()
     try:
-        from server.router import route_task as _route
-        result = await _run_sync(_route, task, project, use_embedding=use_embedding,
-                                 ide=os.environ.get("NEXUS_IDE", "http"))
+        from server.router_cutover import route_for_task, get_router_flag
+        flag = get_router_flag()
+        ide = os.environ.get("NEXUS_IDE", "http")
+        if flag == "0" and use_embedding:
+            from server.router import route_task as _route
+            result = await _run_sync(
+                _route, task, project, use_embedding=True,
+                ide=ide, write_feedback=True,
+            )
+            result["router_flag"] = 0
+            result["router_mode"] = "v4_legacy"
+        else:
+            # open_session=True → routing_log outcome='routed' only (P1)
+            result = await _run_sync(
+                route_for_task, task, project, 10,
+                ide=ide,
+            )
         result["latency_ms"] = round((time.time() - start) * 1000, 1)
+        if "router_flag" not in result:
+            result["router_flag"] = int(flag)
         return result
     except Exception as e:
         raise HTTPException(500, f"Routing error: {e}")
@@ -510,6 +702,61 @@ async def report_outcome_endpoint(
     except Exception as e:
         raise HTTPException(500, f"Report outcome error: {e}")
 
+@app.post("/harness/plan")
+async def harness_plan_endpoint(
+    task: Optional[str] = None,
+    execute_research: bool = False,
+    body: Optional[dict] = Body(default=None),
+):
+    """P3: plan harness toolsets/channels; optionally run research orchestrator."""
+    if body:
+        task = body.get("task") or task
+        execute_research = bool(body.get("execute_research", execute_research))
+    if not task:
+        raise HTTPException(400, "task is required")
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+
+    def _blocking():
+        from server.harness_engine.plan import plan_harness
+        from server.harness_engine.orchestrator import run_research_orchestrator
+        plan = plan_harness(task, execute_research=execute_research)
+        out = plan.to_dict()
+        if execute_research and plan.intent == "research":
+            out["research"] = run_research_orchestrator(task)
+        return out
+
+    try:
+        return await _run_sync(_blocking)
+    except Exception as e:
+        raise HTTPException(500, f"harness plan error: {e}")
+
+
+@app.post("/harness/research")
+async def harness_research_endpoint(
+    query: Optional[str] = None,
+    max_results: int = 5,
+    body: Optional[dict] = Body(default=None),
+):
+    """P3: research orchestrator → Artifact[] (never skill rows)."""
+    if body:
+        query = body.get("query") or body.get("task") or query
+        max_results = int(body.get("max_results", max_results))
+    if not query:
+        raise HTTPException(400, "query is required")
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+
+    def _blocking():
+        from server.harness_engine.orchestrator import run_research_orchestrator
+        return run_research_orchestrator(query, max_results=max_results)
+
+    try:
+        return await _run_sync(_blocking)
+    except Exception as e:
+        raise HTTPException(500, f"harness research error: {e}")
+
+
 @app.get("/learning_stats")
 async def learning_stats_endpoint():
     """Full learning pipeline health report."""
@@ -606,9 +853,10 @@ async def ide_register(req: Request):
     if not ide_type or not pid:
         raise HTTPException(400, "ide_type and pid required")
     session = _get_ide_manager().register(
-        ide_type, int(pid), body.get("tmux_session"), body.get("notes", "")
+        ide_type, int(pid), body.get("tmux_session"), body.get("notes", ""),
+        project=body.get("project", "default"),
     )
-    return {"session_id": session.session_id, "tmux_session": session.tmux_session}
+    return {"session_id": session.session_id, "tmux_session": session.tmux_session, "project": session.project}
 
 
 @app.post("/ide/launch")
@@ -617,13 +865,32 @@ async def ide_launch(ide_type: str, session_name: str = ""):
     tmux_session, pid = _launch_tmux(ide_type, session_name or None)
     if not tmux_session:
         raise HTTPException(500, f"failed to launch {ide_type} (tmux or binary missing)")
-    session = _get_ide_manager().register(ide_type, pid or 0, tmux_session)
-    return {"session_id": session.session_id, "tmux_session": tmux_session, "pid": pid}
+    session = _get_ide_manager().register(ide_type, pid or 0, tmux_session, project="default")
+    return {"session_id": session.session_id, "tmux_session": tmux_session, "pid": pid, "project": session.project}
 
 
 @app.get("/ide/list")
 async def ide_list():
-    return _get_ide_manager().get_dashboard()
+    return _get_ide_manager().get_dashboard(include_metrics=True)
+
+
+@app.get("/nexus/harness/dashboard")
+async def harness_dashboard(project: str = ""):
+    from server.harness_metrics import build_harness_dashboard
+    return build_harness_dashboard(project or None)
+
+
+@app.post("/ide/launch-multi")
+async def ide_launch_multi(req: Request):
+    from server.ide_manager import launch_multi
+    try:
+        body = await req.json()
+    except Exception:
+        raise HTTPException(400, "invalid JSON body")
+    ide_types = body.get("ide_types") or []
+    if not ide_types:
+        raise HTTPException(400, "ide_types list required")
+    return {"launched": launch_multi(ide_types, project=body.get("project", "default"))}
 
 
 @app.get("/ide/{session_id}/harness")

@@ -152,9 +152,9 @@ def shutdown_bridge():
 
 def get_learning_stats() -> dict:
     """Return Thompson Sampling belief stats for all models."""
+    if not LEARNING_ENABLED:
+        return {"enabled": False, "total_observations": 0}
     bridge = get_bridge()
-    if not bridge.enabled:
-        return {"status": "disabled", "total_observations": 0}
     try:
         return bridge.get_learning_stats()
     except Exception as e:

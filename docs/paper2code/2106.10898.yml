@@ -1,0 +1,56 @@
+arxiv_id: "2106.10898"
+title: "BanditMF: Multi-Armed Bandit Based Matrix Factorization Recommender System"
+authors:
+  - "Shenghao Xu"
+year: 2021
+url: "https://arxiv.org/abs/2106.10898"
+problem_statement: |
+  Recommender systems suffer from cold-start users and a static content universe when
+  using pure collaborative filtering. BanditMF combines offline matrix factorization
+  with an online multi-armed bandit to select among a small set of clustered user-preference
+  models, enabling dynamic exploration while leveraging user-user correlations.
+key_algorithms:
+  - |
+    Biased matrix factorization:
+      r̂_{u,i} = b_{u,i} + q_i^T p_u,  where b_{u,i} = μ + b_u + b_i.
+    Stochastic gradient descent updates (with learning rate η and L2 regularization λ):
+      q_i ← q_i + η( e_{u,i} p_u - λ q_i )
+      p_u ← p_u + η( e_{u,i} q_i - λ p_u )
+      b_i ← b_i + η( e_{u,i} - λ b_i )
+      b_u ← b_u + η( e_{u,i} - λ b_u )
+    where e_{u,i} = r_{u,i} - r̂_{u,i}.
+  - |
+    Offline prediction subsystem:
+      1. Factorize the user-item rating matrix to obtain R̂.
+      2. Cluster the rows of R̂ (user preference vectors) with K-means using Euclidean distance.
+      3. Build unified preference vector α̂_c for each cluster c by averaging its members' rows.
+  - |
+    Online recommendation subsystem (MAB):
+      1. Use bandit policy π to select a cluster/model S_n.
+      2. Recommend the highest-rated not-yet-recommended item i* from α̂_{S_n}.
+      3. Observe user rating r_{u,i*} and compute reward μ_{S_n}(t) = r_{u,i*} / r_max.
+      4. Update π.
+      5. If user feedback count exceeds cold-start threshold τ, switch to offline MF.
+  - |
+    Regret definition: R(T) = Σ_{t=1}^{T} (E[μ*] - E[μ_{S_n}(t)]).
+hyperparameters:
+  - "latent dimension k"
+  - "learning rate η"
+  - "L2 regularization λ"
+  - "number of user clusters m'"
+  - "cold-start threshold τ"
+  - "bandit policy π (e.g., UCB, Thompson Sampling, ε-greedy)"
+reproducibility_notes: |
+  Master's dissertation; no official code repository is linked. The MF + K-means + MAB
+  pipeline can be reproduced from standard libraries, but dataset details and exact
+  experimental setup are not provided in the arXiv version.
+licensing: "arXiv.org perpetual, non-exclusive license (see arXiv abstract page)."
+feasibility_for_nexus:
+  level: "medium"
+  rationale: |
+    Supports latent-factor cold-start exploration (PERF-9) and could inform a
+    cluster-level bandit for routing resources. The dissertation-level detail is
+    insufficient for direct production use without additional engineering.
+extracted_gaps:
+  - "PERF-1"
+  - "PERF-9"

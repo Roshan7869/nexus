@@ -1,0 +1,253 @@
+{
+  "timestamp": "2026-07-11T21:21:17Z",
+  "checks_passed": 33,
+  "checks_total": 34,
+  "hard_fails": [],
+  "soft_fails": [
+    {
+      "dim": "B6_cold_target_35",
+      "pass": false,
+      "detail": "42.71% (aspirational)"
+    }
+  ],
+  "results": [
+    {
+      "dim": "A1_v1_health",
+      "pass": true,
+      "detail": "mode=unified_v5 flag=2"
+    },
+    {
+      "dim": "A2_router_v5",
+      "pass": true,
+      "detail": "unified_v5"
+    },
+    {
+      "dim": "A3_contract",
+      "pass": true,
+      "detail": "nexus.execution_plane.v1"
+    },
+    {
+      "dim": "A4_live_health",
+      "pass": true,
+      "detail": "cached"
+    },
+    {
+      "dim": "B1_overall_gates",
+      "pass": true,
+      "detail": "{'terminal_close_rate': True, 'router_mode_match': True, 'zero_token_active': True, 'cluster_divergence': True, 'db_ok': True}"
+    },
+    {
+      "dim": "B2_close_rate",
+      "pass": true,
+      "detail": "99.68%"
+    },
+    {
+      "dim": "B3_zero_token",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "dim": "B4_divergence",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "dim": "B5_cold_lt_50",
+      "pass": true,
+      "detail": "42.71%"
+    },
+    {
+      "dim": "B6_cold_target_35",
+      "pass": false,
+      "detail": "42.71% (aspirational)"
+    },
+    {
+      "dim": "C1_route_method",
+      "pass": true,
+      "detail": "unified_router_v5"
+    },
+    {
+      "dim": "C2_skills",
+      "pass": true,
+      "detail": "['database-migrations', 'claude-skill-database-migrations', 'postgres-patterns', 'claude-skill-postgres-patterns']"
+    },
+    {
+      "dim": "C3_no_paper_skills",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "dim": "C4_harness_plan",
+      "pass": true,
+      "detail": "intent=general sets=['core', 'memory']"
+    },
+    {
+      "dim": "C5_routed_session",
+      "pass": true,
+      "detail": "6668"
+    },
+    {
+      "dim": "C6_research_toolset",
+      "pass": true,
+      "detail": "['core', 'research', 'memory']"
+    },
+    {
+      "dim": "C7_general_no_research",
+      "pass": true,
+      "detail": "['core', 'memory']"
+    },
+    {
+      "dim": "D1_nonterminal",
+      "pass": true,
+      "detail": "logged_non_terminal"
+    },
+    {
+      "dim": "D2_terminal_logged",
+      "pass": true,
+      "detail": "logged"
+    },
+    {
+      "dim": "D3_belief_moves",
+      "pass": true,
+      "detail": "delta_alpha=2.0"
+    },
+    {
+      "dim": "E1_open",
+      "pass": true,
+      "detail": "7be9c15bc09744fa ['tdd-workflow', 'testing', 'claude-skill-e2e-testing']"
+    },
+    {
+      "dim": "E2_contract",
+      "pass": true,
+      "detail": "nexus.execution_plane.v1"
+    },
+    {
+      "dim": "E3_report",
+      "pass": true,
+      "detail": "belief_updated=True"
+    },
+    {
+      "dim": "E4_http_e2e",
+      "pass": true,
+      "detail": "belief_updated=True"
+    },
+    {
+      "dim": "F1_plan_research",
+      "pass": true,
+      "detail": "research"
+    },
+    {
+      "dim": "F2_plan_api",
+      "pass": true,
+      "detail": "['core', 'research', 'memory']"
+    },
+    {
+      "dim": "F3_ops_coverage_api",
+      "pass": true,
+      "detail": "99.61"
+    },
+    {
+      "dim": "F4_ops_harness_api",
+      "pass": true,
+      "detail": "['metrics', 'dashboard']"
+    },
+    {
+      "dim": "G1_catalog",
+      "pass": true,
+      "detail": "{'active': 1920, 'archived': 922, 'never_triggered_active': 820, 'never_triggered_pct': 42.71, 'zero_token_active': 0, 'cluster_divergence': 0, 'multi_membership': 0, 'resource_embeddings': 1834}"
+    },
+    {
+      "dim": "G2_faiss",
+      "pass": true,
+      "detail": "n=1805 active_only=True"
+    },
+    {
+      "dim": "H1_dashboard_sup",
+      "pass": true,
+      "detail": "dashboard"
+    },
+    {
+      "dim": "H2_mcp_sup_optional",
+      "pass": true,
+      "detail": "MCP IDE-managed (autostart=false) \u2014 note only"
+    },
+    {
+      "dim": "H3_gateway_8000_off",
+      "pass": true,
+      "detail": "LLM gateway :8000 intentionally offline (resource brain on :8080)"
+    },
+    {
+      "dim": "H4_mcp_json_entrypoint",
+      "pass": true,
+      "detail": "['/home/roshan/nexus/server/nexus-mcp-enhanced.py']"
+    }
+  ],
+  "components": {
+    "L0 Runtime HTTP :8080": true,
+    "L0 LLM gateway :8000": false,
+    "L0 Dashboard :8765": true,
+    "L0 Supervisor MCP/harness": false,
+    "L1 Catalog + FAISS": true,
+    "L2 Router v5": true,
+    "L2 Learning contract": true,
+    "L3 Harness plan/toolsets": true,
+    "L4 Execution plane": true,
+    "L5 Ops gates": true
+  },
+  "vision": {
+    "route_right_resource": true,
+    "learn_from_verified_outcomes": true,
+    "clean_catalog_scale": true,
+    "harness_as_subsystem": true,
+    "ide_execution_contract": true,
+    "measurable_ops": true,
+    "unified_runtime": true
+  },
+  "ops": {
+    "terminal_close_rate": true,
+    "router_mode_match": true,
+    "zero_token_active": true,
+    "cluster_divergence": true,
+    "db_ok": true
+  },
+  "coverage": {
+    "total_routes": 6654,
+    "by_outcome": {
+      "correct": 3974,
+      "partial": 1991,
+      "routed": 21,
+      "wrong": 668
+    },
+    "terminal_count": 6633,
+    "non_terminal_count": 21,
+    "terminal_close_rate_pct": 99.68,
+    "terminal_close_target_pct": 80.0,
+    "terminal_close_gate_pass": true,
+    "binary_accuracy_excl_partial_pct": 85.61,
+    "weighted_accuracy_pct": 74.92,
+    "window_7d": {
+      "total": 199,
+      "terminal": 178,
+      "terminal_close_rate_pct": 89.45
+    },
+    "tool_sessions": {
+      "total": 15,
+      "closed": 10,
+      "active": 5,
+      "correct": 10,
+      "close_rate_pct": 66.67,
+      "success_rate_pct": 100.0
+    }
+  },
+  "catalog": {
+    "active": 1920,
+    "archived": 922,
+    "never_triggered_active": 820,
+    "never_triggered_pct": 42.71,
+    "zero_token_active": 0,
+    "cluster_divergence": 0,
+    "multi_membership": 0,
+    "resource_embeddings": 1834
+  },
+  "verdict": "READY"
+}

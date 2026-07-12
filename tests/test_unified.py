@@ -231,20 +231,6 @@ class TestPhase5_AutoTriggerInvoke(unittest.TestCase):
         cluster_names = {r["cluster"] for r in results}
         self.assertIn("frontend_ui", cluster_names)
 
-    def test_auto_invoke_imports(self):
-        """auto_invoke.py must import without errors"""
-        from server.auto_invoke import AutoInvoke, auto_trigger
-        self.assertTrue(callable(auto_trigger))
-
-    def test_auto_invoke_detect_trigger(self):
-        """AutoInvoke correctly identifies error triggers"""
-        from server.auto_invoke import AutoInvoke
-        invoker = AutoInvoke()
-        ttype, confidence = invoker.detect_trigger("context", error="TypeError: None has no attribute")
-        self.assertEqual(ttype.value, "error")
-        invoker.close()
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 6: Unified Server
 # ═══════════════════════════════════════════════════════════════════════
@@ -381,6 +367,10 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
             dst.close()
             src.close()
         os.environ["NEXUS_BROKER_DB_PATH"] = self.broker_db
+        # Clear cached DB path so broker_runtime picks up the env var
+        from server.db import get_db_path
+        if hasattr(get_db_path, "_cached"):
+            delattr(get_db_path, "_cached")
 
     def tearDown(self):
         os.environ.pop("NEXUS_BROKER_DB_PATH", None)

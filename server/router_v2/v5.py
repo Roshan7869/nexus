@@ -46,6 +46,61 @@ from router_v2.fusion import (  # noqa: E402  — L3 fusion math (P3)
 
 DB_PATH = _REPO / "db" / "nexus.db"
 
+
+def _load_reflexion_context(conn) -> tuple[dict[int, list[tuple[str, int]]], set[str]]:
+    """Port of router.py:446-472 reflexion consultation for v5 (P1 Step 1.0).
+
+    Returns (fixes_map, recent_failures):
+      fixes_map: resource_id → [(alternative_name, times_successful), ...]
+                 built from reflection_fixes joined to resources via
+                 alternative_resource_id (migration 017), with a free-text
+                 fallback ("Use X instead") for any pre-migration rows.
+      recent_failures: lowercased resource_name set with unfixed failures.
+
+    Used by _v5_rerank to downweight failed resources (*0.7) and upweight
+    known-successful alternatives (+0.1·times_successful). Read-only.
+    """
+    fixes_map: dict[int, list[tuple[str, int]]] = {}
+    recent_failures: set[str] = set()
+    try:
+        # Successful alternatives — prefer the alternative_resource_id FK
+        # (migration 017); fall back to parsing fix_description for legacy rows.
+        for f in conn.execute(
+            """
+            SELECT rf.resource_id AS rid, rf.alternative_resource_id AS alt_id,
+                   rf.fix_description AS desc, rf.times_successful AS succ
+            FROM reflection_fixes rf
+            WHERE rf.times_applied > 0
+            """
+        ).fetchall():
+            rid = f[0]
+            if rid is None:
+                continue
+            alt_id, desc, succ = f[1], f[2] or "", f[3] or 0
+            alt_name = None
+            if alt_id is not None:
+                row = conn.execute(
+                    "SELECT name FROM resources WHERE id=?", (alt_id,)
+                ).fetchone()
+                if row:
+                    alt_name = row[0]
+            if alt_name is None and desc.startswith("Use ") and desc.endswith(" instead"):
+                alt_name = desc[4:-8]
+            if alt_name:
+                fixes_map.setdefault(rid, []).append((alt_name, succ))
+        for fr in conn.execute(
+            """
+            SELECT resource_name FROM reflection_failures
+            WHERE fix_successful IS NULL OR fix_successful = 0
+            """
+        ).fetchall():
+            if fr[0]:
+                recent_failures.add(fr[0].lower())
+    except Exception:
+        # Reflexion is advisory — never let a schema/DB hiccup break routing.
+        pass
+    return fixes_map, recent_failures
+
 # ── L3 blend weights (hand-tuned; sum to 1.0) ─────────────────────────────────
 # Source of truth now lives in router_v2.fusion (v5_get_weights), so P5-bench
 # can sweep them via NEXUS_V5_W_<NAME> env without touching this file. These
@@ -142,11 +197,16 @@ def _minmax(xs: list[float]) -> list[float]:
 
 
 def _l1_intent(query: str, db_path: str) -> dict:
-    """L1: call route_task (the v4 intent router). Returns:
-    {skills, cluster, confidence, name2id, intent_rids, intent_rank (rid->score)}.
+    """L1: pure v4 intent rank (no learning side effects).
+
+    P1 design plan: write_feedback=False so hierarchical v5 does not
+    double-count counters/Thompson for L1's provisional top skill.
+    Returns {skills, cluster, confidence, name2id, intent_rids, intent_rank}.
     """
     from router import route_task
-    res = route_task(query, project="default", use_embedding=True)
+    res = route_task(
+        query, project="default", use_embedding=True, write_feedback=False,
+    )
     skills = res.get("skills", []) if isinstance(res, dict) else []
     cluster = res.get("cluster") if isinstance(res, dict) else None
     confidence = float(res.get("task_confidence", 0.0) or 0.0) if isinstance(res, dict) else 0.0
@@ -249,6 +309,32 @@ def _v5_rerank(topic_merged: list[dict], intent: dict,
         return []
     rids, topic_norm, intent_arr, sm_arr, lw_arr = _v5_components(topic_merged, intent)
     finals = v5_fusion_scores(topic_norm, intent_arr, sm_arr, lw_arr, mode=fusion_mode)
+
+    # Reflexion consultation (P1 Step 1.0, port of router.py:446-472):
+    # downweight resources with unfixed recent failures, upweight resources
+    # that are known-successful alternatives for a failed peer. Read-only.
+    fixes_map: dict[int, list[tuple[str, int]]] = {}
+    recent_failures: set[str] = set()
+    try:
+        _rc_conn = sqlite3.connect(db_path, timeout=30)
+        try:
+            fixes_map, recent_failures = _load_reflexion_context(_rc_conn)
+        finally:
+            _rc_conn.close()
+    except Exception:
+        pass
+    # name → index for upweighting alternatives by name
+    name_to_idx = {x.get("name"): i for i, x in enumerate(topic_merged) if x.get("name")}
+    if recent_failures or fixes_map:
+        for i, x in enumerate(topic_merged):
+            nm = (x.get("name") or "").lower()
+            if nm and nm in recent_failures:
+                finals[i] *= 0.7
+        for rid, alts in fixes_map.items():
+            for alt_name, succ in alts:
+                j = name_to_idx.get(alt_name)
+                if j is not None and succ > 0:
+                    finals[j] += 0.1 * succ
 
     scored = []
     for i, x in enumerate(topic_merged):

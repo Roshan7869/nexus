@@ -45,6 +45,11 @@ tr:hover { background: #1c2128; }
 <div class="grid" id="metrics-grid"></div>
 
 <div class="section">
+<h2>Process Health (Phase 8)</h2>
+<div class="grid" id="ops-grid"></div>
+</div>
+
+<div class="section">
 <h2>Cluster Affinity Scores</h2>
 <table id="cluster-table">
 <thead><tr><th>Cluster</th><th>Total Outcomes</th><th>Correct</th><th>Affinity</th><th></th></tr></thead>
@@ -76,13 +81,36 @@ tr:hover { background: #1c2128; }
 <script>
 async function loadMetrics() {
   try {
-    const res = await fetch('/api/metrics');
-    const data = await res.json();
+    const [metricsRes, opsRes] = await Promise.all([
+      fetch('/api/metrics'),
+      fetch('/api/ops'),
+    ]);
+    const data = await metricsRes.json();
+    const ops = await opsRes.json();
     render(data);
+    renderOps(ops);
     document.getElementById('status').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     document.getElementById('status').textContent = `Error: ${e.message}`;
   }
+}
+
+function renderOps(ops) {
+  const og = document.getElementById('ops-grid');
+  const procs = (ops.processes && ops.processes.processes) || [];
+  const kg = ops.knowledge_graph || {};
+  const router = ops.router || {};
+  const harness = (ops.harness && ops.harness.summary) || {};
+  const procCards = procs.map(p => {
+    const cls = p.status === 'running' ? 'green' : p.status === 'degraded' ? 'yellow' : 'red';
+    const port = p.port ? `:${p.port}` : '';
+    return `<div class="card"><h3>${p.name}</h3><div class="value ${cls}">${p.status}</div><div class="detail">${port} pids=${(p.pids||[]).join(',')||'-'}</div></div>`;
+  }).join('');
+  og.innerHTML = procCards + `
+    <div class="card"><h3>KG Edges</h3><div class="value blue">${kg.total_edges ?? '-'}</div><div class="detail">zero-edge: ${kg.zero_edge_resources ?? '-'}</div></div>
+    <div class="card"><h3>Router</h3><div class="value green">${router.mode ?? '-'}</div><div class="detail">flag=${router.use_unified_router ?? '-'}</div></div>
+    <div class="card"><h3>Harness FTSR</h3><div class="value blue">${harness.ftsr ?? '-'}%</div><div class="detail">MRC ${harness.mrc ?? '-'} · CDR ${harness.cdr ?? '-'}%</div></div>
+  `;
 }
 
 function render(d) {

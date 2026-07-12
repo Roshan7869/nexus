@@ -1,0 +1,27 @@
+-- 013: RC7 IDE attribution — DOCUMENTATION-ONLY migration (2026-06-27).
+--
+-- This migration DOES NOT ALTER the live routing_log / execution_log tables.
+-- The live tables already accept the broader ide enum (verified via
+-- sqlite_master: ide CHECK(ide IN ('opencode','claude-code','mcp','http',
+-- 'auto_invoke','hermes','codex','unknown'))). db/schema.sql previously
+-- declared only ('opencode','claude-code','unknown'), drifting from reality.
+--
+-- The fix here is to db/schema.sql (the documented contract), not to the live
+-- DB. Rebuilding the live table to "enforce" the narrower or wider enum is
+-- risky on a live DB (it requires ALTER TABLE ... which SQLite implements as
+-- a full table rebuild) and gains nothing — the live CHECK is already
+-- broader and accepts every tag in use. So we deliberately DO NOT run an
+-- ALTER here.
+--
+-- Context: server/router.py:_log_decision hardcoded ide='unknown' for every
+-- route, mislabeling 4190/6145 (68%) of routing_log rows. RC7 threads the
+-- ide tag from each entrypoint (MCP -> 'claude-code', HTTP -> 'http',
+-- tool_attention_v4 -> 'opencode', auto_invoke -> 'auto_invoke'). Historical
+-- unknown rows are LEFT as 'unknown' per Curnow (2024, BMC Med Res Methodol):
+-- matched_model is a predictor-of-missingness, not a deterministic signal
+-- (kimi-k2 appears under both 'unknown' and 'claude-code'), so imputation
+-- would amplify MNAR bias. See scripts/backfill_ide.py.
+--
+-- No SQL statements are executed against live data by this migration. It is
+-- a marker that the schema.sql contract was updated to match reality.
+SELECT 1;  -- no-op so the migration runner records this file as applied

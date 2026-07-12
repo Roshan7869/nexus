@@ -24,7 +24,7 @@ python-louvain>=0.16
 sqlite-vec>=0.1.0
 
 # MCP / IDE integration
-fastmcp>=0.2.0
+fastmcp>=0.2.0,<3
 mcp>=1.0.0
 
 # Async / reliability

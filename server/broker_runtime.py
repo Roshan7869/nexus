@@ -364,6 +364,11 @@ def sync_resource_policies() -> None:
 
 def initialize_runtime() -> None:
     ensure_runtime_schema()
+    try:
+        from server.tool_session_broker import ensure_tool_session_schema
+        ensure_tool_session_schema()
+    except Exception:
+        pass
     sync_bundle_membership()
     sync_resource_policies()
 

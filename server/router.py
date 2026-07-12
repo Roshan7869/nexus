@@ -27,7 +27,7 @@ except Exception:
     from service_layer import bundle_for_cluster
 
 try:
-    from server.intent_classifier import predict as intent_predict, log_outcome as intent_log
+    from server.intent_classifier import predict as intent_predict, log_intent_telemetry as intent_log
 except Exception:
     intent_predict = None
     intent_log = None
@@ -665,6 +665,9 @@ def find_matching_skills(task: str, project: str = "default",
                 "resource_id": row['id']
             })
 
+    # Gap 3: fuse co_triggered / similar_to edge signal into ranking (small boost)
+    matches = _apply_edge_graph_boost(conn, matches)
+
     if preferred_names:
         placeholders = ",".join("?" for _ in preferred_names)
         preferred_rows = conn.execute(f"""
@@ -805,6 +808,73 @@ def find_matching_skills(task: str, project: str = "default",
     return matches[:max_results]
 
 
+def _apply_edge_graph_boost(conn, matches: List[Dict]) -> List[Dict]:
+    """Gap 3: add a small score boost from learned graph edges.
+
+    co_triggered edges with co_trigger_count>0 are the primary signal (live
+    multi-skill outcomes). similar_to provides a weaker content prior.
+    Boost is capped so graph never dominates keyword/Thompson signal.
+    """
+    if not matches:
+        return matches
+    ids = [m.get("resource_id") for m in matches if m.get("resource_id") is not None]
+    if not ids:
+        return matches
+    try:
+        placeholders = ",".join("?" for _ in ids)
+        rows = conn.execute(
+            f"""
+            SELECT rid,
+                   MAX(CASE WHEN edge_type='co_triggered' THEN weight ELSE 0 END) AS co_w,
+                   SUM(CASE WHEN edge_type='co_triggered'
+                            THEN COALESCE(co_trigger_count,0) ELSE 0 END) AS co_n,
+                   MAX(CASE WHEN edge_type='similar_to' THEN weight ELSE 0 END) AS sim_w
+            FROM (
+                SELECT source_id AS rid, edge_type, weight, co_trigger_count
+                FROM resource_edges
+                WHERE source_id IN ({placeholders})
+                  AND edge_type IN ('co_triggered','similar_to')
+                UNION ALL
+                SELECT target_id AS rid, edge_type, weight, co_trigger_count
+                FROM resource_edges
+                WHERE target_id IN ({placeholders})
+                  AND edge_type IN ('co_triggered','similar_to')
+            )
+            GROUP BY rid
+            """,
+            ids + ids,
+        ).fetchall()
+        by_id = {r["rid"] if isinstance(r, sqlite3.Row) else r[0]: r for r in rows}
+    except Exception as e:
+        logger.warning(f"edge graph boost query failed: {e}")
+        return matches
+
+    for m in matches:
+        rid = m.get("resource_id")
+        if rid is None or rid not in by_id:
+            continue
+        r = by_id[rid]
+        if isinstance(r, sqlite3.Row):
+            co_w = float(r["co_w"] or 0)
+            co_n = float(r["co_n"] or 0)
+            sim_w = float(r["sim_w"] or 0)
+        else:
+            co_w, co_n, sim_w = float(r[1] or 0), float(r[2] or 0), float(r[3] or 0)
+        co_boost = 0.0
+        if co_n > 0:
+            co_boost = min(0.10, 0.04 * co_w + 0.02 * math.log1p(co_n))
+        sim_boost = min(0.04, 0.03 * sim_w) if sim_w > 0 else 0.0
+        boost = co_boost + sim_boost
+        if boost <= 0:
+            continue
+        m["score"] = round(float(m["score"]) + boost, 3)
+        m["graph_boost"] = round(boost, 3)
+        m["category"] = (
+            "INVOKE" if m["score"] >= 0.55 else "REVIEW" if m["score"] >= 0.3 else "SKIP"
+        )
+    return matches
+
+
 def _get_cold_resources(top_k: int = 3) -> List[Dict]:
     """Return never-triggered active resources, sorted by content quality proxy.
 
@@ -836,7 +906,7 @@ def _get_cold_resources(top_k: int = 3) -> List[Dict]:
 # ═══════════════════════════════════════════════════════════════════════
 
 def route_task(task: str, project: str = "default", use_embedding: bool = False,
-               ide: str = None) -> dict:
+               ide: str = None, write_feedback: bool = True) -> dict:
     """Unified v4 routing pipeline.
 
     Pipeline flow:
@@ -856,6 +926,10 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
     entrypoint. RC7 (2026-06-27): previously hardcoded 'unknown' here, which
     mislabeled 68% of routing_log rows and invalidated the claude_code-wiring
     audit (MNAR). Threading the tag is a labeling fix, not a wiring fix.
+
+    ``write_feedback`` (P1 pure-rank): when False, ranking only — no
+    ``_log_decision`` / ``record_outcome`` side effects. Used by v5 L1 intent
+    so hierarchical rerank does not credit the wrong skill or double-count.
     """
     if ide is None:
         ide = os.environ.get("NEXUS_IDE", "unknown")
@@ -902,20 +976,9 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
         if CLUSTER_ROUTING:
             pipeline_steps.append("gates")
 
-    # Step 3.7: Harness Research — academic/research context augmentation
-    harness_results = []
-    if HARNESS_RESEARCH_ENABLED and RESEARCH_KEYWORDS.search(task):
-        try:
-            from server.context_harness.server import harness_research
-            harness_json = harness_research(task, max_results=3)
-            harness_data = json.loads(harness_json)
-            harness_results = harness_data.get("fused", [])
-            if harness_results:
-                pipeline_steps.append("harness_research")
-        except ImportError as e:
-            logger.debug(f"harness_research import failed: {e}")
-        except Exception as e:
-            logger.debug(f"harness_research call failed: {e}")
+    # Step 3.7 (P3): Harness is planned at the end via attach_harness_to_result.
+    # Network research is NOT run inside ranking; paper titles must never become skills.
+    harness_results = []  # legacy name kept empty; artifacts attach separately
 
     # Step 3.5: Verb-Intent Classification (handles task-type routing)
     intent_results = []
@@ -925,12 +988,13 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
             if intent_results:
                 pipeline_steps.append("intent_classifier")
                 intent_skills = [r["name"] for r in intent_results]
-                # Phase 3: Evaluate outcome instead of logging 'routed'
-                outcome = _evaluate_outcome(task, intent_skills)
-                try:
-                    intent_log(task, intent_skills, outcome)
-                except Exception:
-                    pass
+                # Intent telemetry only when write_feedback; pure rank skips.
+                if write_feedback:
+                    outcome = _evaluate_outcome(task, intent_skills)
+                    try:
+                        intent_log(task, intent_skills, outcome)
+                    except Exception:
+                        pass
         except Exception as e:
             logger.warning(f"Intent classifier failed: {e}")
 
@@ -1018,13 +1082,29 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
                     "thompson_model": thompson_model,
                     "latency_ms": round((time.time() - start_time) * 1000, 1),
                 }
-                # Enhance with learning pipeline
+                # Enhance ranking (read-only re-rank); learning writes gated.
                 try:
                     from learning import enhance_routing_result
                     result = enhance_routing_result(result, task, project)
                 except Exception:
                     pass
-                _log_decision(task, result, ide=ide)
+                if write_feedback:
+                    _log_decision(task, result, ide=ide)
+                else:
+                    result["write_feedback"] = False
+                    result["method"] = result.get("method", "v4_pipeline") + "_pure"
+                try:
+                    from server.harness_engine.attach import attach_harness_to_result
+                    execute = bool(
+                        write_feedback
+                        and HARNESS_RESEARCH_ENABLED
+                        and RESEARCH_KEYWORDS.search(task)
+                    )
+                    result = attach_harness_to_result(
+                        result, task, execute_research=execute,
+                    )
+                except Exception as e:
+                    logger.debug("harness attach failed: %s", e)
                 return result
 
     # Tier scoring (fallback model selection)
@@ -1102,26 +1182,7 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
                     "_source": "iso",
                 })
 
-    # Harness Research merge — tertiary priority (below intent + ISO, above keyword)
-    harness_seen = set(intent_seen) | set(
-        c.get("name", "") for c in (iso_candidates if use_embedding else [])
-    )
-    for hr in harness_results[:5]:
-        title = (hr.get("title") or hr.get("name") or hr.get("full_name") or "")
-        if not title or title in harness_seen:
-            continue
-        harness_seen.add(title)
-        fused_score = hr.get("fused_score", 0.4)
-        skills.append({
-            "name": title,
-            "score": round(fused_score * 0.6, 4),
-            "category": "RESEARCH",
-            "success_rate": 0,
-            "type": "doc",
-            "_source": "harness_research",
-            "_url": hr.get("url", hr.get("html_url", "")),
-            "_summary": hr.get("snippet", hr.get("summary", "")),
-        })
+    # P3: do NOT merge harness/paper titles into skills (was polluting ranker).
 
     # Sort: intent first (by score), then ISO (by score), then keyword (by score)
     skills = sorted(
@@ -1154,27 +1215,45 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
         "latency_ms": round((time.time() - start_time) * 1000, 1),
     }
 
-    # ── Layer 1-5: Enhance with learning pipeline ──
+    # ── Layer 1-5: Enhance ranking (Thompson re-rank skills; no counters) ──
     try:
         from learning import enhance_routing_result
         result = enhance_routing_result(result, task, project)
     except Exception:
         pass
 
-    _log_decision(task, result, ide=ide)
+    if write_feedback:
+        _log_decision(task, result, ide=ide)
+    else:
+        result["write_feedback"] = False
+        if result.get("method") and not str(result["method"]).endswith("_pure"):
+            result["method"] = f"{result['method']}_pure"
+
+    # P3: attach harness plan + toolsets; execute research only when feedback path
+    # and explicit research intent (artifacts only — never skills).
+    try:
+        from server.harness_engine.attach import attach_harness_to_result
+        execute = bool(
+            write_feedback
+            and HARNESS_RESEARCH_ENABLED
+            and RESEARCH_KEYWORDS.search(task)
+        )
+        result = attach_harness_to_result(
+            result, task, execute_research=execute,
+        )
+    except Exception as e:
+        logger.debug("harness attach failed: %s", e)
+
     return result
 
 
 def _log_decision(task: str, result: dict, outcome: str = None,
                    ide: str = "unknown"):
-    """Log routing decision to DB for analytics + update Thompson Sampling beliefs.
+    """Log routing decision to DB for analytics + optional learning.
 
-    Phase 7: This closes the learning loop by recording every routing decision
-    into routing_decisions (for later outcome matching) AND updating the
-    implicit signal in model_beliefs.
-    
-    Phase 6: Accepts optional evaluated outcome. When not provided, evaluates
-    automatically against the eval dataset to close the feedback loop.
+    Always writes routing_log. Learning (counters/Thompson/edges) only runs
+    for *terminal* outcomes (correct/wrong/partial/skip). Eval-dataset misses
+    yield 'routed' which is telemetry-only after P0 record_outcome guard.
     
     DB lock safety: Each write operation opens its own short-lived connection,
     commits, and closes immediately. No nested or long-held connections.
@@ -1206,8 +1285,11 @@ def _log_decision(task: str, result: dict, outcome: str = None,
     except Exception as e:
         logger.warning(f"Routing log INSERT failed: {e}")
 
-    # ── Hook resource-level learning loop ──
-    if rowid and result.get("skills"):
+    # ── Hook resource-level learning only for terminal outcomes ──
+    # record_outcome also guards non-terminal; calling it only when terminal
+    # avoids extra DB work on the common 'routed' path.
+    _TERMINAL = {"correct", "wrong", "partial", "skip"}
+    if rowid and result.get("skills") and outcome in _TERMINAL:
         try:
             from learning import record_outcome
             skill_name = result["skills"][0]["name"]

@@ -1,0 +1,59 @@
+arxiv_id: "2411.09065"
+title: "Language-Model Prior Overcomes Cold-Start Items"
+authors:
+  - "Shiyu Wang"
+  - "Hao Ding"
+  - "Yupeng Gu"
+  - "Sergul Aydore"
+  - "Kousha Kalantari"
+  - "Branislav Kveton"
+year: 2024
+url: "https://arxiv.org/abs/2411.09065"
+problem_statement: |
+  New items in recommender systems lack interaction data, making them hard to value.
+  Existing content/hybrid methods rely on structured metadata that is often missing or
+  coarse. The paper injects a language-model-derived similarity prior into the learning
+  objective of generic recommenders so cold-start items still get meaningful embeddings.
+key_algorithms:
+  - |
+    Metadata encoder: Z_i = g_γ(E_i), where E_i is item metadata and g_γ is a neural
+    encoder (e.g., MLP over Sentence-BERT embeddings).
+  - |
+    Base recommender loss (cross-entropy over observed interactions):
+      L(D; θ, γ) = Σ_{(i,j,t)∈D} -log f_θ(i | H_{j,t}, {g_γ(E_i)}_{i∈I}).
+  - |
+    Informative Bayesian prior regularizer:
+      L̂(D; θ, γ, ρ) = L(D; θ, γ) + ρ Σ_{i,k∈I} s_{i,k} ||Z_i - Z_k||_2^2.
+    This is equivalent (up to constants) to a Gaussian prior on the concatenated item
+    embeddings Z with precision block matrix Λ built from the similarities.
+  - |
+    Similarity kernel (global):
+      s_{i,k} = exp(-λ/2 ||X_i - X_k||_2^2),
+      λ = 1 / σ̂^2,  where σ̂^2 = (1/(N d')) Σ_{i∈I} (X_i - μ̂)^T (X_i - μ̂).
+  - |
+    Localized similarity kernel (per item):
+      s_{i,k} = exp(-1/2 (X_i - X_k)^T Σ̂_i^{-1} (X_i - X_k))  for k in KNN(i),
+      where μ̂_i and Σ̂_i are estimated from the K nearest neighbors of X_i (including itself).
+  - |
+    Training loop (Algorithm 1): for each item in a batch, encode Z_i, find its K nearest
+    neighbors in LM space, estimate local mean/covariance, compute s_{i,k}, add the graph
+    regularization term, and take a gradient step.
+hyperparameters:
+  - "ρ: graph-regularization strength (tuned; reported results use ρ = 1)"
+  - "K: number of nearest neighbors for localized covariance (e.g., √N)"
+  - "λ = 1/σ̂^2: bandwidth of the global RBF kernel"
+  - "LM encoder: Sentence-BERT (all-mpnet-base-v2 or similar)"
+  - "Base recommenders: BPRMF and SASRec"
+reproducibility_notes: |
+  Code is available at https://github.com/awslabs/language-model-prior-4-item-cold-start.
+  Evaluated on MovieLens 25M and Amazon Prime Pantry 5-core. The KNN search and
+  covariance estimation can be performed offline to reduce training overhead.
+licensing: "arXiv.org perpetual, non-exclusive license; the linked awslabs repository is likely Apache-2.0 but should be verified at the repository."
+feasibility_for_nexus:
+  level: "high"
+  rationale: |
+    Gives a plug-and-play way to seed cold-start resource embeddings with an LM prior.
+    Directly supports the LLM-prior seeding component of PERF-1 and can be combined
+    with Thompson Sampling/BanditMF for never-triggered resources (PERF-9).
+extracted_gaps:
+  - "PERF-1"

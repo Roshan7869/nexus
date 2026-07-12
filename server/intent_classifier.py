@@ -390,11 +390,42 @@ def predict(task: str) -> list[dict]:
     return results
 
 
-def log_outcome(task: str, predicted_skills: list[str], actual_outcome: str):
-    """Log intent classification outcome for learning loop.
-    
-    Updates both routing_log AND resources.times_correct/times_wrong.
+def log_intent_telemetry(task: str, predicted_skills: list[str], actual_outcome: str):
+    """Intent-classifier routing telemetry (not the MCP report_outcome tool).
+
+    Terminal outcomes delegate entirely to learning.record_outcome (one path).
+    Non-terminal 'routed' writes routing_log only — no resource counter inflation.
     """
+    skills = predicted_skills or []
+
+    if actual_outcome in ("correct", "wrong", "partial") and skills:
+        try:
+            from server.learning import record_outcome
+            record_outcome(
+                skills[0],
+                actual_outcome,
+                task_summary=task[:200],
+                project="nexus",
+                ide="opencode",
+                co_skills=skills[1:] or None,
+            )
+        except Exception:
+            pass
+        if actual_outcome == "correct":
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                verb = extract_verb(task)
+                if verb:
+                    conn.execute("""
+                        INSERT INTO intent_learning (verb, correct_skills, count, timestamp)
+                        VALUES (?, ?, 1, datetime('now'))
+                    """, (verb, json.dumps(skills[:3])))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+        return
+
     try:
         conn = sqlite3.connect(str(DB_PATH))
         conn.execute("""
@@ -403,49 +434,15 @@ def log_outcome(task: str, predicted_skills: list[str], actual_outcome: str):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         """, (
             task[:200], "nexus", 2, "intent-classifier",
-            json.dumps(predicted_skills[:5]),
+            json.dumps(skills[:5]),
             actual_outcome,
-            predicted_skills[0] if predicted_skills else None,
+            skills[0] if skills else None,
             "opencode",
         ))
-        
-        if actual_outcome == 'correct':
-            for skill in predicted_skills:
-                conn.execute("""
-                    UPDATE resources SET times_correct = times_correct + 1,
-                                         times_triggered = times_triggered + 1,
-                                         last_used_at = datetime('now')
-                    WHERE name = ? AND status = 'active'
-                """, (skill,))
-        elif actual_outcome == 'wrong':
-            for skill in predicted_skills:
-                conn.execute("""
-                    UPDATE resources SET times_wrong = times_wrong + 1,
-                                         times_triggered = times_triggered + 1,
-                                         last_used_at = datetime('now')
-                    WHERE name = ? AND status = 'active'
-                """, (skill,))
-        elif actual_outcome == 'routed':
-            for skill in predicted_skills:
-                conn.execute("""
-                    UPDATE resources SET times_triggered = times_triggered + 1,
-                                         last_used_at = datetime('now')
-                    WHERE name = ? AND status = 'active'
-                """, (skill,))
-        
-        # Also log to intent_learning for recalibrate()
-        if actual_outcome == 'correct' and predicted_skills:
-            verb = extract_verb(task)
-            if verb:
-                conn.execute("""
-                    INSERT INTO intent_learning (verb, correct_skills, count, timestamp)
-                    VALUES (?, ?, 1, datetime('now'))
-                """, (verb, json.dumps(predicted_skills[:3])))
-        
         conn.commit()
         conn.close()
     except Exception:
-        pass  # Non-critical
+        pass
 
 
 def update_weights(verb: str, correct_skills: list[str]):

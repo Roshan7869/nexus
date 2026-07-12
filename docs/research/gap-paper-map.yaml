@@ -1,0 +1,857 @@
+# NEXUS Second Brain v2 — Gap → Research → Algorithm → Best-Fit Map
+# Generated: 2026-07-11
+# Method: first principles + GitNexus code graph + arXiv/SSRN literature
+# Companion: docs/research/ADR-002-research-authority-second-brain-v2.md
+#
+# Scoring dimensions (0–10 each):
+#   fit_codebase   — reuses existing NEXUS modules / flags
+#   research_strength — empirical or theoretical backing
+#   perf_upside    — expected routing/learning quality gain
+#   cost_latency   — lower score = more expensive/slow
+#   blast_radius   — lower score = riskier change
+#   implement_hours — effort estimate (informational)
+# best_fit = weighted: fit*0.3 + research*0.25 + perf*0.25 + (10-cost)*0.1 + (10-blast)*0.1
+
+meta:
+  branch: second-brain-v2
+  gitnexus_repo: nexus
+  live_db_state: "CRITICAL — 1 resource; full brain in backups"
+  production_router_default: "USE_UNIFIED_ROUTER=0 → route_task (v4)"
+  blend_weights: {iso: 0.40, thompson: 0.15, efc: 0.25, ucb: 0.20}
+  rrf_k: 60
+  iso_theta_paper: 0.28
+  efc_formula: "EFC_t = κ · I · V · R · M  (κ=10, arXiv:2605.29682)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FIRST PRINCIPLES (irreducible atoms)
+# ═══════════════════════════════════════════════════════════════════════════
+first_principles:
+  A1_registry:
+    what: "Authoritative set of skills/tools with embeddings, clusters, edges"
+    failure: "Empty or desynced registry → all routing is noise"
+  A2_retrieve:
+    what: "Map task text → ranked resource candidates"
+    failure: "Wrong candidates → wrong tools in context"
+  A3_rank:
+    what: "Multi-signal score (semantic + learn + explore)"
+    failure: "Exploit-only or explore-only → local optima or thrash"
+  A4_gate:
+    what: "Only allowlisted active tools may execute"
+    failure: "Tool hallucination / schema tax / lost-in-middle"
+  A5_feedback:
+    what: "Outcomes update beliefs with quality weights"
+    failure: "No learning; priors never improve"
+  A6_serve:
+    what: "Process lifecycle: one warm brain, stable MCP/HTTP"
+    failure: "Locks, cold starts, env skew, zombie processes"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0 — DATA & RUNTIME INTEGRITY
+# ═══════════════════════════════════════════════════════════════════════════
+gaps:
+  G1:
+    title: "Live DB empty (1 resource vs ~2.8k in backups)"
+    priority: P0
+    atoms: [A1_registry]
+    causes:
+      root: "Working tree db/nexus.db is a slim/corrupt cut; full state lives in timestamped backups"
+      gitnexus_evidence:
+        - "HTTP /stats reports resources.skill=1"
+        - "test_cluster_membership_populated fails: count=0"
+      code_evidence:
+        - "server/db.py DEFAULT_DB_PATH = ~/nexus/db/nexus.db"
+        - "server/nexus_http_daemon.py hardcodes Path.home()/nexus/db/nexus.db"
+      backups:
+        pre_cutover: {path: "db/nexus.db.pre-cutover-1782612021", resources: 2821, edges: 9283, efc_cols: true}
+        pre_restore: {path: "db/nexus.db.pre-restore.1782906626", resources: 2842, edges: 5, chunks: 88354}
+        pre_efc: {path: "db/nexus.db.pre-efc-backup-20260626-210021", resources: 2815, edges: 9126}
+    papers:
+      - {id: "arXiv:2506.16051", title: "Data-centric infrastructure for reproducible ML", role: "version Dataset/Execution/Asset"}
+      - {id: "arXiv:2509.00293", title: "SmartDiff large-scale data difference analysis", role: "migration validation gates"}
+      - {id: "arXiv:2406.09737", title: "MLOps multivocal review", role: "data quality SLOs"}
+    algorithms:
+      - name: "Versioned restore with validation gate"
+        components: [snapshot_current, select_backup, atomic_swap, count_gate, health_probe]
+        pseudocode: |
+          1. COPY live → db/nexus.db.empty-YYYYMMDD
+          2. score backups by (resources, edges, efc_cols, embeddings)
+          3. prefer pre-cutover (edges+EFC) OR pre-restore then re-densify
+          4. stop daemons; cp backup → nexus.db; run migrations
+          5. GATE: resources>=2000 AND efc_cols present AND embeddings>0
+    candidates:
+      - id: R1a
+        name: "Restore pre-cutover (best graph)"
+        scores: {fit_codebase: 10, research_strength: 8, perf_upside: 10, cost_latency: 2, blast_radius: 8, hours: 1}
+      - id: R1b
+        name: "Restore pre-restore (max rows, re-densify edges)"
+        scores: {fit_codebase: 9, research_strength: 8, perf_upside: 9, cost_latency: 4, blast_radius: 8, hours: 3}
+      - id: R1c
+        name: "Re-ingest from zero"
+        scores: {fit_codebase: 5, research_strength: 6, perf_upside: 7, cost_latency: 9, blast_radius: 6, hours: 20}
+    best_fit: R1a
+    rationale: "Maximize knowledge density immediately; edges already densified; lowest hours"
+    adopt:
+      - "Out-of-session restore from pre-cutover"
+      - "Publish resource_count / edge_count as health SLO"
+      - "Never gitignore-away the only copy of production brain"
+
+  G2:
+    title: "Schema drift — outcome_log missing EFC columns on live"
+    priority: P0
+    atoms: [A1_registry, A5_feedback]
+    causes:
+      root: "Live DB recreated/migrated without EFC ALTERs; schema.sql lags code"
+      code_evidence:
+        - "learning._bridge_outcome_log INSERT lists efc_informativeness..efc_score"
+        - "db/schema.sql has NO efc_* columns"
+        - "Live PRAGMA outcome_log: no efc cols; backups have 5 EFC cols"
+    papers:
+      - {id: "arXiv:2506.16051", title: "Data-centric dual domain/ML schema", role: "contract = code"}
+      - {id: "arXiv:2512.09762", title: "Operation-based data versioning", role: "migrations as ops"}
+      - {id: "arXiv:2605.29682", title: "EFC scaling laws (in efc.py header)", role: "column semantics"}
+    algorithms:
+      - name: "EFC event compute (already in server/efc.py)"
+        formula: "EFC_t = 10 * I * V * R * M"
+        components:
+          I: "informativeness from outcome label"
+          V: "validity proxy"
+          R: "1 - min(repeats_1h/10, 0.9)"
+          M: "1.0 first-use else 0.5"
+        nrs: "nrs_efc = efc * Q_nr * G_nr * Λ / (1 + 0.35*A_t)"
+      - name: "Boot-time schema gate"
+        components: [pragma_check, apply_migrations, fail_closed]
+    candidates:
+      - id: R2a
+        name: "Restore full DB (inherits EFC cols) + fix schema.sql"
+        scores: {fit_codebase: 10, research_strength: 9, perf_upside: 8, cost_latency: 2, blast_radius: 7, hours: 1}
+      - id: R2b
+        name: "ALTER live only (empty brain still useless)"
+        scores: {fit_codebase: 7, research_strength: 7, perf_upside: 2, cost_latency: 1, blast_radius: 4, hours: 0.5}
+    best_fit: R2a
+    rationale: "Schema alone without data is theater; restore+contract update is the fix"
+    adopt:
+      - "Daemon startup: require efc_score column or refuse /report_outcome"
+      - "Sync db/schema.sql to live+migrations"
+
+  G3:
+    title: "FAISS / embedding desync (index present, embeddings=0)"
+    priority: P0
+    atoms: [A1_registry, A2_retrieve]
+    causes:
+      root: "Index file left from prior full corpus; live resources table emptied"
+      code_evidence:
+        - "tool_attention_v4 / NumpyRouter load embeddings from DB"
+        - "test_v3: NumpyRouter: no routable embeddings found"
+        - "db/faiss/resources.index ~3.2MB still on disk"
+    papers:
+      - {id: "arXiv:2604.13728", title: "Hybrid RRF dense/sparse", role: "rebuild both channels"}
+      - {id: "arXiv:2511.10297", title: "Local hybrid RAG", role: "FAISS+sparse consistency"}
+      - {id: "Cormack SIGIR 2009", title: "RRF k=60", role: "fusion after rebuild"}
+    algorithms:
+      - name: "Atomic embed→store→index rebuild"
+        components: [encode_all_MiniLM_L6_v2, write_resource_embeddings, faiss_or_numpy_matrix, checksum]
+        gate: "len(ids)==n_vectors && max(|id_set Δ index_ids|)=0"
+    candidates:
+      - id: R3a
+        name: "Restore DB with embeddings then verify NumpyRouter load"
+        scores: {fit_codebase: 10, research_strength: 9, perf_upside: 10, cost_latency: 3, blast_radius: 6, hours: 2}
+      - id: R3b
+        name: "Full re-embed from body_text"
+        scores: {fit_codebase: 8, research_strength: 8, perf_upside: 9, cost_latency: 7, blast_radius: 5, hours: 8}
+    best_fit: R3a
+    rationale: "pre-cutover already has 1834 embeddings; re-embed only if checksum fails"
+    adopt:
+      - "scripts/rebuild_faiss.py or NumpyRouter warm path after restore"
+      - "Health: embedding_count == routable_resource_count (or report ratio)"
+
+  G4:
+    title: "HTTP daemon runs system Python not venv"
+    priority: P0
+    atoms: [A6_serve]
+    causes:
+      root: "Process started outside supervisord.conf which specifies venv/bin/python3"
+      code_evidence:
+        - "supervisord.conf command=.../venv/bin/python3 ... nexus_http_daemon.py"
+        - "live pid uses /usr/bin/python3"
+    papers:
+      - {id: "arXiv:2602.10479", title: "Agentic AI software architecture", role: "control plane separation"}
+      - {id: "arXiv:2503.06705", title: "Self-adaptive cloud reliability", role: "supervised restarts"}
+    algorithms:
+      - name: "Single control-plane spawn"
+        components: [supervisord, venv_only, program_priority, autorestart]
+    best_fit: R4a
+    candidates:
+      - id: R4a
+        name: "Apply supervisord out-of-session (venv both MCP+HTTP)"
+        scores: {fit_codebase: 10, research_strength: 8, perf_upside: 6, cost_latency: 1, blast_radius: 7, hours: 0.5}
+    adopt:
+      - "Never start daemon with system python"
+      - "supervisorctl status as ops gate"
+
+  G5:
+    title: "DB locks from processes + ad-hoc root tests"
+    priority: P0
+    atoms: [A6_serve]
+    causes:
+      root: "Long-lived writers + root tests open live nexus.db without isolation"
+      code_evidence:
+        - "test_epsilon/degradation/edges: database is locked"
+        - "daemon timeout=60 WAL; tests not using fixtures"
+    papers:
+      - {id: "arXiv:2602.07147", title: "Microservices anti-patterns / bulkheads", role: "isolate test vs prod"}
+      - {id: "arXiv:2602.10479", title: "Circuit breakers / budgets", role: "fail soft under contention"}
+    algorithms:
+      - name: "Bulkhead DBs"
+        components: [prod_db, test_tmp_db, short_tx, busy_timeout, no_root_tests_on_live]
+    best_fit: R5a
+    candidates:
+      - id: R5a
+        name: "Fixture-only unit tests; move root tests under tests/ with tmp db"
+        scores: {fit_codebase: 9, research_strength: 8, perf_upside: 4, cost_latency: 2, blast_radius: 3, hours: 4}
+    adopt:
+      - "pytest always uses tmp_path DB"
+      - "prod: WAL + busy_timeout + single writer preference"
+
+  G6:
+    title: "MCP transport flaky (handshake broken pipe)"
+    priority: P0
+    atoms: [A6_serve]
+    causes:
+      root: "Multiple owners of MCP lifecycle; session death not supervised"
+      code_evidence:
+        - "Grok MCP nexus handshake failed broken pipe"
+        - "MCP process may exist but stdio transport dead"
+    papers:
+      - {id: "arXiv:2602.10479", title: "Control plane + circuit breakers", role: "safe restart"}
+      - {id: "arXiv:2510.13467", title: "NetMCP SONAR", role: "health-aware MCP routing"}
+    algorithms:
+      - name: "Health-probed MCP spawn"
+        components: [supervisor_program, stdio_heartbeat, client_reconnect, single_owner]
+    best_fit: R6a
+    candidates:
+      - id: R6a
+        name: "Supervisord-owned MCP + client reconnect policy"
+        scores: {fit_codebase: 9, research_strength: 7, perf_upside: 5, cost_latency: 2, blast_radius: 6, hours: 2}
+    adopt:
+      - "One process owner; kill orphans before restart"
+      - "Document reconnect for IDE clients"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # P1 — ROUTING CUTOVER
+  # ═══════════════════════════════════════════════════════════════════════
+  G7:
+    title: "USE_UNIFIED_ROUTER default 0 — production still on v4"
+    priority: P1
+    atoms: [A2_retrieve, A3_rank]
+    causes:
+      root: "Intentional canary flag; never flipped after restore risk"
+      code_evidence:
+        - "nexus-mcp-enhanced.find_skills: getenv USE_UNIFIED_ROUTER default 0"
+        - "0→route_task, 1→unified_route, 2→unified_route_v5"
+    papers:
+      - {id: "arXiv:2604.21816", title: "Tool Attention ISO gating", role: "production retrieval design"}
+      - {id: "arXiv:2506.01056", title: "MCP-Zero hierarchical active discovery", role: "coarse→fine"}
+      - {id: "arXiv:2402.04253", title: "AnyTool hierarchical API", role: "tree filter"}
+      - {id: "arXiv:2307.03172", title: "Lost in the Middle", role: "why not dump all tools"}
+      - {id: "Cormack 2009", title: "RRF", role: "list fusion k=60"}
+    algorithms:
+      - name: "ISO score (Tool Attention)"
+        formula: "ISO(q,t)=cos(e_q, e_t); gate ISO>=θ; top-k lazy schemas"
+        code: "server/tool_attention_v4.py THETA=0.28 TOP_K=10"
+      - name: "RRF fusion"
+        formula: "score(d)=Σ 1/(k+rank_i(d)), k=60"
+        code: "server/router_v2/fusion.py reciprocal_rank_fusion"
+      - name: "4-term blend"
+        formula: "0.40*iso + 0.15*thompson + 0.25*efc + 0.20*ucb"
+        code: "DEFAULT_BLEND_WEIGHTS in fusion.py"
+      - name: "Two-tier hot/cold"
+        formula: "hot_k,cold_k = split(top_k, 0.3); cold ranked iso+ucb"
+        code: "scoring.route_two_tier"
+    candidates:
+      - id: R7a
+        name: "Canary USE_UNIFIED_ROUTER=1 then =2 with route_ab_compare"
+        scores: {fit_codebase: 10, research_strength: 10, perf_upside: 9, cost_latency: 3, blast_radius: 5, hours: 4}
+      - id: R7b
+        name: "Hard flip to 2 without canary"
+        scores: {fit_codebase: 8, research_strength: 7, perf_upside: 9, cost_latency: 2, blast_radius: 9, hours: 1}
+    best_fit: R7a
+    rationale: "Research + plan already specify canary; A/B tool exists"
+    adopt:
+      - "Gate: top-1 agreement ≥95% on 20-query suite vs v4"
+      - "Then set USE_UNIFIED_ROUTER=2 as production SoT"
+
+  G8:
+    title: "Three parallel routers (v4 / v2 / v5) permanent"
+    priority: P1
+    atoms: [A2_retrieve]
+    causes:
+      root: "Evolutionary layering without deprecation schedule"
+    papers:
+      - {id: "arXiv:2603.22862", title: "Evolution of tool use survey", role: "one dynamic retrieval paradigm"}
+      - {id: "arXiv:2606.17519", title: "Enterprise agent routing", role: "tool-level > pack dump"}
+    algorithms:
+      - name: "Deprecation ladder"
+        components: [flag_default_v5, v4_fallback_only, remove_dead_paths_after_N_days]
+    best_fit: R8a
+    candidates:
+      - id: R8a
+        name: "v5 production + v4 fallback flag only"
+        scores: {fit_codebase: 9, research_strength: 9, perf_upside: 7, cost_latency: 2, blast_radius: 5, hours: 6}
+    adopt:
+      - "Document single public entry: find_skills → v5"
+      - "Delete or archive unused route_* after metrics stable"
+
+  G9:
+    title: "Cold-start metrics never move (flag off + empty DB)"
+    priority: P1
+    atoms: [A3_rank]
+    causes:
+      root: "UCB/two-tier only on unified path; default v4; empty registry"
+      code_evidence:
+        - "ucb=1.0 for n_i=0 in rerank_with_efc_ucb"
+        - "cold_fraction=0.3 in route_two_tier"
+    papers:
+      - {id: "arXiv:2005.12979", title: "Conversational cold-start UCB", role: "explore schedule"}
+      - {id: "arXiv:2106.10898", title: "BanditMF cold-start", role: "bandits for new items"}
+      - {id: "SSRN:3702786", title: "Cold start market thickness", role: "exploration inventory"}
+      - {id: "SSRN:4807690", title: "KG-TS Thompson", role: "KG-aided cold items"}
+    algorithms:
+      - name: "UCB1 bonus"
+        formula: "ucb_i = c * sqrt(ln(t)/n_i) or 1.0 if n_i=0"
+        code: "router_v2/scoring.ucb_bonuses"
+      - name: "Two-tier mix"
+        formula: "merged = hot[:0.7k] + cold[:0.3k]"
+    best_fit: R9a
+    candidates:
+      - id: R9a
+        name: "Restore + USE_UNIFIED=1 + cold_warm exposure seeds"
+        scores: {fit_codebase: 10, research_strength: 9, perf_upside: 8, cost_latency: 3, blast_radius: 4, hours: 3}
+    adopt:
+      - "KPI: never_triggered% after 7 days of live traffic"
+      - "scripts/cold_warm.py --commit for exposure only (no fake labels)"
+
+  G10:
+    title: "Chunk→resource linking coverage low"
+    priority: P1
+    atoms: [A2_retrieve]
+    causes:
+      root: "Only wiki/sherlock ingested; many skills never chunk-linked"
+      code_evidence:
+        - "router_v2 notes chunks_fts resource_id often NULL historically"
+        - "fusion keys fts by chunk_id vs vec by resource_id"
+    papers:
+      - {id: "arXiv:2402.03367", title: "RAG-Fusion", role: "multi-query+RRF"}
+      - {id: "arXiv:2603.22455", title: "Retrieve-and-rerank skills", role: "body/chunk attention"}
+    algorithms:
+      - name: "Link-then-RRF"
+        components: [hash_link_chunks, resource_id_backfill, rrf_resource_keyed]
+    best_fit: R10a
+    candidates:
+      - id: R10a
+        name: "Expand ingest + enforce resource_id on new chunks"
+        scores: {fit_codebase: 8, research_strength: 8, perf_upside: 7, cost_latency: 5, blast_radius: 3, hours: 8}
+    adopt:
+      - "Ingest gate: reject chunks without resolvable resource_id"
+      - "Measure chunk contribution in route_ab_compare"
+
+  G11:
+    title: "supervisord.conf written but not applied"
+    priority: P1
+    atoms: [A6_serve]
+    causes:
+      root: "Guardrail: applying kills live MCP mid-session"
+    papers:
+      - {id: "arXiv:2602.10479", title: "Agent control plane", role: "ops cutover"}
+    algorithms:
+      - name: "Out-of-session cutover"
+        steps: [drain, pkill orphans, supervisord -c, supervisorctl status, health]
+    best_fit: R11a
+    candidates:
+      - id: R11a
+        name: "Apply conf after G1 restore"
+        scores: {fit_codebase: 10, research_strength: 8, perf_upside: 6, cost_latency: 1, blast_radius: 7, hours: 0.5}
+    adopt:
+      - "Couple with G1/G4; never mid-agent-session"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # P2 — LEARNING LOOP
+  # ═══════════════════════════════════════════════════════════════════════
+  G12:
+    title: "Outcome coverage low historically; live ~0"
+    priority: P2
+    atoms: [A5_feedback]
+    causes:
+      root: "Agents rarely call log_outcome; empty DB breaks resource lookup in bridge"
+      gitnexus_evidence:
+        - "record_outcome called from log_outcome, report_outcome, broker, TA complete_route_turn"
+        - "find_skills inserts routing_log with outcome=NULL"
+    papers:
+      - {id: "arXiv:2303.11366", title: "Reflexion verbal RL", role: "must store feedback"}
+      - {id: "arXiv:2505.24726", title: "Self-improve via reflection+RL", role: "binary fail→reflect"}
+      - {id: "arXiv:2605.29682", title: "EFC", role: "quality-weighted feedback"}
+    algorithms:
+      - name: "Route-id lifecycle"
+        components: [open_route_null, timeout_auto_close, explicit_log_outcome, bridge_efc]
+        code: "learning.record_outcome + _bridge_outcome_log + auto_close"
+    best_fit: R12a
+    candidates:
+      - id: R12a
+        name: "Mandatory route_id + auto-close cron + agent policy to log_outcome"
+        scores: {fit_codebase: 10, research_strength: 10, perf_upside: 9, cost_latency: 2, blast_radius: 3, hours: 6}
+    adopt:
+      - "KPI: outcome_log / routing_log > 0.8"
+      - "CLAUE.md already requires log_outcome — enforce in tooling"
+
+  G13:
+    title: "Silent except:pass on routing_log insert"
+    priority: P2
+    atoms: [A5_feedback]
+    causes:
+      root: "Availability over observability; failures invisible"
+      code_evidence:
+        - "find_skills lines ~109-122: except Exception: pass"
+    papers:
+      - {id: "arXiv:2303.11366", title: "Reflexion", role: "no silent loss of signal"}
+      - {id: "arXiv:2602.10479", title: "Observability cross-cut", role: "log failures"}
+    algorithms:
+      - name: "Fail-loud logging"
+        components: [try_insert, logger.error, metrics_counter, never_empty_except]
+    best_fit: R13a
+    candidates:
+      - id: R13a
+        name: "Replace pass with structured error log + metric"
+        scores: {fit_codebase: 10, research_strength: 8, perf_upside: 5, cost_latency: 1, blast_radius: 2, hours: 1}
+    adopt:
+      - "logger.exception in find_skills routing_log path"
+
+  G14:
+    title: "Reflexion LLM / perplexity unwired"
+    priority: P2
+    atoms: [A5_feedback]
+    causes:
+      root: "Pluggable callbacks default offline-safe 'routed'"
+      code_evidence:
+        - "autonomous_pipeline: _reflexion_llm / _perplexity_scorer optional"
+    papers:
+      - {id: "arXiv:2303.11366", title: "Reflexion", role: "verbal feedback buffer"}
+      - {id: "arXiv:2405.06682", title: "Self-reflection effects", role: "when reflection helps"}
+      - {id: "arXiv:2405.13009", title: "MetaReflection", role: "distill instructions"}
+    algorithms:
+      - name: "Pluggable reflexion"
+        components: [on_failure_only, cheap_model, episodic_note, optional_perplexity]
+        code: "AutonomousToolCaller.set_reflexion_llm"
+    best_fit: R14a
+    candidates:
+      - id: R14a
+        name: "Wire cheap model on wrong/partial only; perplexity flag OFF"
+        scores: {fit_codebase: 9, research_strength: 9, perf_upside: 6, cost_latency: 5, blast_radius: 3, hours: 4}
+    adopt:
+      - "Cost ceiling env REFLEXION_MODEL"
+      - "Never invent outcomes without scorer"
+
+  G15:
+    title: "Thompson model selection not in unified skill path"
+    priority: P2
+    atoms: [A3_rank]
+    causes:
+      root: "_route_unified hardcodes tier=2 model=sonnet; TS stays in core/learner + v4"
+      code_evidence:
+        - "nexus-mcp-enhanced._route_unified return model=sonnet"
+        - "core/learner.py NexusLearner Beta beliefs"
+    papers:
+      - {id: "arXiv:1707.02038", title: "Thompson Sampling tutorial", role: "Beta-Bernoulli TS"}
+      - {id: "arXiv:2305.05176", title: "FrugalGPT cascade", role: "cost-aware model pick"}
+      - {id: "arXiv:2406.18665", title: "RouteLLM", role: "strong/weak routing"}
+      - {id: "SSRN:4107976", title: "TS house ads", role: "production TS"}
+    algorithms:
+      - name: "Beta-Bernoulli TS"
+        formula: "sample θ~Beta(α,β); pick max; α+=reward β+=1-reward"
+      - name: "LLM cascade"
+        formula: "try weak; escalate if confidence low"
+    best_fit: R15a
+    candidates:
+      - id: R15a
+        name: "Keep skill TS in 4-term blend; separate model cascade module"
+        scores: {fit_codebase: 9, research_strength: 10, perf_upside: 7, cost_latency: 4, blast_radius: 4, hours: 8}
+      - id: R15b
+        name: "Merge model pick into unified_route"
+        scores: {fit_codebase: 5, research_strength: 7, perf_upside: 6, cost_latency: 5, blast_radius: 7, hours: 12}
+    rationale: "Skills ≠ models; dual bandit layers cleaner (skill arms vs model arms)"
+    adopt:
+      - "Document two bandit layers"
+      - "Stop advertising 'model tier' in unified skill JSON until cascade wired"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # P3 — ARCHITECTURE HYGIENE
+  # ═══════════════════════════════════════════════════════════════════════
+  G16:
+    title: "Three HTTP apps (core / daemon / unified)"
+    priority: P3
+    atoms: [A6_serve]
+    causes:
+      root: "Gateway era + resource brain era + merge attempt coexist"
+      gitnexus: "route_map 43 routes; 0 typed consumers on many daemon routes"
+    papers:
+      - {id: "arXiv:2606.30317", title: "MCP server patterns Proxy Aggregator", role: "scoped facade"}
+      - {id: "arXiv:2602.10479", title: "Layered agent architecture", role: "one interface"}
+    algorithms:
+      - name: "Facade consolidation"
+        components: [public_api_set, deprecate_dupes, mcp_primary]
+    best_fit: R16a
+    candidates:
+      - id: R16a
+        name: "Daemon as only warm API; core gateway optional; unified merge later"
+        scores: {fit_codebase: 8, research_strength: 8, perf_upside: 5, cost_latency: 3, blast_radius: 6, hours: 10}
+    adopt:
+      - "README: MCP primary, :8080 ops, :8000 LLM gateway optional"
+
+  G17:
+    title: "Import cycle harness ↔ learning ↔ router"
+    priority: P3
+    atoms: [A6_serve]
+    causes:
+      root: "GitNexus check: engine→learning→router→server→engine"
+    papers:
+      - {id: "arXiv:2602.10479", title: "Layering", role: "acyclic deps"}
+      - {id: "arXiv:2602.07147", title: "Anti-patterns", role: "cyclic coupling"}
+    algorithms:
+      - name: "Dependency inversion"
+        components: [ports_for_record_outcome, late_import, split_packages]
+    best_fit: R17a
+    candidates:
+      - id: R17a
+        name: "learning does not import router; harness uses protocol interface"
+        scores: {fit_codebase: 8, research_strength: 8, perf_upside: 3, cost_latency: 2, blast_radius: 5, hours: 6}
+    adopt:
+      - "gitnexus check --cycles = 0 in CI"
+
+  G18:
+    title: "Overlapping discovery tools (68 MCP tools)"
+    priority: P3
+    atoms: [A2_retrieve, A4_gate]
+    causes:
+      root: "Feature accretion; Lost-in-Middle if all exposed"
+    papers:
+      - {id: "arXiv:2307.03172", title: "Lost in the Middle", role: "context tax"}
+      - {id: "arXiv:2604.21816", title: "Tool Attention", role: "top-k only"}
+      - {id: "arXiv:2410.14594", title: "Toolshed RAG-tool fusion", role: "retrieve tools"}
+    algorithms:
+      - name: "Active set presentation"
+        components: [retrieve_top_k, inject_summaries, lazy_full_schema]
+    best_fit: R18a
+    candidates:
+      - id: R18a
+        name: "Agent default toolset = find_skills + log_outcome + plan trio; rest via route"
+        scores: {fit_codebase: 9, research_strength: 10, perf_upside: 8, cost_latency: 2, blast_radius: 4, hours: 4}
+    adopt:
+      - "MCP client config: core tools only"
+      - "θ=0.28 top_k=8-12"
+
+  G19:
+    title: "Orphan HTTP routes (0 consumers in graph)"
+    priority: P3
+    atoms: [A6_serve]
+    causes:
+      root: "Agents use MCP; HTTP is ops/debug"
+    papers:
+      - {id: "arXiv:2606.30317", title: "MCP patterns", role: "intent vs accident"}
+    best_fit: R19a
+    candidates:
+      - id: R19a
+        name: "Document HTTP as ops surface; no agent dependency"
+        scores: {fit_codebase: 10, research_strength: 7, perf_upside: 2, cost_latency: 1, blast_radius: 1, hours: 1}
+    adopt:
+      - "Tag routes ops|agent in OpenAPI"
+
+  G20:
+    title: "FastAPI on_event deprecated"
+    priority: P3
+    atoms: [A6_serve]
+    causes:
+      root: "Legacy startup hooks"
+    papers: []
+    best_fit: R20a
+    candidates:
+      - id: R20a
+        name: "Migrate to lifespan context managers"
+        scores: {fit_codebase: 9, research_strength: 5, perf_upside: 1, cost_latency: 1, blast_radius: 3, hours: 2}
+    adopt:
+      - "unified.py + daemon lifespan"
+
+  G21:
+    title: "Root-level tests mutate live DB"
+    priority: P3
+    atoms: [A6_serve]
+    causes:
+      root: "Legacy scripts as tests"
+    papers:
+      - {id: "arXiv:2506.16051", title: "Reproducible ML datasets", role: "fixtures"}
+    best_fit: R21a
+    candidates:
+      - id: R21a
+        name: "Move to tests/; tmp DB; delete root test_*.py or mark integration"
+        scores: {fit_codebase: 9, research_strength: 8, perf_upside: 3, cost_latency: 2, blast_radius: 3, hours: 4}
+    adopt:
+      - "pytest path only tests/"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # P4 — PRODUCT
+  # ═══════════════════════════════════════════════════════════════════════
+  G22:
+    title: "Autonomous tool calling not default agent path"
+    priority: P4
+    atoms: [A2_retrieve, A4_gate]
+    causes:
+      root: "AutonomousToolCaller exists but agents still manual find_skills"
+      code_evidence:
+        - "server/autonomous_pipeline.py before_model/after_model/reflexion"
+        - "ISO_THRESHOLD=0.28; HallucinationGate on active set"
+    papers:
+      - {id: "arXiv:2604.21816", title: "Tool Attention", role: "middleware pass"}
+      - {id: "arXiv:2506.01056", title: "MCP-Zero", role: "active discovery"}
+      - {id: "arXiv:2303.11366", title: "Reflexion", role: "after fail"}
+    algorithms:
+      - name: "AutonomousToolCaller pipeline"
+        components: [before_model_retrieve, inject_schemas, after_model_gate, reflexion]
+    best_fit: R22a
+    candidates:
+      - id: R22a
+        name: "Wire AutonomousToolCaller into autopilot_run / broker"
+        scores: {fit_codebase: 9, research_strength: 10, perf_upside: 8, cost_latency: 4, blast_radius: 5, hours: 10}
+    adopt:
+      - "Gate: 100% reject out-of-set tool ids in tests"
+
+  G23:
+    title: "Multi-IDE manager unproven live"
+    priority: P4
+    atoms: [A6_serve]
+    causes:
+      root: "Endpoints exist; no multi-session integration proof"
+    papers:
+      - {id: "arXiv:2602.10479", title: "Session isolation budgets", role: "multi-session"}
+    best_fit: R23a
+    candidates:
+      - id: R23a
+        name: "Integration test ≥2 IDE sessions independent metrics"
+        scores: {fit_codebase: 8, research_strength: 7, perf_upside: 4, cost_latency: 3, blast_radius: 4, hours: 6}
+    adopt:
+      - "Defer until G1–G7 green"
+
+  G24:
+    title: "Context harness not always-on"
+    priority: P4
+    atoms: [A2_retrieve]
+    causes:
+      root: "Separate MCP tool family; cost of web channels"
+    papers:
+      - {id: "arXiv:2402.03367", title: "RAG-Fusion", role: "multi-source"}
+      - {id: "arXiv:2604.01733", title: "Hybrid retrieval benchmark", role: "sparse+dense"}
+    best_fit: R24a
+    candidates:
+      - id: R24a
+        name: "Default: nexus+memory sources; web/research opt-in"
+        scores: {fit_codebase: 9, research_strength: 9, perf_upside: 6, cost_latency: 3, blast_radius: 3, hours: 4}
+    adopt:
+      - "context_harness sources=['nexus','memory'] default"
+
+  G25:
+    title: "KG densify depends on backup choice"
+    priority: P4
+    atoms: [A1_registry, A3_rank]
+    causes:
+      root: "pre-restore has 5 edges; pre-cutover 9k+"
+    papers:
+      - {id: "arXiv:1706.02216", title: "GraphSAGE", role: "inductive edges for new tools"}
+      - {id: "SSRN:4807690", title: "KG-TS", role: "KG+bandits"}
+    algorithms:
+      - name: "Semantic edge densify"
+        formula: "edge if cos(e_i,e_j)>=τ; store edge_type not relation"
+        code: "scripts densify_kg / plan P7"
+      - name: "GraphSAGE inductive (optional later)"
+        components: [sample_neighbors, aggregate, link_predict]
+    best_fit: R25a
+    candidates:
+      - id: R25a
+        name: "Restore pre-cutover densified graph; GraphSAGE only if edge_pred needed"
+        scores: {fit_codebase: 10, research_strength: 9, perf_upside: 7, cost_latency: 3, blast_radius: 5, hours: 2}
+    adopt:
+      - "edge_type column contract"
+      - "Avoid O(n²) full pairwise; use FAISS NN"
+
+  G26:
+    title: "No PDG/taint; tool hallucination residual risk"
+    priority: P4
+    atoms: [A4_gate]
+    causes:
+      root: "HallucinationGate is registry allowlist; no code taint layer"
+      code_evidence:
+        - "hallucination.py: exist, active, score>=0.45, preconditions"
+        - "GitNexus explain: no taint layer"
+    papers:
+      - {id: "arXiv:2412.04141", title: "Reducing tool hallucination", role: "reliability alignment"}
+      - {id: "arXiv:2601.05214", title: "Internal reps for tool-call hallucinations", role: "detection"}
+      - {id: "arXiv:2509.18970", title: "Agent hallucination survey", role: "TSH vs TCH"}
+    algorithms:
+      - name: "Active-set HallucinationGate (current)"
+        components: [existence, status_active, score_threshold, GLOBAL_GATES]
+      - name: "Optional active-set intersection with router top-k"
+        components: [before_model_ids, after_model_reject_notin]
+    best_fit: R26a
+    candidates:
+      - id: R26a
+        name: "Strengthen gate: reject tools not in current turn active set"
+        scores: {fit_codebase: 10, research_strength: 10, perf_upside: 8, cost_latency: 2, blast_radius: 3, hours: 3}
+      - id: R26b
+        name: "gitnexus analyze --pdg for code security only"
+        scores: {fit_codebase: 6, research_strength: 7, perf_upside: 2, cost_latency: 4, blast_radius: 2, hours: 2}
+    rationale: "Active-set gate is the paper-aligned high-ROI fix; PDG is orthogonal"
+    adopt:
+      - "AutonomousToolCaller after_model already rejects non-active-set"
+      - "Propagate active set into all execute paths"
+
+  G27:
+    title: "Plans table empty; orchestrator unexercised"
+    priority: P4
+    atoms: [A2_retrieve]
+    causes:
+      root: "No live design_plan after DB wipe"
+    papers:
+      - {id: "arXiv:2603.22862", title: "Tool survey planners", role: "plan-execute-verify"}
+    best_fit: R27a
+    candidates:
+      - id: R27a
+        name: "Smoke design_plan→execute→verify after restore"
+        scores: {fit_codebase: 9, research_strength: 7, perf_upside: 5, cost_latency: 3, blast_radius: 3, hours: 2}
+    adopt:
+      - "Integration test once resources>0"
+
+  G28:
+    title: "Coach half-integrated"
+    priority: P4
+    atoms: [A5_feedback]
+    causes:
+      root: "Nested product + coach tables; weak feed into resource beliefs"
+    papers:
+      - {id: "arXiv:2303.11366", title: "Reflexion", role: "shared feedback memory"}
+    best_fit: R28a
+    candidates:
+      - id: R28a
+        name: "Map coach antipatterns → learning notes only; no hard coupling"
+        scores: {fit_codebase: 8, research_strength: 6, perf_upside: 3, cost_latency: 2, blast_radius: 3, hours: 4}
+    adopt:
+      - "Boundary: coach product; NEXUS consumes notes optionally"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # P5 — EVAL / CI
+  # ═══════════════════════════════════════════════════════════════════════
+  G29:
+    title: "tests/ 1 fail: cluster_membership empty"
+    priority: P5
+    atoms: [A1_registry]
+    causes:
+      root: "Test asserts live DB membership > 0"
+    best_fit: R29a
+    candidates:
+      - id: R29a
+        name: "Restore DB OR fixture with membership rows"
+        scores: {fit_codebase: 10, research_strength: 7, perf_upside: 2, cost_latency: 1, blast_radius: 2, hours: 1}
+    papers:
+      - {id: "arXiv:2506.16051", title: "Golden datasets", role: "CI fixtures"}
+    adopt:
+      - "Prefer fixture for unit; live check as integration mark"
+
+  G30:
+    title: "server/test_v3 hardcodes ~1096 resources"
+    priority: P5
+    atoms: [A1_registry]
+    causes:
+      root: "Era-specific absolute counts"
+    best_fit: R30a
+    candidates:
+      - id: R30a
+        name: "Relative gates: resources>=N_min; skip if env NEXUS_LIVE_TESTS!=1"
+        scores: {fit_codebase: 9, research_strength: 7, perf_upside: 2, cost_latency: 1, blast_radius: 2, hours: 3}
+    adopt:
+      - "No magic 1096/1097"
+
+  G31:
+    title: "24 skipped tests"
+    priority: P5
+    atoms: [A6_serve]
+    causes:
+      root: "Network/backends optional"
+    best_fit: R31a
+    candidates:
+      - id: R31a
+        name: "Inventory skips; mark offline suite green without them"
+        scores: {fit_codebase: 9, research_strength: 5, perf_upside: 1, cost_latency: 1, blast_radius: 1, hours: 2}
+    adopt:
+      - "pytest -m 'not network' default CI"
+
+  G32:
+    title: "No automated restore/smoke gate in CI"
+    priority: P5
+    atoms: [A1_registry, A6_serve]
+    causes:
+      root: "Ops scripts not CI-wired"
+    papers:
+      - {id: "arXiv:2509.00293", title: "SmartDiff", role: "diff gates"}
+      - {id: "arXiv:2603.22455", title: "Skill retrieval metrics", role: "R@k Hit@1"}
+    algorithms:
+      - name: "Brain health gate"
+        components: [resource_count, efc_cols, embedding_ratio, sample_route_latency]
+    best_fit: R32a
+    candidates:
+      - id: R32a
+        name: "scripts/brain_health_gate.py exit 0/1 + optional routing suite"
+        scores: {fit_codebase: 9, research_strength: 8, perf_upside: 4, cost_latency: 2, blast_radius: 2, hours: 4}
+    adopt:
+      - "CI: unit + brain_health if DB present"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EXECUTION ORDER (critical path)
+# ═══════════════════════════════════════════════════════════════════════════
+execution_order:
+  level_0: [G1, G2, G3]  # restore brain + schema + embeddings
+  level_1: [G4, G5, G6, G11, G13]  # ops + fail-loud
+  level_2: [G7, G9, G12]  # canary unified + cold + feedback coverage
+  level_3: [G8, G10, G15, G18, G26]  # consolidate + learn quality + gate
+  level_4: [G16, G17, G20, G21, G22]  # architecture + autonomy
+  level_5: [G14, G23, G24, G25, G27, G28, G29, G30, G31, G32]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CANONICAL ALGORITHM STACK (production SoT)
+# ═══════════════════════════════════════════════════════════════════════════
+production_stack:
+  retrieve:
+    steps:
+      - "optional cluster prefilter (MCP-Zero / AnyTool style)"
+      - "lexical FTS5 + dense bit/vec"
+      - "RRF k=60 (Cormack)"
+      - "4-term blend 0.40/0.15/0.25/0.20"
+      - "two-tier cold_fraction=0.3 UCB"
+      - "ISO θ adaptive/paper 0.28 filter"
+      - "top_k=8..12 lazy schemas (Tool Attention)"
+  execute:
+    steps:
+      - "HallucinationGate + active-set intersection"
+      - "preconditions GLOBAL_GATES"
+  learn:
+    steps:
+      - "routing_log open → outcome → record_outcome"
+      - "EFC_t=κIVRM bridge to outcome_log"
+      - "Thompson Beta update"
+      - "optional Reflexion on wrong/partial"
+  serve:
+    steps:
+      - "supervisord venv MCP + HTTP daemon"
+      - "brain_health_gate before traffic"
+
+anti_patterns:
+  - "Dumping full MCP tool catalog into context (Lost in the Middle)"
+  - "Silent except:pass on learning path"
+  - "Running HTTP with system Python"
+  - "Treating empty DB as healthy because /health status=ok"
+  - "Flipping USE_UNIFIED_ROUTER=2 without A/B suite"
+  - "Fake outcomes without reflexion/perplexity scorers"
+  - "O(n²) full pairwise KG without FAISS NN"

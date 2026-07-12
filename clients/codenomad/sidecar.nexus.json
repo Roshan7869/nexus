@@ -1,0 +1,24 @@
+{
+  "$schema": "https://nexus.local/schemas/codenomad-sidecar.json",
+  "name": "NEXUS",
+  "description": "NEXUS resource intelligence + execution plane (P4)",
+  "port": "http://127.0.0.1:8080",
+  "basePath": "/sidecars/nexus",
+  "prefixMode": "strip",
+  "healthPath": "/v1/health",
+  "dashboardPath": "/",
+  "api": {
+    "sessionOpen": "POST /v1/session/open",
+    "sessionReport": "POST /v1/session/{session_id}/report",
+    "route": "POST /route",
+    "harnessPlan": "POST /harness/plan"
+  },
+  "env": {
+    "NEXUS_URL": "http://127.0.0.1:8080"
+  },
+  "notes": [
+    "Add as CodeNomad SideCar pointing at the NEXUS dashboard (:8765) for UI,",
+    "and use NEXUS_URL :8080 for the execution-plane API from OpenCode sessions.",
+    "OpenCode/IDE should call session open at task start and report at task end."
+  ]
+}

@@ -291,18 +291,7 @@ def run_fusion_compare(conn, corpus, top_k):
 
 
 def run_cold_start_sim(conn, corpus, top_k):
-    """P5-bench cold-start simulation: exercise the TS-v2 faithful sample path
-    (``thompson_sample_resource`` — where the P-v2faithful IDS + Meta-TS wiring
-    lives) directly, under NEXUS_TS_V2 ON (Meta-TS posterior sampling + IDS re-rank)
-    vs OFF (legacy empirical-Bayes TS). For each query the base candidate set is
-    retrieved once via unified_route (deterministic; unaffected by the flag), then
-    re-ranked by the TS path under each config. Reports cold-resource (never-
-    triggered) coverage in the TS-ranked top-k, cluster-hit-rate, and P@k/NDCG@k
-    vs the query's relevant set.
-
-    READ-ONLY: never writes the DB. The TS sample path only reads beliefs; the
-    meta-posterior UPDATE lives in _update_thompson_belief (never called by
-    routing), so flag-OFF stays byte-identical and flag-ON performs zero writes."""
+    """P5-bench cold-start simulation: exercise legacy thompson_sample_resource."""
     from server.learning import thompson_sample_resource
 
     def id_to_name(rid):
@@ -341,49 +330,35 @@ def run_cold_start_sim(conn, corpus, top_k):
             ids.append(row[0] if row else None)
         return ids
 
-    results = {}
-    cand_pool = max(top_k * 3, 30)  # over-pull candidates so TS re-rank has room
-    for label, on in (("ts_v2_off", False), ("ts_v2_on", True)):
-        os.environ["NEXUS_TS_V2"] = "true" if on else "false"
-        colds, chits, ps, ndcgs = [], [], [], []
-        for q in corpus:
-            # deterministic base retrieval — same candidate set for both configs
-            base_ids = sys_nexus_unified(q["query"], cand_pool)
-            cands = []
-            for rid in base_ids:
-                nm = id_to_name(rid)
-                if nm:
-                    cands.append({"name": nm, "score": 0.5, "resource_id": rid})
-            try:
-                ranked = thompson_sample_resource(conn, q["query"], cands)
-            except Exception:
-                ranked = cands
-            top_names = [c.get("name") for c in ranked[:top_k]]
-            top_ids = names_to_ids(top_names)
-            colds.append(cold_frac(top_names))
-            chits.append(cluster_hit(top_names, q["cluster"]))
-            ps.append(precision_at_k(top_ids, q["relevant"], top_k))
-            ndcgs.append(ndcg_at_k(top_ids, q["relevant"], top_k))
-        results[label] = {"cold_fraction": mean(colds), "cluster_hit": mean(chits),
-                          "p@k": mean(ps), "ndcg": mean(ndcgs)}
-    os.environ.pop("NEXUS_TS_V2", None)  # restore (don't leak flag into caller)
+    colds, chits, ps, ndcgs = [], [], [], []
+    cand_pool = max(top_k * 3, 30)
+    for q in corpus:
+        base_ids = sys_nexus_unified(q["query"], cand_pool)
+        cands = []
+        for rid in base_ids:
+            nm = id_to_name(rid)
+            if nm:
+                cands.append({"name": nm, "score": 0.5, "resource_id": rid})
+        try:
+            ranked = thompson_sample_resource(conn, q["query"], cands)
+        except Exception:
+            ranked = cands
+        top_names = [c.get("name") for c in ranked[:top_k]]
+        top_ids = names_to_ids(top_names)
+        colds.append(cold_frac(top_names))
+        chits.append(cluster_hit(top_names, q["cluster"]))
+        ps.append(precision_at_k(top_ids, q["relevant"], top_k))
+        ndcgs.append(ndcg_at_k(top_ids, q["relevant"], top_k))
+    results = {"legacy_ts": {"cold_fraction": mean(colds), "cluster_hit": mean(chits),
+                             "p@k": mean(ps), "ndcg": mean(ndcgs)}}
     print("\n" + "=" * 78)
-    print(f"P5-BENCH: COLD-START SIMULATION (TS-v2 faithful sample path on vs off), "
-          f"k={top_k}, n={len(corpus)}")
+    print(f"P5-BENCH: COLD-START SIMULATION (legacy TS), k={top_k}, n={len(corpus)}")
     print("=" * 78)
     print(f"{'config':<12} {'cold_frac':>11} {'cluster_hit':>13} {'P@k':>8} {'NDCG@k':>8}")
     print("-" * 78)
-    for label in ("ts_v2_off", "ts_v2_on"):
-        r = results[label]
-        print(f"{label:<12} {r['cold_fraction']:>11.3f} {r['cluster_hit']:>13.3f} "
-              f"{r['p@k']:>8.3f} {r['ndcg']:>8.3f}")
-    lift_c = results["ts_v2_on"]["cold_fraction"] - results["ts_v2_off"]["cold_fraction"]
-    lift_h = results["ts_v2_on"]["cluster_hit"] - results["ts_v2_off"]["cluster_hit"]
-    lift_n = results["ts_v2_on"]["ndcg"] - results["ts_v2_off"]["ndcg"]
-    print(f"\n  cold-resource coverage lift (on - off): {lift_c:+.3f}")
-    print(f"  cluster-hit-rate lift (on - off):        {lift_h:+.3f}")
-    print(f"  NDCG@k lift (on - off):                  {lift_n:+.3f}  "
-          f"({'faithful path moves the ranking' if (lift_c + lift_h + lift_n) != 0 else 'no measurable movement at current outcome-data volume'})")
+    r = results["legacy_ts"]
+    print(f"{'legacy_ts':<12} {r['cold_fraction']:>11.3f} {r['cluster_hit']:>13.3f} "
+          f"{r['p@k']:>8.3f} {r['ndcg']:>8.3f}")
     return results
 
 
@@ -401,8 +376,8 @@ def main():
                     help="P5-bench: run ONLY the convex-vs-wrrf fusion comparison "
                          "(Bruch et al. 2022 replication) and exit. READ-ONLY.")
     ap.add_argument("--cold-start-sim", action="store_true",
-                    help="P5-bench: run ONLY the cold-start simulation (TS-v2 on vs "
-                         "off, never-triggered coverage in top-k) and exit. READ-ONLY.")
+                    help="P5-bench: run ONLY the cold-start simulation (legacy TS, "
+                         "never-triggered coverage in top-k) and exit. READ-ONLY.")
     args = ap.parse_args()
     ou = args.only_unified
 

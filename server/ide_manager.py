@@ -1,15 +1,11 @@
-"""P5: TUI IDE session manager.
+"""P5 + Phase 4: TUI IDE session manager + Harness Engine dashboard.
 
 Manages multiple simultaneous TUI IDE sessions (Claude Code, OpenCode, Codex,
-Hermes, Aider) launched under tmux. Tracks per-session harness efficiency:
-tools routed vs succeeded, tokens consumed, uptime.
+Hermes, Aider) launched under tmux. Tracks per-session harness efficiency and
+exposes FTSR/MRC/TLT/CDR metrics (global + per-session).
 
 Pattern from: Agent-of-Empires (tmux-based multi-TUI orchestration).
-Metrics from: abtop (htop for AI agents).
-
-This module is stateful in-process. A future persistent backend can swap the
-dict store for sqlite by implementing the same interface. For now, sessions
-live for the daemon process lifetime and are pruned after 30 min idle.
+Metrics from: abtop (htop for AI agents) + NEXUS harness_metrics.
 """
 from __future__ import annotations
 
@@ -27,12 +23,17 @@ class IDESession:
     ide_type: str  # "claude-code" | "opencode" | "codex" | "hermes" | "aider"
     pid: int
     tmux_session: Optional[str] = None
+    project: str = "default"
+    tool_session_id: Optional[str] = None
     started_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
     tokens_consumed: int = 0
     tools_routed: int = 0
     tools_succeeded: int = 0
     tools_failed: int = 0
+    tools_loaded: int = 0
+    routing_time_ms: int = 0
+    total_time_ms: int = 0
     context_window_used: int = 0
     notes: str = ""
 
@@ -46,31 +47,65 @@ class IDESession:
     def uptime_seconds(self) -> float:
         return time.time() - self.started_at
 
+    def harness_metrics(self) -> dict[str, float]:
+        from server.harness_metrics import session_metrics_from_counters
+        metrics = session_metrics_from_counters(
+            tools_routed=self.tools_routed,
+            tools_succeeded=self.tools_succeeded,
+            tools_failed=self.tools_failed,
+            routing_time_ms=self.routing_time_ms,
+            total_time_ms=self.total_time_ms,
+            tools_loaded=self.tools_loaded,
+        )
+        try:
+            from server.harness_metrics import compute_project_metrics
+            metrics["cdr"] = compute_project_metrics(self.project).get("cdr", 0.0)
+        except Exception:
+            pass
+        return metrics
+
     def to_dashboard_dict(self) -> dict:
+        m = self.harness_metrics()
         return {
             "id": self.session_id,
             "type": self.ide_type,
+            "project": self.project,
             "uptime": int(self.uptime_seconds),
             "tools_routed": self.tools_routed,
             "efficiency": round(self.harness_efficiency, 3),
             "tokens": self.tokens_consumed,
             "tmux": self.tmux_session,
+            "tool_session_id": self.tool_session_id,
+            "ftsr": m["ftsr"],
+            "mrc": m["mrc"],
+            "tlt": m["tlt"],
+            "cdr": m["cdr"],
         }
 
     def to_harness_report(self) -> dict:
+        m = self.harness_metrics()
         return {
             "session_id": self.session_id,
             "ide_type": self.ide_type,
+            "project": self.project,
             "uptime_seconds": int(self.uptime_seconds),
             "tokens_consumed": self.tokens_consumed,
             "tools_routed": self.tools_routed,
             "tools_succeeded": self.tools_succeeded,
             "tools_failed": self.tools_failed,
+            "tools_loaded": self.tools_loaded,
             "harness_efficiency": round(self.harness_efficiency, 4),
             "context_window_used": self.context_window_used,
             "avg_tokens_per_tool": self.tokens_consumed // max(self.tools_routed, 1),
             "tmux_session": self.tmux_session,
+            "tool_session_id": self.tool_session_id,
+            "routing_time_ms": self.routing_time_ms,
+            "total_time_ms": self.total_time_ms,
             "notes": self.notes,
+            "ftsr": m["ftsr"],
+            "mrc": m["mrc"],
+            "tlt": m["tlt"],
+            "cdr": m["cdr"],
         }
 
 
@@ -84,16 +119,24 @@ class IDEManager:
         self.sessions: dict[str, IDESession] = {}
         self._lock = threading.Lock()
 
-    def register(self, ide_type: str, pid: int, tmux_session: str | None = None,
-                 notes: str = "") -> IDESession:
-        if not ide_type or pid <= 0:
-            raise ValueError("ide_type and positive pid required")
+    def register(
+        self,
+        ide_type: str,
+        pid: int,
+        tmux_session: str | None = None,
+        notes: str = "",
+        *,
+        project: str = "default",
+    ) -> IDESession:
+        if not ide_type:
+            raise ValueError("ide_type required")
         session = IDESession(
             session_id=str(uuid.uuid4())[:8],
             ide_type=ide_type,
-            pid=int(pid),
+            pid=int(pid) if pid else 0,
             tmux_session=tmux_session,
             notes=notes,
+            project=(project or "default").strip(),
         )
         with self._lock:
             self.sessions[session.session_id] = session
@@ -106,12 +149,36 @@ class IDEManager:
     def list_active(self) -> list[IDESession]:
         cutoff = time.time() - IDLE_TIMEOUT_S
         with self._lock:
-            # prune idle
             self.sessions = {k: v for k, v in self.sessions.items() if v.last_active > cutoff}
             return list(self.sessions.values())
 
-    def record_outcome(self, session_id: str, outcome: str,
-                       tokens: int = 0) -> bool:
+    def link_tool_session(
+        self,
+        ide_session_id: str,
+        tool_session_id: str,
+        *,
+        tools_loaded: int = 0,
+        routing_time_ms: int = 0,
+    ) -> bool:
+        with self._lock:
+            s = self.sessions.get(ide_session_id)
+            if not s:
+                return False
+            s.tool_session_id = tool_session_id
+            s.tools_loaded = int(tools_loaded)
+            if routing_time_ms:
+                s.routing_time_ms += int(routing_time_ms)
+            s.last_active = time.time()
+            return True
+
+    def record_outcome(
+        self,
+        session_id: str,
+        outcome: str,
+        tokens: int = 0,
+        *,
+        duration_ms: int = 0,
+    ) -> bool:
         with self._lock:
             s = self.sessions.get(session_id)
             if not s:
@@ -120,14 +187,20 @@ class IDEManager:
             s.last_active = time.time()
             if tokens:
                 s.tokens_consumed += int(tokens)
+            if duration_ms:
+                s.total_time_ms += int(duration_ms)
             if outcome == "correct":
                 s.tools_succeeded += 1
             elif outcome == "wrong":
                 s.tools_failed += 1
             return True
 
-    def update_context(self, session_id: str, tokens: int = 0,
-                       context_window: int = 0) -> bool:
+    def update_context(
+        self,
+        session_id: str,
+        tokens: int = 0,
+        context_window: int = 0,
+    ) -> bool:
         with self._lock:
             s = self.sessions.get(session_id)
             if not s:
@@ -143,12 +216,26 @@ class IDEManager:
         s = self.get(session_id)
         return s.to_harness_report() if s else {}
 
-    def get_dashboard(self) -> dict:
+    def get_dashboard(self, *, include_metrics: bool = False) -> dict:
         sessions = self.list_active()
-        return {
+        payload = {
             "total_sessions": len(sessions),
             "sessions": [s.to_dashboard_dict() for s in sessions],
         }
+        if include_metrics:
+            try:
+                from server.harness_metrics import compute_global_metrics
+                payload["global_metrics"] = compute_global_metrics()
+            except Exception:
+                payload["global_metrics"] = {}
+            by_project: dict[str, list] = {}
+            for s in sessions:
+                by_project.setdefault(s.project, []).append(s.session_id)
+            payload["by_project"] = {
+                p: {"session_count": len(ids), "session_ids": ids}
+                for p, ids in by_project.items()
+            }
+        return payload
 
     def unregister(self, session_id: str) -> bool:
         with self._lock:
@@ -167,10 +254,7 @@ TMUX_LAUNCH_CMD = {
 
 
 def launch_tmux(ide_type: str, session_name: str | None = None) -> tuple[str, int | None]:
-    """Launch a TUI IDE in a detached tmux session. Returns (tmux_session, pid|None).
-
-    Best-effort: returns ('', None) if tmux or the IDE binary is missing.
-    """
+    """Launch a TUI IDE in a detached tmux session. Returns (tmux_session, pid|None)."""
     cmd = TMUX_LAUNCH_CMD.get(ide_type)
     if not cmd:
         raise ValueError(f"unknown ide_type {ide_type!r}")
@@ -182,7 +266,6 @@ def launch_tmux(ide_type: str, session_name: str | None = None) -> tuple[str, in
         )
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return "", None
-    # best-effort pid lookup
     pid = None
     try:
         out = subprocess.run(
@@ -194,6 +277,36 @@ def launch_tmux(ide_type: str, session_name: str | None = None) -> tuple[str, in
     except Exception:
         pass
     return session_name, pid
+
+
+def launch_multi(
+    ide_types: list[str],
+    *,
+    project: str = "default",
+    register: bool = True,
+) -> list[dict]:
+    """Launch and register multiple IDE tmux sessions (multi-IDE orchestration).
+
+    Returns a list of {ide_type, session_id, tmux_session, pid, registered}.
+    Best-effort: skips IDE types when tmux/binary missing.
+    """
+    mgr = get_manager()
+    results: list[dict] = []
+    for ide_type in ide_types:
+        tmux_session, pid = launch_tmux(ide_type)
+        entry = {
+            "ide_type": ide_type,
+            "tmux_session": tmux_session,
+            "pid": pid,
+            "registered": False,
+            "session_id": None,
+        }
+        if register and tmux_session:
+            s = mgr.register(ide_type, pid or 0, tmux_session, project=project)
+            entry["session_id"] = s.session_id
+            entry["registered"] = True
+        results.append(entry)
+    return results
 
 
 # Module-level singleton for use by the HTTP daemon
@@ -208,11 +321,11 @@ def get_manager() -> IDEManager:
 
 
 if __name__ == "__main__":
-    # smoke test (no tmux needed)
     m = IDEManager()
-    s = m.register("claude-code", 12345, "claude-code-1")
-    m.record_outcome(s.session_id, "correct", tokens=500)
-    m.record_outcome(s.session_id, "wrong", tokens=300)
-    m.record_outcome(s.session_id, "correct", tokens=200)
-    print("dashboard:", m.get_dashboard())
+    s = m.register("claude-code", 12345, "claude-code-1", project="nexus")
+    m.link_tool_session(s.session_id, "abc123", tools_loaded=4, routing_time_ms=120)
+    m.record_outcome(s.session_id, "correct", tokens=500, duration_ms=800)
+    m.record_outcome(s.session_id, "wrong", tokens=300, duration_ms=400)
+    m.record_outcome(s.session_id, "correct", tokens=200, duration_ms=600)
+    print("dashboard:", m.get_dashboard(include_metrics=True))
     print("harness:", m.get_harness_report(s.session_id))

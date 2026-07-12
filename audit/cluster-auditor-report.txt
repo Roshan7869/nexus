@@ -1,0 +1,561 @@
+================================================================================
+NEXUS CLUSTER AUDITOR REPORT
+================================================================================
+
+Found 8 cluster definitions:
+----------------------------------------
+  analyzer_planner          | Analyzer & Planner                  | resources: 165
+  architect                 | Architect                           | resources: 238
+  frontend_ui               | Frontend & UI                       | resources: 487
+  backend_api               | Backend & API                       | resources: 141
+  devops_infra              | DevOps & Infrastructure             | resources: 91
+  quality_security          | Quality & Security                  | resources: 144
+  knowledge_wiki            | Knowledge & Wiki                    | resources: 240
+  general                   | General & Cross-Cutting             | resources: 53
+
+Total resources with cluster assignment: 2842
+
+Cluster                    Count  Triggered  Correct  Wrong Success%
+-----------------------------------------------------------------
+analyzer_planner             642       1948     1954    228    89.6%
+architect                    517        893      390     54    87.8%
+backend_api                  159        610      554     41    93.1%
+devops_infra                 468        785      708     93    88.4%
+frontend_ui                  492       1248      457     47    90.7%
+general                      156         36       16     15    51.6%
+knowledge_wiki               283        382      264     50    84.1%
+quality_security             125        861      709     65    91.6%
+
+================================================================================
+SECTION 1: KEYWORD MISALIGNMENT CHECK
+================================================================================
+
+## KEYWORD MISALIGNMENT RESULTS
+
+--- backend_api (89 potential misalignments) ---
+  [skill               ] agent-reach                                        matched: 'ui        ' triggered: 5
+  [mcp                 ] agent_execute                                      matched: 'ui        ' triggered: 0
+  [mcp                 ] agentdb_feedback                                   matched: 'ui        ' triggered: 0
+  [mcp                 ] agentdb_route                                      matched: 'ui        ' triggered: 0
+  [mcp                 ] agentdb_semantic-route                             matched: 'ui        ' triggered: 0
+  [agent               ] agentic-payments                                   matched: 'ui        ' triggered: 4
+  [mcp                 ] aidefence_has_pii                                  matched: 'ui        ' triggered: 0
+  [skill               ] api-and-interface-design                           matched: 'component ' triggered: 17
+  [skill               ] api-design                                         matched: 'design    ' triggered: 124
+  [agent               ] app-store                                          matched: 'frontend  ' triggered: 1
+  [agent               ] authentication                                     matched: 'ui        ' triggered: 8
+  [skill               ] backend-patterns                                   matched: 'design    ' triggered: 34
+  [skill               ] booking-inquiries                                  matched: 'ui        ' triggered: 0
+  [skill               ] chromadb-Back Testing Process_4_216                matched: 'ui        ' triggered: 0
+  [skill               ] chromadb-Chart Examples — OCLR 2016_7_110          matched: 'ui        ' triggered: 0
+  [skill               ] chromadb-Options OI as Volume Profile_5_382        matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Pip Value / Risk Management_4_33          matched: 'ui        ' triggered: 0
+  [skill               ] chromadb-Position Sizing and Capital Allocation_5_149 matched: 'ui        ' triggered: 0
+  [skill               ] chromadb-Tools and Framework Overview_1_366        matched: 'react     ' triggered: 0
+  [command             ] claude-cmd-sparc-ask                               matched: 'ui        ' triggered: 1
+  ... and 69 more
+
+--- devops_infra (34 potential misalignments) ---
+  [agent               ] career-ops-agent-CLAUDE                            matched: 'css       ' triggered: 2
+  [doc                 ] career-ops-context                                 matched: 'css       ' triggered: 1
+  [skill               ] chromadb-CLC Rule – Trade Filter_5_417             matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Confluence Framework_7_193                matched: 'component ' triggered: 0
+  [skill               ] chromadb-EP9 Million Setup_4_138                   matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Four Key Daily Levels_3_380               matched: 'react     ' triggered: 0
+  [skill               ] chromadb-LVN Quality — Losing Trade Example_9_44   matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Previous POC Retest Setup_4_381           matched: 'react     ' triggered: 0
+  [skill               ] chromadb-QQQ Long Trade Walkthrough — April 2025_6_167 matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Step 2 — Prepare and Predict_2_115        matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Story/Theme EP_5_139                      matched: 'react     ' triggered: 0
+  [skill               ] chromadb-The Key To Keeping Conviction When Things Are Bad_1_309 matched: 'react     ' triggered: 0
+  [skill               ] chromadb-Why Traders Get Trapped — Psychology_13_184 matched: 'react     ' triggered: 0
+  [skill               ] ci-cd-and-automation                               matched: 'jest      ' triggered: 6
+  [command             ] claude-cmd-monitoring-status                       matched: 'component ' triggered: 3
+  [skill               ] claude-skill-configure-ecc                         matched: 'react     ' triggered: 1
+  [skill               ] claude-skill-github-release-management             matched: 'component ' triggered: 8
+  [skill               ] claude-skill-gstack                                matched: 'css       ' triggered: 2
+  [doc                 ] claude-skill-gstack-AGENTS                         matched: 'css       ' triggered: 1
+  [doc                 ] claude-skill-gstack-CHANGELOG                      matched: 'react     ' triggered: 1
+  ... and 14 more
+
+--- frontend_ui (200 potential misalignments) ---
+  [skill               ] agentdb-advanced                                   matched: 'database  ' triggered: 3
+  [skill               ] browser                                            matched: 'api       ' triggered: 2
+  [skill               ] browser-testing-with-devtools                      matched: 'backend   ' triggered: 4
+  [skill               ] browserbase-cli                                    matched: 'api       ' triggered: 4
+  [skill               ] build-graph                                        matched: 'database  ' triggered: 5
+  [cli_tool            ] career-ops-cli_tool-pipeline                       matched: 'api       ' triggered: 0
+  [doc                 ] career-ops-doc-README.es                           matched: 'backend   ' triggered: 0
+  [doc                 ] career-ops-doc-aplicar                             matched: 'api       ' triggered: 0
+  [doc                 ] career-ops-doc-apply                               matched: 'auth      ' triggered: 0
+  [doc                 ] career-ops-doc-batch-prompt                        matched: 'deploy    ' triggered: 0
+  [doc                 ] career-ops-doc-postuler                            matched: 'api       ' triggered: 0
+  [skill               ] chromadb-How Does Someone Who Relies On Their Portfolio Build Conviction_14_322 matched: 'api       ' triggered: 0
+  [skill               ] chromadb-How Does Someone Who Relies On Their Portfolio Build Conviction_3_311 matched: 'api       ' triggered: 0
+  [skill               ] chromadb-Risk of Ruin and Position Sizing_4_148    matched: 'api       ' triggered: 0
+  [skill               ] chromadb-Why Markets Leave Equilibrium_4_107       matched: 'api       ' triggered: 0
+  [spec                ] chrome-extension-popup                             matched: 'server    ' triggered: 5
+  [skill               ] claude-skill-browse                                matched: 'api       ' triggered: 1
+  [skill               ] claude-skill-browser                               matched: 'auth      ' triggered: 4
+  [skill               ] claude-skill-connect-chrome                        matched: 'sql       ' triggered: 0
+  [doc                 ] claude-skill-gstack-BROWSER                        matched: 'api       ' triggered: 0
+  ... and 180 more
+
+--- knowledge_wiki (89 potential misalignments) ---
+  [skill               ] agentdb-learning                                   matched: 'build     ' triggered: 2
+  [skill               ] agentdb-vector-search                              matched: 'build     ' triggered: 3
+  [doc                 ] career-ops-doc-cv                                  matched: 'sql       ' triggered: 0
+  [skill               ] career-ops-skill-_shared                           matched: 'build     ' triggered: 0
+  [command             ] claude-cmd-automation-session-memory               matched: 'build     ' triggered: 1
+  [command             ] claude-cmd-sparc-documenter                        matched: 'deploy    ' triggered: 1
+  [skill               ] claude-skill-agentdb-learning                      matched: 'build     ' triggered: 1
+  [skill               ] claude-skill-agentdb-vector-search                 matched: 'sql       ' triggered: 0
+  [skill               ] claude-skill-article-writing                       matched: 'build     ' triggered: 1
+  [skill               ] claude-skill-codex                                 matched: 'sql       ' triggered: 2
+  [skill               ] claude-skill-content-engine                        matched: 'build     ' triggered: 1
+  [skill               ] claude-skill-context-save                          matched: 'sql       ' triggered: 4
+  [skill               ] claude-skill-document-release                      matched: 'sql       ' triggered: 1
+  [skill               ] claude-skill-learn                                 matched: 'sql       ' triggered: 1
+  [skill               ] claude-skill-make-pdf                              matched: 'build     ' triggered: 0
+  [doc                 ] claude-skill-paper2code-05_reference_search        matched: 'build     ' triggered: 0
+  [skill               ] coding-standards                                   matched: 'build     ' triggered: 1
+  [doc                 ] commerce-doc-README                                matched: 'deploy    ' triggered: 0
+  [skill               ] content-hash-cache-pattern                         matched: 'build     ' triggered: 0
+  [skill               ] context-engineering                                matched: 'sql       ' triggered: 0
+  ... and 69 more
+
+--- quality_security (34 potential misalignments) ---
+  [command             ] claude-cmd-sparc-tdd                               matched: 'design    ' triggered: 1
+  [skill               ] claude-skill-qa                                    matched: 'deploy    ' triggered: 3
+  [skill               ] claude-skill-qa-only                               matched: 'deploy    ' triggered: 2
+  [skill               ] claude-skill-tdd-workflow                          matched: 'react     ' triggered: 0
+  [skill               ] claude-skill-verification-quality                  matched: 'design    ' triggered: 1
+  [spec                ] core-ci                                            matched: 'design    ' triggered: 8
+  [spec                ] core-lint                                          matched: 'design    ' triggered: 5
+  [spec                ] core-replay                                        matched: 'design    ' triggered: 5
+  [spec                ] core-sync                                          matched: 'design    ' triggered: 5
+  [skill               ] cpp-testing                                        matched: 'design    ' triggered: 6
+  [craft               ] craft-state-coverage                               matched: 'design    ' triggered: 1
+  [skill               ] functions                                          matched: 'deploy    ' triggered: 0
+  [hook                ] gcode-safety-system                                matched: 'design    ' triggered: 3
+  [skill               ] hermes-skill-software-development-systematic-debugging matched: 'deploy    ' triggered: 3
+  [skill               ] hermes-skill-software-development-test-driven-development matched: 'design    ' triggered: 3
+  [skill               ] python-testing                                     matched: 'design    ' triggered: 11
+  [skill               ] review-animations                                  matched: 'design    ' triggered: 5
+  [cli_tool            ] ruflo-cli_tool-SECURITY_AUDIT_REPORT               matched: 'design    ' triggered: 0
+  [cli_tool            ] ruflo-cli_tool-SECURITY_FIXES_CHECKLIST            matched: 'frontend  ' triggered: 1
+  [doc                 ] ruflo-doc-ADR-059-bug-triage-2026-03               matched: 'deploy    ' triggered: 1
+  ... and 14 more
+
+### Misalignment breakdown by keyword
+  backend_api          | 'component   ' ->  17 resources
+  backend_api          | 'css         ' ->   5 resources
+  backend_api          | 'design      ' ->  25 resources
+  backend_api          | 'frontend    ' ->   5 resources
+  backend_api          | 'html        ' ->   8 resources
+  backend_api          | 'react       ' ->  10 resources
+  backend_api          | 'ui          ' ->  80 resources
+  backend_api          | 'vue         ' ->   2 resources
+  devops_infra         | 'component   ' ->  14 resources
+  devops_infra         | 'css         ' ->   9 resources
+  devops_infra         | 'cypress     ' ->   3 resources
+  devops_infra         | 'frontend    ' ->  11 resources
+  devops_infra         | 'jest        ' ->   3 resources
+  devops_infra         | 'react       ' ->  15 resources
+  devops_infra         | 'vue         ' ->   1 resources
+  frontend_ui          | 'api         ' ->  85 resources
+  frontend_ui          | 'auth        ' ->  96 resources
+  frontend_ui          | 'aws         ' ->  11 resources
+  frontend_ui          | 'backend     ' ->  22 resources
+  frontend_ui          | 'database    ' ->  13 resources
+  frontend_ui          | 'deploy      ' ->  32 resources
+  frontend_ui          | 'docker      ' ->   2 resources
+  frontend_ui          | 'server      ' ->  43 resources
+  frontend_ui          | 'sql         ' ->   8 resources
+  knowledge_wiki       | 'build       ' ->  64 resources
+  knowledge_wiki       | 'compile     ' ->  15 resources
+  knowledge_wiki       | 'database    ' ->  10 resources
+  knowledge_wiki       | 'deploy      ' ->  22 resources
+  knowledge_wiki       | 'sql         ' ->  19 resources
+  quality_security     | 'deploy      ' ->   7 resources
+  quality_security     | 'design      ' ->  27 resources
+  quality_security     | 'docker      ' ->   1 resources
+  quality_security     | 'frontend    ' ->   1 resources
+  quality_security     | 'react       ' ->   5 resources
+
+### General cluster - checking for domain-specific resources that should be elsewhere
+Found 97 resources in 'general' that have strong domain keywords:
+  [hook                ] RequireAdmin                                       -> should be frontend_ui          (kws: ['component', 'ui']) triggered: 0
+  [hook                ] RequireCustomer                                    -> should be frontend_ui          (kws: ['component', 'ui']) triggered: 0
+  [mcp                 ] agent_pool                                         -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] agent_status                                       -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] agent_terminate                                    -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] browser_check                                      -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 1
+  [mcp                 ] browser_fill                                       -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 0
+  [mcp                 ] browser_get-value                                  -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 0
+  [mcp                 ] browser_open                                       -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] browser_press                                      -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] browser_screenshot                                 -> should be architect            (kws: ['spec']) triggered: 0
+  [mcp                 ] browser_scroll                                     -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] browser_select                                     -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 0
+  [mcp                 ] browser_type                                       -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 0
+  [mcp                 ] browser_uncheck                                    -> should be frontend_ui          (kws: ['css', 'ui']) triggered: 1
+  [mcp                 ] browser_wait                                       -> should be frontend_ui          (kws: ['css']) triggered: 0
+  [doc                 ] career-ops-doc-bewerben                            -> should be devops_infra         (kws: ['pipeline']) triggered: 0
+  [mcp                 ] claims_accept-handoff                              -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] claims_claim                                       -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] claims_handoff                                     -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] claims_mark-stealable                              -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] claims_rebalance                                   -> should be analyzer_planner     (kws: ['review']) triggered: 1
+  [mcp                 ] claims_status                                      -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [mcp                 ] claims_steal                                       -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  [skill               ] coach-antipatterns                                 -> should be devops_infra         (kws: ['pipeline']) triggered: 0
+  [skill               ] coach-dashboard                                    -> should be frontend_ui          (kws: ['dashboard']) triggered: 0
+  [skill               ] coach-learning-path                                -> should be knowledge_wiki       (kws: ['learn']) triggered: 0
+  [skill               ] coach-session-analysis                             -> should be analyzer_planner     (kws: ['analyze']) triggered: 1
+  [mcp                 ] coordination_sync                                  -> should be quality_security     (kws: ['test']) triggered: 0
+  [mcp                 ] daa_agent_adapt                                    -> should be frontend_ui          (kws: ['ui']) triggered: 0
+  ... and 67 more
+
+================================================================================
+SECTION 2: GENERAL CLUSTER - ALL MCP TOOLS LISTING
+================================================================================
+
+Pure MCP resources in general: 104
+MCP-like (name contains 'mcp' or 'tool'): 0
+
+### MCP Tool Classification
+Resource Name                                           Type         Suggested Cluster     Triggered
+----------------------------------------------------------------------------------------------------
+agent_list                                              mcp          general                       0
+agent_pool                                              mcp          frontend_ui                   0
+agent_status                                            mcp          frontend_ui                   0
+agent_terminate                                         mcp          frontend_ui                   0
+browser_back                                            mcp          general                       0
+browser_check                                           mcp          frontend_ui                   1
+browser_close                                           mcp          general                       0
+browser_fill                                            mcp          frontend_ui                   0
+browser_forward                                         mcp          general                       0
+browser_get-title                                       mcp          general                       0
+browser_get-url                                         mcp          general                       0
+browser_get-value                                       mcp          frontend_ui                   0
+browser_open                                            mcp          frontend_ui                   0
+browser_press                                           mcp          frontend_ui                   0
+browser_reload                                          mcp          general                       0
+browser_screenshot                                      mcp          architect                     0
+browser_scroll                                          mcp          frontend_ui                   0
+browser_select                                          mcp          frontend_ui                   0
+browser_session-list                                    mcp          general                       0
+browser_type                                            mcp          frontend_ui                   0
+browser_uncheck                                         mcp          frontend_ui                   1
+browser_wait                                            mcp          frontend_ui                   0
+claims_accept-handoff                                   mcp          frontend_ui                   0
+claims_claim                                            mcp          frontend_ui                   0
+claims_handoff                                          mcp          frontend_ui                   0
+claims_list                                             mcp          general                       1
+claims_mark-stealable                                   mcp          frontend_ui                   0
+claims_rebalance                                        mcp          analyzer_planner              1
+claims_status                                           mcp          frontend_ui                   0
+claims_steal                                            mcp          frontend_ui                   0
+claims_stealable                                        mcp          general                       0
+coordination_consensus                                  mcp          general                       0
+coordination_metrics                                    mcp          general                       0
+coordination_node                                       mcp          general                       0
+coordination_sync                                       mcp          quality_security              0
+daa_agent_adapt                                         mcp          frontend_ui                   0
+daa_agent_create                                        mcp          frontend_ui                   0
+daa_workflow_create                                     mcp          frontend_ui                   0
+daa_workflow_execute                                    mcp          frontend_ui                   0
+embeddings_generate                                     mcp          frontend_ui                   0
+embeddings_hyperbolic                                   mcp          general                       0
+embeddings_init                                         mcp          general                       0
+embeddings_neural                                       mcp          knowledge_wiki                0
+embeddings_rabitq_status                                mcp          general                       0
+flow-nexus                                              mcp          backend_api                   0
+github_issue_track                                      mcp          general                       0
+github_metrics                                          mcp          general                       0
+github_pr_manage                                        mcp          analyzer_planner              0
+github_workflow                                         mcp          general                       0
+hive-mind_broadcast                                     mcp          frontend_ui                   0
+hive-mind_consensus                                     mcp          frontend_ui                   0
+hive-mind_init                                          mcp          general                       0
+hive-mind_join                                          mcp          frontend_ui                   0
+hive-mind_leave                                         mcp          frontend_ui                   0
+hive-mind_shutdown                                      mcp          general                       0
+hive-mind_spawn                                         mcp          architect                     0
+hive-mind_status                                        mcp          general                       0
+neural_status                                           mcp          architect                     0
+playwright                                              mcp          quality_security              0
+progress_sync                                           mcp          frontend_ui                   0
+ruflo-mcp-federation-tools.d                            mcp          frontend_ui                   0
+ruflo-mcp-task-tools.d                                  mcp          frontend_ui                   1
+ruflo-mcp-worker-tools.d                                mcp          frontend_ui                   2
+ruvllm_microlora_create                                 mcp          frontend_ui                   0
+ruvllm_sona_create                                      mcp          knowledge_wiki                0
+ruvllm_status                                           mcp          general                       0
+session_delete                                          mcp          frontend_ui                   0
+session_list                                            mcp          general                       0
+session_save                                            mcp          frontend_ui                   0
+system_reset                                            mcp          frontend_ui                   0
+system_status                                           mcp          frontend_ui                   0
+task_assign                                             mcp          frontend_ui                   0
+task_cancel                                             mcp          frontend_ui                   0
+task_complete                                           mcp          frontend_ui                   0
+task_create                                             mcp          frontend_ui                   0
+task_list                                               mcp          general                       1
+task_status                                             mcp          frontend_ui                   0
+task_summary                                            mcp          general                       0
+task_update                                             mcp          frontend_ui                   0
+terminal_close                                          mcp          frontend_ui                   0
+terminal_create                                         mcp          general                       1
+terminal_execute                                        mcp          frontend_ui                   1
+terminal_history                                        mcp          quality_security              1
+terminal_list                                           mcp          general                       0
+transfer_ipfs-resolve                                   mcp          frontend_ui                   0
+transfer_plugin-featured                                mcp          general                       0
+transfer_plugin-info                                    mcp          frontend_ui                   0
+transfer_plugin-official                                mcp          general                       0
+wasm_agent_create                                       mcp          quality_security              0
+wasm_agent_files                                        mcp          frontend_ui                   2
+wasm_agent_list                                         mcp          general                       0
+wasm_agent_prompt                                       mcp          frontend_ui                   1
+wasm_agent_terminate                                    mcp          frontend_ui                   0
+wasm_gallery_create                                     mcp          frontend_ui                   0
+workflow_cancel                                         mcp          frontend_ui                   0
+workflow_create                                         mcp          frontend_ui                   0
+workflow_delete                                         mcp          frontend_ui                   0
+workflow_execute                                        mcp          frontend_ui                   0
+workflow_list                                           mcp          general                       0
+workflow_pause                                          mcp          frontend_ui                   0
+workflow_resume                                         mcp          frontend_ui                   0
+workflow_run                                            mcp          general                       0
+workflow_status                                         mcp          frontend_ui                   0
+workflow_template                                       mcp          frontend_ui                   0
+
+### MCP Classification Summary (where they SHOULD be)
+Target Cluster             Count  Triggered
+---------------------------------------------
+analyzer_planner               2          1
+backend_api                    1          0
+frontend_ui                   59          7
+general                       36          3
+knowledge_wiki                 2          0
+quality_security               4          1
+
+================================================================================
+SECTION 3: DESIGN_SYSTEM TYPE ANALYSIS
+================================================================================
+
+Total design_system resources: 173
+Distribution across clusters:
+  analyzer_planner         :    1 resources, triggered: 0
+  architect                :   10 resources, triggered: 35
+  frontend_ui              :  162 resources, triggered: 161
+
+### Design system resources NOT in frontend_ui (misplaced):
+  [analyzer_planner    ] ds-retro                                           triggered: 0 correct: 0 wrong: 0
+  [architect           ] career-ops-design_system-CUSTOMIZATION             triggered: 0 correct: 0 wrong: 0
+  [architect           ] ruflo-design_system-ADR-022-aidefence-integration  triggered: 0 correct: 0 wrong: 0
+  [architect           ] ruflo-design_system-ADR-030-agentic-qe-integration triggered: 0 correct: 0 wrong: 0
+  [architect           ] vocabulary-art-deco                                triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-brutalist                               triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-cyberpunk                               triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-editorial                               triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-index                                   triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-soft-ui                                 triggered: 5 correct: 0 wrong: 0
+  [architect           ] vocabulary-swiss                                   triggered: 5 correct: 0 wrong: 0
+
+Design system total: 173
+Verdict: WARRANTS its own cluster (162+ resources is significant)
+
+================================================================================
+SECTION 4: STALE RESOURCES (NEVER TRIGGERED)
+================================================================================
+
+Cluster                    Total  Never Triggered  % Stale
+-------------------------------------------------------
+analyzer_planner             642              340    53.0%
+architect                    517              332    64.2%
+backend_api                  159               82    51.6%
+devops_infra                 468              352    75.2%
+frontend_ui                  492              227    46.1%
+general                      156              134    85.9%
+knowledge_wiki               283              166    58.7%
+quality_security             125               45    36.0%
+-------------------------------------------------------
+TOTAL                       2842             1678    59.0%
+
+### Stale resource detail (never triggered)
+
+--- analyzer_planner (340 stale) ---
+  [agent               ] adaptive-coordinator
+  [command             ] agent-capabilities
+  [command             ] agent-coordination
+  [command             ] agent-metrics
+  [skill               ] agent-orchestrator-main
+  [hook                ] agent-skills-hooks
+  [command             ] agent-spawn
+  [mcp                 ] agent_health
+  [skill               ] agentdb-memory-patterns
+  [mcp                 ] agentdb_causal-edge
+  [mcp                 ] agentdb_consolidate
+  [mcp                 ] agentdb_health
+  [mcp                 ] agentdb_hierarchical-recall
+  [mcp                 ] agentdb_hierarchical-store
+  [mcp                 ] agentdb_session-start
+  ... and 325 more
+
+--- architect (332 stale) ---
+  [command             ] agent-types
+  [mcp                 ] agent_spawn
+  [mcp                 ] agentdb_pattern-search
+  [mcp                 ] agentdb_pattern-store
+  [cli_tool            ] ai-swarm-workspace-cli_tool-open-opencode
+  [mcp                 ] aidefence_analyze
+  [mcp                 ] aidefence_learn
+  [mcp                 ] autopilot_config
+  [mcp                 ] autopilot_disable
+  [mcp                 ] autopilot_enable
+  [mcp                 ] autopilot_history
+  [mcp                 ] autopilot_learn
+  [mcp                 ] autopilot_log
+  [mcp                 ] autopilot_predict
+  [mcp                 ] autopilot_reset
+  ... and 317 more
+
+--- backend_api (82 stale) ---
+  [mcp                 ] agent_execute
+  [mcp                 ] agentdb_controllers
+  [mcp                 ] agentdb_feedback
+  [mcp                 ] agentdb_route
+  [mcp                 ] agentdb_semantic-route
+  [mcp                 ] aidefence_has_pii
+  [skill               ] api-auth-middleware
+  [skill               ] booking-inquiries
+  [skill               ] callfn-api-helper
+  [skill               ] chromadb-Back Testing Process_4_216
+  [skill               ] chromadb-Chart Examples — OCLR 2016_7_110
+  [skill               ] chromadb-Options OI as Volume Profile_5_382
+  [skill               ] chromadb-Pip Value / Risk Management_4_33
+  [skill               ] chromadb-Position Sizing and Capital Allocation_5_149
+  [skill               ] chromadb-Tools and Framework Overview_1_366
+  ... and 67 more
+
+--- devops_infra (352 stale) ---
+  [hook                ] SessionStart
+  [mcp                 ] agent_update
+  [doc                 ] ai-swarm-workspace-context
+  [hook                ] auto-commit
+  [doc                 ] career-ops-doc-deep
+  [skill               ] chromadb-1% Rule_9_246
+  [skill               ] chromadb-10 a.m. Rule — ADF Filter_2_269
+  [skill               ] chromadb-Absorption Concept_6_41
+  [skill               ] chromadb-Accumulated Emotions / Emotional Baseline_3_121
+  [skill               ] chromadb-Accumulation Environment Types_5_58
+  [skill               ] chromadb-Advanced Entry — 4-Hour Fractal Application_9_226
+  [skill               ] chromadb-Advantages of Algorithmic Trading_1_145
+  [skill               ] chromadb-Aggressive buyers and sellers_5_92
+  [skill               ] chromadb-Algo Portfolio Monitoring and Replacement_10_154
+  [skill               ] chromadb-Anchored VWAP Trade Management_7_234
+  ... and 337 more
+
+--- frontend_ui (227 stale) ---
+  [skill               ] autobrowse
+  [mcp                 ] browser_hover
+  [agent               ] build-error-resolver
+  [command             ] build-fix
+  [cli_tool            ] career-ops-cli_tool-CODEX
+  [cli_tool            ] career-ops-cli_tool-batch
+  [cli_tool            ] career-ops-cli_tool-pipeline
+  [doc                 ] career-ops-doc-README.es
+  [doc                 ] career-ops-doc-aplicar
+  [doc                 ] career-ops-doc-apply
+  [doc                 ] career-ops-doc-auto-pipeline
+  [doc                 ] career-ops-doc-batch-prompt
+  [doc                 ] career-ops-doc-pdf
+  [doc                 ] career-ops-doc-pipeline
+  [doc                 ] career-ops-doc-postuler
+  ... and 212 more
+
+--- general (134 stale) ---
+  [skill               ] C4b-source-provenance
+  [hook                ] RequireAdmin
+  [hook                ] RequireCustomer
+  [skill               ] admin-role-management
+  [mcp                 ] agent_list
+  [mcp                 ] agent_pool
+  [mcp                 ] agent_status
+  [mcp                 ] agent_terminate
+  [skill               ] algotrading
+  [skill               ] aroon-momentum-engine
+  [mcp                 ] browser_back
+  [mcp                 ] browser_close
+  [mcp                 ] browser_fill
+  [mcp                 ] browser_forward
+  [mcp                 ] browser_get-title
+  ... and 119 more
+
+--- knowledge_wiki (166 stale) ---
+  [skill               ] C1-structure
+  [skill               ] C11-canonical-placement
+  [skill               ] C12-unknown-quarantine
+  [skill               ] C14-freshness
+  [skill               ] C15-missing-volatility
+  [skill               ] C2-frontmatter
+  [skill               ] C3-index-consistency
+  [skill               ] C4-link-integrity
+  [skill               ] C5-tag-hygiene
+  [skill               ] C7-deep-checks
+  [skill               ] C8-project-hygiene
+  [command             ] act
+  [command             ] add-to-changelog
+  [mcp                 ] agentdb_batch
+  [mcp                 ] agentdb_context-synthesize
+  ... and 151 more
+
+--- quality_security (45 stale) ---
+  [skill               ] C6-coverage
+  [mcp                 ] aidefence_is_safe
+  [mcp                 ] aidefence_stats
+  [cli_tool            ] aider-cli
+  [cli_tool            ] bun
+  [doc                 ] career-ops-doc-ats-normalization-test
+  [cli_tool            ] cargo
+  [command             ] claude-cmd-sparc-tester
+  [skill               ] claude-skill-guard
+  [skill               ] claude-skill-tdd-workflow
+  [skill               ] cookie-sync
+  [agent               ] crdt-synchronizer
+  [command             ] create-jtbd
+  [command             ] e2e
+  [agent               ] e2e-runner
+  ... and 30 more
+
+================================================================================
+END OF REPORT
+================================================================================
+================================================================================
+SUPPLEMENT: CLUSTER COLUMN vs CLUSTER_MEMBERSHIP DESYNC
+================================================================================
+
+CRITICAL FINDING: resources.cluster and cluster_membership disagree on 859 resources
+893 resources have a resources.cluster but NO cluster_membership entry at all.
+
+The resources.cluster column is what the routing system reads in practice.
+The cluster_membership table was used for cluster_definitions counts.
+These two systems are desynchronized.
+
+Cluster distribution comparison:
+Cluster                    resources.cluster cluster_membership
+--------------------------------------------------------------
+analyzer_planner                         642                165
+architect                                517                238
+backend_api                              159                141
+devops_infra                             468                 91
+frontend_ui                              492                487
+general                                  156                495
+knowledge_wiki                           283                240
+quality_security                         125                144
+
+NOTE: The main report above uses resources.cluster for analysis (2842 resources).
+The cluster_definitions resource_counts use cluster_membership (2001 unique assignments).

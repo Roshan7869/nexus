@@ -1,0 +1,54 @@
+arxiv_id: "1809.09924"
+title: "Hierarchy-based Image Embeddings for Semantic Image Retrieval"
+authors:
+  - "Björn Barz"
+  - "Joachim Denzler"
+year: 2018
+url: "https://arxiv.org/abs/1809.09924"
+problem_statement: |
+  Deep classification features are visually discriminative but not semantically consistent:
+  the Euclidean distance in feature space does not reflect semantic relationships between
+  classes. The paper learns image embeddings whose pairwise dot products equal a
+  hierarchy-derived semantic similarity.
+key_algorithms:
+  - |
+    Hierarchy-based semantic similarity:
+      d_G(u,v) = height(lcs(u,v)) / max_w height(w)
+      s_G(u,v) = 1 - d_G(u,v)
+    where lcs is the lowest common subsumer in a tree-structured class hierarchy.
+  - |
+    Algorithm 1: compute unit-norm class embeddings φ(c_i) such that
+      φ(c_i)^T φ(c_j) = s_G(c_i, c_j)  and  ||φ(c_i)|| = 1.
+    Iteratively solve a lower-triangular linear system for the first i-1 coordinates,
+    then normalize with an extra dimension:
+      φ̂(c_i) = solution of { φ(c_j)^T φ(c_i) = s_G(c_j,c_i) }_{j<i}
+      φ(c_i)_i = sqrt(1 - ||φ̂(c_i)||^2).
+    Overall complexity O(n^3).
+  - |
+    Low-dimensional approximation: eigendecompose the similarity matrix
+      S = Q Λ Q^T,  then Φ = Q Λ^{1/2}.
+    Truncating to the largest eigenvectors gives a lower-dimensional embedding that
+    approximates S.
+  - |
+    Image-to-semantic mapping: train a CNN ψ with L2-normalized output so that
+      L_CORR(B) = (1/m) Σ_{b=1}^{m} (1 - ψ(I_b)^T φ(c_{y_b})).
+    Optional combined loss: L_CORR+CLS = L_CORR + λ L_CLS with λ = 0.1.
+hyperparameters:
+  - "λ = 0.1 (weight of classification loss when used)"
+  - "SGD with warm restarts (SGDR), base lr = 0.1, minimum lr = 1e-6"
+  - "5 cosine-annealing cycles, batch size 100"
+  - "Architectures: Plain-11, ResNet-110w, PyramidNet-272-200"
+reproducibility_notes: |
+  Source code is linked at https://github.com/cvjena/semantic-embeddings.
+  Evaluated on CIFAR-100, NABirds, and ImageNet. Class hierarchies are derived from
+  WordNet or domain taxonomies and simplified to strict trees.
+licensing: "arXiv.org perpetual, non-exclusive license; code repository license should be verified at the linked GitHub page."
+feasibility_for_nexus:
+  level: "high"
+  rationale: |
+    Provides a deterministic recipe for turning a class/resource hierarchy into
+    unit-norm target embeddings. NEXUS can use this for the 4 super-clusters and
+    cluster-confidence targets in PERF-3 and PERF-4.
+extracted_gaps:
+  - "PERF-3"
+  - "PERF-4"

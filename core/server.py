@@ -338,7 +338,7 @@ async def get_learner_stats():
     """Get learning statistics"""
     if not learner:
         raise HTTPException(status_code=503, detail="Learner not enabled")
-    return JSONResponse(learner.get_learning_stats())
+    return JSONResponse(learner.get_stats())
 
 
 @app.get("/nexus/beliefs")

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS resource_edges (
     target_id INTEGER NOT NULL,
     edge_type TEXT NOT NULL, -- 'dependency', 'alternative', 'documentation_for'
     weight REAL DEFAULT 1.0,
+    updated_at TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
     FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,

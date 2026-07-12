@@ -230,37 +230,5 @@ class TestEdgeDecay(unittest.TestCase):
         self.assertAlmostEqual(w_after, min(1.0, w_before * 1.05), places=3)
 
 
-class TestAutoCloseRouted(unittest.TestCase):
-    """P2-2: _auto_close_routed promotes stale routing_log entries."""
-
-    def setUp(self):
-        self.conn = get_conn()
-        # Insert stale routed entry from yesterday
-        yesterday = (datetime.now() - timedelta(hours=25)).strftime('%Y-%m-%d %H:%M:%S')
-        self.conn.execute("""
-            INSERT INTO routing_log (task_summary, project, matched_tier, matched_model, matched_skills,
-                                     outcome, skill_name, created_at)
-            VALUES ('stale test task', 'test', 0, 'unknown', '[]', 'routed', 'test-e2e-stale', ?)
-        """, (yesterday,))
-        self.conn.commit()
-        self.log_id = self.conn.execute(
-            "SELECT id FROM routing_log WHERE task_summary='stale test task' ORDER BY id DESC LIMIT 1"
-        ).fetchone()["id"]
-
-    def tearDown(self):
-        self.conn.execute("DELETE FROM routing_log WHERE id=?", (self.log_id,))
-        self.conn.commit()
-        self.conn.close()
-
-    def test_auto_close_promotes_stale_routed(self):
-        """_auto_close_routed should promote stale 'routed' entries to 'correct' or 'partial'."""
-        from server.learning import _auto_close_routed
-        count = _auto_close_routed(self.conn)
-        # Check the stale entry was updated
-        row = self.conn.execute("SELECT outcome FROM routing_log WHERE id=?", (self.log_id,)).fetchone()
-        self.assertIn(row["outcome"], ("correct", "partial"),
-                      f"Expected 'correct' or 'partial', got '{row['outcome']}'")
-
-
 if __name__ == "__main__":
     unittest.main(verbosity=2)
