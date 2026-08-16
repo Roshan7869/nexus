@@ -40,3 +40,9 @@ node_modules/
 db/nexus.db*
 ruvector.db*
 *.log
+
+# Runtime artifacts (untracked 2026-08-16 — Week1 card 1.1)
+db/*.bak
+db/backups/
+logs/
+run/
