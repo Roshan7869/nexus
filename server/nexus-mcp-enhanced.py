@@ -105,6 +105,47 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
     return json.dumps(result, indent=2)
 
 
+# ── Project continuity (unified-MCP U1) — cross-IDE attach/resume/notes ────
+
+@mcp.tool()
+def project_attach(project: str, git_root: str = "") -> str:
+    """Attach this IDE session to a project. Call once at session start.
+
+    Registers/refreshes the project (last IDE, git root) and returns a resume
+    hint — where the project left off. Enables context continuity when you
+    switch IDEs: attach in the new IDE, then call project_resume.
+    """
+    from server.project_continuity import attach
+    return json.dumps(
+        attach(project, git_root=git_root or None,
+               ide=os.environ.get("NEXUS_IDE", "claude-code")),
+        indent=2)
+
+
+@mcp.tool()
+def project_resume(project: str, limit: int = 10) -> str:
+    """Return the working state of a project — for IDE switches and new sessions.
+
+    Includes recent routed tasks, durable notes, the project's AGENTS.md
+    excerpt, and current top beliefs. Call after project_attach.
+    """
+    from server.project_continuity import resume
+    return json.dumps(resume(project, limit=limit), indent=2)
+
+
+@mcp.tool()
+def project_note(project: str, text: str) -> str:
+    """Save a durable project note (survives IDE switches).
+
+    Persists to the NEXUS DB and appends to <project>/.nexus/memory.md so
+    every IDE (and git) can see it.
+    """
+    from server.project_continuity import note
+    return json.dumps(
+        note(project, text, ide=os.environ.get("NEXUS_IDE", "claude-code")),
+        indent=2)
+
+
 @mcp.tool()
 def route_ab_compare(task: str, project: str = "default",
                      top_k: int = 10) -> str:

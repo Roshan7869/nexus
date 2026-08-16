@@ -75,6 +75,18 @@ BLOCKERS (2026-08-16 session):
   on a test port (:8010, ~4s startup, /health 200).
 - Event→beliefs loop: event POST needs >10s on first call (embedder load);
   smoke now allows 60s. Unproven end-to-end until API key fixed.
+
+POST-WEEK-1 WORK (2026-08-17):
+- [x] U1a project continuity CORE: server/project_continuity.py — attach/
+      resume/note, DB substrate + .nexus/memory.md + AGENTS.md excerpt
+      (10/10 tests; cross-IDE demo proven; MCP tools project_attach/
+      project_resume/project_note registered after find_skills)
+- [x] default-project learnings leak fixed (tool_session_broker exact-match;
+      6/6 broker tests)
+- [ ] U1b: make IDE sessions call project_attach on connect (opencode.json
+      instructions + CLAUDE.md nudge)
+- [ ] Week-2: repo-map injection (tree-sitter decision pending) behind the
+      assemble() seam (architecture candidate #1)
 ```
 
 ### Runbook 2.3 (AMENDED 2026-08-16 — replaces the original pkill-based card)

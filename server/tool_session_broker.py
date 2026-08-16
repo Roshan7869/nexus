@@ -333,7 +333,9 @@ class ToolSessionBroker:
             from server.context_harness.nexus_bridge import search_learnings
             learnings = search_learnings(query, limit=3)
             for row in learnings:
-                if row.get("project") in (project, "default", ""):
+                # Exact project match only — 'default'/blank notes leaked into
+                # every project (functional audit 2026-08-17).
+                if row.get("project") == project:
                     parts.append(f"- Learning: {row.get('note', '')[:300]}")
         except Exception:
             pass
