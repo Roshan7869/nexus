@@ -156,6 +156,62 @@ def repo_map(git_root: str, budget_tokens: int = 1000) -> str:
     return json.dumps(build(git_root, budget_tokens=budget_tokens), indent=2)
 
 
+# ── NEXUS Forge — project → parallel cluster team in tmux (interactive TUIs) ─
+
+@mcp.tool()
+def forge_plan(brief: str, project: str, project_dir: str,
+               extra_clusters: str = "") -> str:
+    """Plan a project team: lead (analyzer_planner) + core peers (frontend,
+    backend, security, devops) + keyword-matched additions. Writes a brief
+    per seat to <project_dir>/.nexus/briefs/. Review before spawning.
+    """
+    from server.forge import plan_project
+    extras = [c.strip() for c in extra_clusters.split(",") if c.strip()]
+    plan = plan_project(brief, project_dir=project_dir, extra_clusters=extras or None)
+    return json.dumps(plan, indent=2)
+
+
+@mcp.tool()
+def forge_spawn(project: str, project_dir: str, brief: str = "",
+                extra_clusters: str = "") -> str:
+    """Spawn the team as detached OpenCode tmux sessions in project_dir.
+    Each seat is told to read its brief file and execute its workstream.
+    Pass brief to plan+spawn in one step; omit it to spawn from briefs
+    already written by a prior forge_plan.
+    """
+    from server.forge import plan_project, spawn_team, LEAD_CLUSTER, TERRITORIES
+    if brief:
+        extras = [c.strip() for c in extra_clusters.split(",") if c.strip()]
+        plan = plan_project(brief, project_dir=project_dir, extra_clusters=extras or None)
+    else:
+        from pathlib import Path as _P
+        bdir = _P(project_dir) / ".nexus" / "briefs"
+        plan = {"brief": "(from existing briefs)", "seats": [
+            {"cluster": f.stem,
+             "role": "lead" if f.stem == LEAD_CLUSTER else "peer",
+             "territory": TERRITORIES.get(f.stem, "notes/"),
+             "brief_path": str(f)}
+            for f in sorted(bdir.glob("*.md"))
+        ]}
+    return json.dumps(spawn_team(plan, project_dir, project=project), indent=2)
+
+
+@mcp.tool()
+def forge_status(project: str) -> str:
+    """Per-seat status: alive + last pane lines. The LEAD seat consumes this
+    to review peers — the honesty authority for workstream completion.
+    """
+    from server.forge import team_status
+    return json.dumps(team_status(project), indent=2)
+
+
+@mcp.tool()
+def forge_stop(project: str) -> str:
+    """Kill ONLY this project's nexus-forge-* tmux sessions."""
+    from server.forge import stop_team
+    return json.dumps(stop_team(project), indent=2)
+
+
 @mcp.tool()
 def route_ab_compare(task: str, project: str = "default",
                      top_k: int = 10) -> str:

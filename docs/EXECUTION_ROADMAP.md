@@ -403,3 +403,17 @@ its feedback measurably moves learner beliefs; per-harness eval table published.
    a hard budget_ms; everything LLM-heavy goes to nightly batches or the cloud.
 5. **Scope creep via dormant subsystems** — the 163-file server/ stays dormant unless
    a phase explicitly wires it (Phase 2 wires TOIN; nothing else gets woken early).
+
+## Addendum 2026-08-17 — PIVOT + retrieval direction (one paragraph, per stop rule)
+
+The gateway/LLM-routing scope is REMOVED (user direction); NEXUS is now the
+cluster-team orchestrator (server/forge.py, shipped). Retrieval direction for
+the post-pivot stack: OKF resource_sections (migration 006, FTS5 available via
+migration 010) becomes the first-class retrieval layer on hot paths —
+sections + cluster keyword gating replace FAISS in find_skills — while skill/
+section embeddings move to training-free 2–4-bit quantization (TurboQuant,
+arXiv 2504.19874: Hadamard rotation + scalar quantization) for memory-bound
+cold paths, FAISS demoted accordingly. Decision memos (docs/decisions/) gate
+both before any build: adopt OKF-retrieval only if the eval harness shows
+parity or better vs FAISS routing; adopt quantization only at recall@10 ≥ 0.95
+and < 40% memory.

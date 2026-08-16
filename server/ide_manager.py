@@ -253,15 +253,19 @@ TMUX_LAUNCH_CMD = {
 }
 
 
-def launch_tmux(ide_type: str, session_name: str | None = None) -> tuple[str, int | None]:
+def launch_tmux(ide_type: str, session_name: str | None = None,
+                cwd: str | None = None) -> tuple[str, int | None]:
     """Launch a TUI IDE in a detached tmux session. Returns (tmux_session, pid|None)."""
     cmd = TMUX_LAUNCH_CMD.get(ide_type)
     if not cmd:
         raise ValueError(f"unknown ide_type {ide_type!r}")
     session_name = session_name or f"{ide_type}-{str(uuid.uuid4())[:6]}"
+    new_session = ["tmux", "new-session", "-d", "-s", session_name]
+    if cwd:
+        new_session += ["-c", str(cwd)]
     try:
         subprocess.run(
-            ["tmux", "new-session", "-d", "-s", session_name, cmd],
+            new_session + [cmd],
             check=True, capture_output=True, timeout=10,
         )
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):

@@ -83,6 +83,24 @@ POST-WEEK-1 WORK (2026-08-17):
       project_resume/project_note registered after find_skills)
 - [x] default-project learnings leak fixed (tool_session_broker exact-match;
       6/6 broker tests)
+
+═══ PIVOT 2026-08-17 (user direction) ═══════════════════════════════════════
+GATEWAY/LLM-ROUTING REMOVED FROM SCOPE. NEXUS = cluster-team orchestrator:
+project brief → forge plans lead + cluster peers → parallel OpenCode TUI tmux
+sessions with territory briefs → continuity carries the memory.
+- OLLAMA_CLOUD_API_KEY blocker: CLOSED-BY-PIVOT (no LLM proxy in scope).
+- scripts/smoke_e2e.sh: gateway-era (steps 2-4 need unified gateway) — kept
+  for a future return, not part of forge gates. De-loop Stage 0/1 OBSOLETE.
+- [x] FORGE SHIPPED: server/forge.py (plan/spawn/status/stop; two-phase
+      spawn with boot-wait, verify-and-retry pointer delivery, remain-on-exit
+      panes, tmux list-sessions seat discovery), 4 MCP tools (forge_plan/
+      spawn/status/stop), ide_manager.launch_tmux cwd param, 11/11 tests.
+      Live demo 2026-08-17: 5 seats for "build an ecommerce site" — all
+      spawned, pointers verified in panes, seats processing with 2 MCP
+      servers connected. Retrieval direction (OKF sections + quantized
+      vectors replacing FAISS hot paths): see EXECUTION_ROADMAP addendum.
+════════════════════════════════════════════════════════════════════════════
+
 - [ ] U1b: make IDE sessions call project_attach on connect (opencode.json
       instructions + CLAUDE.md nudge)
 - [ ] Week-2: repo-map injection (tree-sitter decision pending) behind the
