@@ -28,7 +28,7 @@ SUPERVISOR_SOCK = NEXUS_ROOT / "run" / "supervisor.sock"
 VENV_PYTHON = NEXUS_ROOT / "venv" / "bin" / "python3"
 SUPERVISORCTL = NEXUS_ROOT / "venv" / "bin" / "supervisorctl"
 SUPERVISORD = NEXUS_ROOT / "venv" / "bin" / "supervisord"
-DB_PATH = Path(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db")))
+DB_PATH = Path(os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db"))))
 SYSTEMD_HTTP_UNIT = "nexus-daemon.service"
 
 # supervisorctl status exits non-zero when any program is not RUNNING (often 3).

@@ -32,7 +32,7 @@ def evaluate(dataset_path: str, top_k: int = 10, sample: int = None) -> dict:
 
         if not expected:
             # Adversarial/no-op queries — should return empty or low-confidence
-            result = route_task(task, use_embedding=False)
+            result = route_task(task, use_embedding=False, ide="eval", write_feedback=False)
             skills = [s["name"] for s in result.get("skills", [])]
             is_empty = len(skills) == 0 or all(s["score"] < 0.3 for s in result.get("skills", []))
             results.append({
@@ -45,7 +45,7 @@ def evaluate(dataset_path: str, top_k: int = 10, sample: int = None) -> dict:
             })
             continue
 
-        result = route_task(task, use_embedding=True)
+        result = route_task(task, use_embedding=True, ide="eval", write_feedback=False)
         returned = [s["name"] for s in result.get("skills", [])]
         returned_set = set(returned)
 

@@ -179,7 +179,7 @@ def get_loader(db_path: str = None) -> LazyLoader:
     """Singleton lazy-loader instance."""
     if db_path is None:
         import os
-        db_path = os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db"))
+        db_path = os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db")))
     if not hasattr(get_loader, "_instance"):
         with get_loader._lock:
             if not hasattr(get_loader, "_instance"):

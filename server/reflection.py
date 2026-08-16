@@ -18,7 +18,7 @@ class ReflectionEngine:
         self.init_db()
 
     def _resolve_db_path(self, db_path: str) -> str:
-        env_path = os.environ.get("NEXUS_DB_PATH")
+        env_path = os.path.expandvars(os.environ.get("NEXUS_DB_PATH"))
         if env_path:
             return env_path
         if db_path and os.access(db_path, os.W_OK):

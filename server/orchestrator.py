@@ -100,7 +100,7 @@ def _scan_environment() -> Dict:
 def _discover_resources(task: str, project: str = "default") -> List[Dict]:
     """Query NEXUS for relevant skills/agents/commands."""
     from router import route_task
-    result = route_task(task, project)
+    result = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "http"))
     return result.get("skills", [])
 
 # ── Phase 1: State Analysis ──────────────────────────────
@@ -291,7 +291,7 @@ def phase_3_execute(plan: Plan, start_index: int = 0) -> Dict:
         # Route the phase's core task to get model + skills
         from router import route_task
         task_desc = f"{phase.name}: {phase.description}"
-        routing = route_task(task_desc, plan.project)
+        routing = route_task(task_desc, plan.project, ide=os.environ.get("NEXUS_IDE", "http"))
         
         # In a full autopilot mode, we'd actually dispatch this to the IDE.
         # For now, we log it and return the routing info.

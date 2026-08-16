@@ -349,7 +349,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
     # Sanitize ide for routing_log CHECK constraint
     _IDE_OK = {
         "opencode", "claude-code", "unknown", "hermes", "codex",
-        "mcp", "auto_invoke", "http",
+        "mcp", "auto_invoke", "http", "eval", "pytest",
     }
     ide_raw = (ide or "unknown").strip().lower()
     ide = ide_raw if ide_raw in _IDE_OK else "unknown"

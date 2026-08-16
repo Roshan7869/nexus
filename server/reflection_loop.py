@@ -31,7 +31,7 @@ def _resolve_db_path() -> Path:
     for var in ("NEXUS_BROKER_DB_PATH", "NEXUS_DB_PATH"):
         val = os.environ.get(var)
         if val:
-            return Path(val)
+            return Path(os.path.expandvars(val))
     return Path.home() / "nexus" / "db" / "nexus.db"
 
 

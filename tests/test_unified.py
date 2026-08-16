@@ -390,7 +390,7 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
     def test_create_task_run_generates_preview_and_report(self):
         from server import broker_runtime
 
-        def fake_route(task, project="default", use_embedding=True):
+        def fake_route(task, project="default", max_results=5, **kwargs):
             task_lower = task.lower()
             if "verify" in task_lower:
                 cluster = "quality_security"
@@ -410,7 +410,7 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
                 ],
             }
 
-        with patch.object(broker_runtime, "route_task", side_effect=fake_route):
+        with patch.object(broker_runtime, "route_for_task", side_effect=fake_route):
             result = broker_runtime.create_task_run(
                 "build a landing page",
                 ide_name="codex",
@@ -429,7 +429,7 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
     def test_review_task_run_stores_learning(self):
         from server import broker_runtime
 
-        def fake_route(task, project="default", use_embedding=True):
+        def fake_route(task, project="default", max_results=5, **kwargs):
             return {
                 "cluster": "analyzer_planner",
                 "task_type": "reasoning",
@@ -440,7 +440,7 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
                 ],
             }
 
-        with patch.object(broker_runtime, "route_task", side_effect=fake_route):
+        with patch.object(broker_runtime, "route_for_task", side_effect=fake_route):
             run = broker_runtime.create_task_run(
                 "audit routing quality",
                 ide_name="hermes",

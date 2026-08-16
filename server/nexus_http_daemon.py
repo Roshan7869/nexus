@@ -932,7 +932,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="NEXUS Persistent HTTP Daemon")
     parser.add_argument("--host", default="127.0.0.1", help="Bind address")
-    parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000, matches nexus.yaml)")
     parser.add_argument("--workers", type=int, default=1, help="Uvicorn workers (default: 1, use run_in_executor for concurrency)")
     args = parser.parse_args()
 

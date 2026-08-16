@@ -40,6 +40,7 @@ SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS resources (
     id INTEGER PRIMARY KEY, name TEXT, description TEXT, body_text TEXT,
     resource_type TEXT, cluster TEXT, status TEXT DEFAULT 'active',
+    file_path TEXT, repo_name TEXT,
     tier INTEGER DEFAULT 2, token_count INTEGER DEFAULT 100,
     times_correct INTEGER DEFAULT 0, times_wrong INTEGER DEFAULT 0,
     times_triggered INTEGER DEFAULT 0,

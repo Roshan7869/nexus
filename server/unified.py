@@ -181,7 +181,7 @@ async def chat_completions(req: ChatRequest):
         last_msg = req.messages[-1].get("content", "")
         if last_msg and route_task:
             try:
-                route_result = route_task(last_msg[:200], "default")
+                route_result = route_task(last_msg[:200], "default", ide=os.environ.get("NEXUS_IDE", "http"))
                 task_type = route_result.get("task_type", "general")
             except Exception:
                 pass

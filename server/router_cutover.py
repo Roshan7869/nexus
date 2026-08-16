@@ -165,7 +165,7 @@ def _shape_v5(task: str, project: str, max_results: int) -> dict[str, Any]:
 # Matches routing_log CHECK constraint on ide column
 _ALLOWED_IDES = frozenset({
     "opencode", "claude-code", "unknown", "hermes", "codex",
-    "mcp", "auto_invoke", "http",
+    "mcp", "auto_invoke", "http", "eval", "pytest",
 })
 
 

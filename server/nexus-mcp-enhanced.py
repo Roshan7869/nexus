@@ -58,7 +58,7 @@ def db_conn():
         conn.close()
 
 # ── Router import ──────────────────────────────────────
-from server.router import route_task, find_matching_skills
+from server.router_cutover import route_for_task
 
 # ── Learning pipeline import ──
 from learning import record_outcome, get_learning_stats, auto_invoke_retry
@@ -93,7 +93,6 @@ def find_skills(task: str, project: str = "default", max_results: int = 5) -> st
 
     Rollback: export USE_UNIFIED_ROUTER=0 and restart MCP.
     """
-    from server.router_cutover import route_for_task
     # P1: route_for_task opens session with outcome='routed' (no Thompson).
     result = route_for_task(
         task, project, max_results,
@@ -444,14 +443,16 @@ def execute_phase(plan_id: int, phase_id: str, force: bool = False) -> str:
             return json.dumps({"error": f"Phase {phase_id} not found in plan {plan_id}"})
         
         task = f"{target['name']}: {target['description']}"
-        routing = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
+        routing = route_for_task(
+            task, project, max_results=5, open_session=False
+        )
         
         conn.execute("""
             INSERT INTO execution_log(plan_id, phase_id, task_summary, matched_model, skills_used, outcome, ide)
             VALUES(?,?,?,?,?,?,?)
         """, (plan_id, phase_id, task, routing['model'],
               json.dumps([s['name'] for s in routing.get('skills', [])]),
-              'correct', 'opencode'))
+              None, 'opencode'))
         conn.commit()
     
     return json.dumps({
@@ -486,20 +487,35 @@ def verify_phase(plan_id: int, phase_id: str) -> str:
         if not target:
             return json.dumps({"error": f"Phase {phase_id} not found"})
         
+        # Honest verification: inspect execution_log for real evidence.
+        exec_row = conn.execute("""
+            SELECT outcome FROM execution_log
+            WHERE plan_id=? AND phase_id=? ORDER BY created_at DESC LIMIT 1
+        """, (plan_id, phase_id)).fetchone()
+
         checks = {
-            "code_exists": True,
-            "tests_pass": True,
-            "lint_clean": True,
-            "coverage_80": True
+            "executed": exec_row is not None,
+            "has_outcome": exec_row is not None and bool(exec_row["outcome"]),
+            "outcome_terminal": exec_row is not None and exec_row["outcome"] in {
+                "correct", "partial", "wrong", "error", "timeout"
+            },
+            "coverage_80": False,  # requires real test coverage run
         }
-        all_pass = all(checks.values())
-    
+        if not checks["executed"]:
+            verdict, message = "NOT_EXECUTED", "Phase has not been executed"
+        elif not checks["outcome_terminal"]:
+            verdict, message = "PENDING", "Phase dispatched but no terminal outcome recorded"
+        elif checks["outcome_terminal"] and exec_row["outcome"] in {"correct", "partial"}:
+            verdict, message = "PASS", "Terminal outcome indicates success"
+        else:
+            verdict, message = "FAIL", f"Outcome recorded as {exec_row['outcome']}"
+
     return json.dumps({
         "plan_id": plan_id,
         "phase_id": phase_id,
         "checks": checks,
-        "verdict": "PASS" if all_pass else "FAIL",
-        "message": "All checks passed" if all_pass else "Some checks failed"
+        "verdict": verdict,
+        "message": message
     }, indent=2)
 
 
@@ -875,8 +891,11 @@ def tool_attention_route(task: str, project: str = "default") -> str:
         result = route_v3(task, project)
         return json.dumps(result, indent=2)
     except Exception as e:
-        from server.router import route_task
-        result = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "claude-code"))
+        result = route_for_task(
+            task, project, max_results=5,
+            open_session=True,
+            ide=os.environ.get("NEXUS_IDE", "claude-code"),
+        )
         result["fallback"] = f"Tool Attention unavailable: {e}"
         return json.dumps(result, indent=2)
 
@@ -1202,6 +1221,10 @@ def close_outcomes(project: str = "default", max_rows: int = 500) -> str:
     the IDE used the routed skill but no outcome was recorded.
 
     This is the KEY fix for the 55% → 80%+ outcome coverage gap.
+
+    Closures are quality-weighted (quality=0.3): auto-closed rows are derived
+    verdicts, not explicit human judgements, so they move Thompson beliefs and
+    degradation counters less than a confident 'correct'.
 
     Args:
         project: Filter by project (default: 'default', use 'all' for all projects)

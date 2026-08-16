@@ -24,7 +24,7 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 NEXUS_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = Path(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db")))
+DB_PATH = Path(os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db"))))
 
 # Promote thresholds (active catalog eligibility)
 MIN_TOKEN_COUNT = int(os.environ.get("NEXUS_PROMOTE_MIN_TOKENS", "20"))

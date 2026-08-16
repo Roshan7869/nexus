@@ -58,8 +58,16 @@ class EventBridge:
           wrong    → test_failed (-0.5)
           error    → error (-0.8)
           timeout  → timeout (-0.4)
+
+        Non-terminal outcomes (routed, pending, empty) are logged to routing_log
+        but never update Thompson beliefs (arXiv:2604.02869 / P0 design plan).
         """
         if not LEARNING_ENABLED:
+            return None
+
+        TERMINAL_OUTCOMES = {"correct", "partial", "wrong", "error", "timeout"}
+        if outcome not in TERMINAL_OUTCOMES:
+            logger.debug("Event bridge: ignoring non-terminal outcome %r", outcome)
             return None
 
         try:
@@ -74,7 +82,7 @@ class EventBridge:
                 "error": "error",
                 "timeout": "timeout",
             }
-            event_type = outcome_map.get(outcome, "task_completed" if outcome == "correct" else "error")
+            event_type = outcome_map[outcome]
             reward = EVENT_REWARDS.get(event_type, 0.0)
 
             provider = route_result.get("provider", "unknown") if route_result else "unknown"

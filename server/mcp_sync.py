@@ -17,7 +17,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
 
-DB_PATH = Path(os.environ.get("NEXUS_DB_PATH", str(Path.home() / 'nexus/db/nexus.db')))
+DB_PATH = Path(os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(Path.home() / 'nexus/db/nexus.db'))))
 
 class SyncOperation(Enum):
     CREATE = "create"

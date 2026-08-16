@@ -9,10 +9,12 @@ from typing import Optional
 from collections import defaultdict
 from iso_embedder import IsoEmbedder, EmbedderUnavailableError
 
-DB_PATH = os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db"))
-INDEX_PATH = os.environ.get(
-    "NEXUS_INDEX_PATH",
-    str(Path.home() / "nexus/db/faiss/resources.index"),
+DB_PATH = os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(Path.home() / "nexus/db/nexus.db")))
+INDEX_PATH = os.path.expandvars(
+    os.environ.get(
+        "NEXUS_INDEX_PATH",
+        str(Path.home() / "nexus/db/faiss/resources.index"),
+    )
 )
 
 # ── Type directional vectors ──────────────────────────────────────────

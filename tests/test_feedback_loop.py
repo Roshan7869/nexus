@@ -86,6 +86,12 @@ class TestColdStart(unittest.TestCase):
     """P0-3: Cold resources have Beta(1,1) prior, get backfilled from routing_log."""
 
     def setUp(self):
+        # This class tests the Thompson belief bridge — force it on regardless
+        # of conftest's NEXUS_THOMPSON_ROUTING=false default (flag is read at
+        # import time into a module global, so patch the global directly).
+        import server.learning as _learning
+        self._thompson_saved = _learning.THOMPSON_ENABLED
+        _learning.THOMPSON_ENABLED = True
         self.conn = get_conn()
         self.skill = "test-e2e-cold"
         self.conn.execute("DELETE FROM cluster_membership WHERE resource_id IN (SELECT id FROM resources WHERE name=?)", (self.skill,))
@@ -101,6 +107,8 @@ class TestColdStart(unittest.TestCase):
         self.rid = self.conn.execute("SELECT id FROM resources WHERE name=?", (self.skill,)).fetchone()["id"]
 
     def tearDown(self):
+        import server.learning as _learning
+        _learning.THOMPSON_ENABLED = self._thompson_saved
         self.conn.execute("DELETE FROM model_beliefs WHERE model=?", (f"resource:{self.skill}",))
         self.conn.execute("DELETE FROM cluster_membership WHERE resource_id=?", (self.rid,))
         self.conn.execute("DELETE FROM resources WHERE id=?", (self.rid,))

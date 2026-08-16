@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    from server.router import route_task
+    from server.router_cutover import route_for_task
     from server.service_layer import (
         SERVICE_BUNDLES,
         RESOURCE_CLUSTER_OVERRIDES,
@@ -28,7 +28,7 @@ try:
     )
     from server.learning import record_outcome
 except Exception:
-    from router import route_task
+    from router_cutover import route_for_task
     from service_layer import (
         SERVICE_BUNDLES,
         RESOURCE_CLUSTER_OVERRIDES,
@@ -472,7 +472,9 @@ def _select_phase_tools(
     ide_name: str,
     domain_cluster: str,
 ) -> List[Dict[str, Any]]:
-    routed = route_task(phase["description"], project, use_embedding=True)
+    routed = route_for_task(
+        phase["description"], project, max_results=8, open_session=False
+    )
     candidates = routed.get("skills", [])
     selected: List[Dict[str, Any]] = []
 
@@ -557,7 +559,9 @@ def create_task_run(
     mode = normalize_mode(mode)
     repo_context = repo_context or {}
 
-    route_result = route_task(task_text, project, use_embedding=True)
+    route_result = route_for_task(
+        task_text, project, max_results=5, open_session=False
+    )
     cluster = route_result.get("cluster") or "general"
     task_type = route_result.get("task_type", "general")
     phases = _phase_templates(task_text, cluster, task_type)
@@ -688,8 +692,14 @@ def execute_task_run(task_run_id: str) -> Dict[str, Any]:
         for phase in phases:
             selected = trace_map.get(phase["id"], [])
             skills_used = [row["resource_name"] for row in selected]
-            model = route_task(f"{phase['name']}: {phase['description']}", project, use_embedding=True).get("model", "unknown")
-            outcome = "correct"
+            model = route_for_task(
+                f"{phase['name']}: {phase['description']}",
+                project,
+                max_results=1,
+                open_session=False,
+            ).get("model", "unknown")
+            # Phase A: honest non-terminal outcome until real verification runs.
+            outcome = None
             conn.execute(
                 """
                 INSERT INTO execution_log(plan_id, phase_id, task_summary, matched_model, skills_used, outcome, ide)
@@ -977,6 +987,7 @@ def _close_routing_outcomes(
     project: str = "default",
     ide: str = "unknown",
     max_rows: int = 500,
+    quality: float = 0.3,
 ) -> Dict[str, Any]:
     """Close the feedback loop for routing_log entries that never got outcomes.
 
@@ -986,11 +997,23 @@ def _close_routing_outcomes(
 
     This is the KEY fix for the 55% → 80%+ outcome coverage gap.
 
+    Closures are routed through ``learning.record_outcome`` with a LOW
+    ``quality`` weight (default 0.3) instead of raw +1 SQL. rationale: an
+    auto-closed row is a derived verdict (skill was invoked, no failure
+    reported), not an explicit human judgement — so it should move the
+    Thompson posterior and degradation counters less than a confident
+    correct. Routing through the primary feedback path also keeps the
+    outcome_log/EFC bridge, Thompson beliefs, edge weights, cluster
+    affinity, and reflection layers consistent (previously only raw
+    counters were bumped and outcome_log stayed stale).
+
     Args:
-        conn: Database connection
+        conn: Database connection (used only to read candidates; learning
+              writes go through record_outcome's own short-lived conn).
         project: Filter by project (default: all)
         ide: Filter by IDE (default: all)
         max_rows: Maximum rows to close in one batch
+        quality: Confidence weight for the derived verdict, [0,1].
 
     Returns:
         Dict with closed count, breakdown by previous outcome, and any errors.
@@ -1027,42 +1050,35 @@ def _close_routing_outcomes(
 
     breakdown: Dict[str, int] = {}
     errors: List[str] = []
-    closed_ids = [r["id"] for r in rows]
-    placeholders = ",".join("?" for _ in closed_ids)
+    closed = 0
 
-    # Batch update routing_log outcomes
-    conn.execute(
-        f"UPDATE routing_log SET outcome='correct' WHERE id IN ({placeholders})",
-        closed_ids,
-    )
+    # Close each row through the primary feedback path so every learning
+    # layer stays consistent and the derived verdict is quality-weighted.
+    from server.learning import record_outcome
 
-    # Batch update resource counters (times_correct, times_triggered)
     for row in rows:
         prev_outcome = row["outcome"] or "NULL"
         skill_name = row["skill_name"]
         breakdown[prev_outcome] = breakdown.get(prev_outcome, 0) + 1
-
         try:
-            conn.execute(
-                """
-                UPDATE resources SET
-                    times_correct = times_correct + 1,
-                    times_triggered = times_triggered + 1,
-                    last_used_at = datetime('now'),
-                    updated_at = datetime('now')
-                WHERE name = ?
-                """,
-                (skill_name,),
+            record_outcome(
+                skill_name=skill_name,
+                outcome="correct",
+                task_summary=row["task_summary"],
+                project=project if project and project != "all" else "default",
+                ide=ide,
+                quality=quality,
+                routed_id=row["id"],
             )
+            closed += 1
         except Exception as e:
-            errors.append(f"Failed to update resource {skill_name}: {e}")
-
-    conn.commit()
+            errors.append(f"Failed to close {skill_name} (routing_log {row['id']}): {e}")
 
     return {
         "status": "closed",
-        "closed": len(rows),
+        "closed": closed,
         "breakdown": breakdown,
+        "quality": quality,
         "errors": errors[:10],
     }
 

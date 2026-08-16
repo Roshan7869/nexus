@@ -16,7 +16,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
 NEXUS_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_PATH = Path(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db")))
+DB_PATH = Path(os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db"))))
 PORT = int(os.environ.get("NEXUS_DASHBOARD_PORT", "8765"))
 
 

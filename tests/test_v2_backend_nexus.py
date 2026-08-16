@@ -29,11 +29,11 @@ class TestNexusBackendSearchResources:
             assert len(results) <= 2
 
     def test_results_ordered_by_times_correct(self, db):
-        """Results are sorted by times_correct DESC."""
+        """Results are sorted by section_count DESC, then times_correct DESC."""
         with mock_nexus_conn(db):
             results = search_resources("", max_results=10)
-            for i in range(len(results) - 1):
-                assert results[i]["times_correct"] >= results[i + 1]["times_correct"]
+            keys = [(r["section_count"], r["times_correct"]) for r in results]
+            assert keys == sorted(keys, reverse=True)
 
     def test_only_active_resources_returned(self, db):
         """Resources with status != 'active' should be excluded."""
