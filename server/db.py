@@ -196,3 +196,20 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
         ALTER TABLE routing_log_new RENAME TO routing_log;
         DROP TABLE IF EXISTS routing_log_old;
     """)
+
+    # Week1 card 4.4 — eval/observability columns (additive; guarded ALTERs so
+    # the copy-migration above keeps its column-count contract untouched).
+    # Writers start in Phases 2-3; adding columns early keeps one migration point.
+    for _ddl in (
+        "ALTER TABLE routing_log ADD COLUMN intent TEXT",
+        "ALTER TABLE routing_log ADD COLUMN route_match INTEGER",
+        "ALTER TABLE routing_log ADD COLUMN latency_ms REAL",
+        "ALTER TABLE routing_log ADD COLUMN cost REAL",
+        "ALTER TABLE routing_log ADD COLUMN injected_ctx_len INTEGER DEFAULT 0",
+        "ALTER TABLE routing_log ADD COLUMN harness_tag TEXT DEFAULT 'raw-api'",
+    ):
+        try:
+            conn.execute(_ddl)
+        except sqlite3.OperationalError:
+            pass  # column already present
+    conn.commit()
