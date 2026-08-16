@@ -1,0 +1,48 @@
+# NEXUS golden routing cases — Week1 card 3.2 (seed: 5)
+#
+# Schema (frozen; Day 4 adds instances, never fields):
+#   id:              unique string
+#   prompt:          the task text handed to route_for_task
+#   expect_skills:   any of these skill names must appear in top-k (omit => no
+#                    skill assertion; empty list is invalid — use omit)
+#   accept_clusters: router's top cluster must be one of these (omit => no check)
+#   expect_tier:     router tier integer (omit => no check)
+#   top_k:           how many top skills to consider for expect_skills (default 5)
+#   tags:            free-form
+#   verifier:        reserved for Day 4 (kind: role_check | exec_tests | judge)
+#
+# Seed cases reference REAL active skills from db/nexus.db (queried 2026-08-17).
+
+- id: coding-frontend-001
+  prompt: "Build a responsive React dashboard component with a sidebar and charts"
+  expect_skills: [frontend-ui-engineering, design-html]
+  accept_clusters: [frontend_ui, architect]
+  top_k: 5
+  tags: [coding, frontend]
+
+- id: qa-security-002
+  prompt: "Review this authentication module for security vulnerabilities and write regression tests"
+  expect_skills: [qa, guard, qa-only]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [qa, security]
+
+- id: planning-investigate-003
+  prompt: "Investigate why the API returns 500 under load and propose a remediation plan"
+  expect_skills: [investigate, autoplan, plan-eng-review]
+  accept_clusters: [analyzer_planner]
+  top_k: 5
+  tags: [analysis, planning]
+
+- id: backend-api-004
+  prompt: "Design REST endpoints backed by postgres with proper indexing and pagination"
+  expect_skills: [api-design, postgres-patterns]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [backend, api]
+
+- id: ood-general-005
+  prompt: "What is the capital of France?"
+  tags: [ood, adversarial]
+  # No expect_skills: OOD health case — router must respond sanely (no crash,
+  # skills list may be anything). Asserts health only.

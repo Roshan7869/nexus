@@ -39,10 +39,13 @@ Day 2  [x] 2.1  port convergence (systemd unit + daemon default + supervisord.co
        [x] 2.2  scripts/watch-inbox.sh instrumentation
        [~] 2.3  OUT-OF-SESSION runbook — AMENDED, see below (not yet executed)
        [~] 2.4  scripts/smoke_e2e.sh — written+validated; full green BLOCKED on API key
-Day 3  [ ] 3.1  evals/ package skeleton
-       [ ] 3.2  evals/golden/routing_cases.yaml (seed 5)
-       [ ] 3.3  evals/scorer.py
-       [ ] 3.4  evals/run_eval.py
+Day 3  [x] 3.1  evals/ package skeleton
+       [x] 3.2  evals/golden/routing_cases.yaml (seed 5)
+       [x] 3.3  evals/scorer.py (+ tests/test_eval_scorer.py — 8 pass)
+       [x] 3.4  evals/run_eval.py — offline, 5 cases in ~31s; first signal:
+                pass_rate 0.6, skill_match 0.5, cluster_ok 0.75
+                (frontend + qa-security seeds miss; embedder reloads per call —
+                candidate optimization later, not a blocker)
 Day 4  [ ] 4.1  golden set → 100 cases (swarm drafts + human curation)
        [ ] 4.2  evals/golden/holdout.yaml split
        [ ] 4.3  evals/verifiers/ fixtures + verifier_runner
