@@ -193,6 +193,14 @@ def resume(project: str, limit: int = 10) -> dict:
         conn.close()
 
     git_root = meta["git_root"] if meta else None
+    repo_map = ""
+    if git_root and Path(git_root).is_dir():
+        try:
+            from server.repo_map import build as build_repo_map
+            # Small budget here: resume is a digest; full map via the MCP tool.
+            repo_map = build_repo_map(git_root, budget_tokens=400)["map"]
+        except Exception:
+            pass  # resume must never fail on map failure
     return {
         "project": project,
         "last_ide": meta["last_ide"] if meta else None,
@@ -200,5 +208,6 @@ def resume(project: str, limit: int = 10) -> dict:
         "recent_routes": [dict(r) for r in routes],
         "notes": [dict(n) for n in notes],
         "agents_md": _read_agents_md(git_root),
+        "repo_map_excerpt": repo_map,
         "top_beliefs": [dict(b) for b in beliefs],  # global until U2 per-project keys
     }

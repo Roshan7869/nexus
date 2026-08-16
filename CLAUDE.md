@@ -203,3 +203,13 @@ This project is indexed by GitNexus as **nexus** (8712 symbols, 15191 relationsh
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## NEXUS Session Protocol (project continuity)
+
+At session start, before other NEXUS tools:
+1. `project_attach(project="<repo-name>", git_root="<abs path>")` — registers this IDE session.
+2. If resuming prior work: `project_resume(project="<repo-name>")` — returns recent routes, durable notes, AGENTS.md excerpt, beliefs.
+3. When you learn something durable about the project (convention, gotcha, architecture decision): `project_note(project=..., text=...)` — survives IDE switches (DB + `.nexus/memory.md`).
+
+These work in every IDE that connects to the NEXUS MCP server (OpenCode, Claude Code, ZCode).
+

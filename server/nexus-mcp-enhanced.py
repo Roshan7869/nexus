@@ -147,6 +147,16 @@ def project_note(project: str, text: str) -> str:
 
 
 @mcp.tool()
+def repo_map(git_root: str, budget_tokens: int = 1000) -> str:
+    """Aider-style repository map: top symbols ranked by reference-graph
+    PageRank, within a token budget. Gives any agent the project's shape
+    without reading every file.
+    """
+    from server.repo_map import build
+    return json.dumps(build(git_root, budget_tokens=budget_tokens), indent=2)
+
+
+@mcp.tool()
 def route_ab_compare(task: str, project: str = "default",
                      top_k: int = 10) -> str:
     """A/B comparison: v4 vs v2 vs v5 on one query (no DB writes).
