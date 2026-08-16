@@ -1,200 +1,163 @@
-# Ruflo — Claude Code Configuration
+# CLAUDE.md
 
-## Rules
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary — prefer editing existing files
-- NEVER create documentation files unless explicitly requested
-- NEVER save working files or tests to root — use `/src`, `/tests`, `/docs`, `/config`, `/scripts`
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
-- Keep files under 500 lines
-- Validate input at system boundaries
+# NEXUS — Self-Learning Resource Router for AI Coding Agents
 
-## Agent Comms (SendMessage-First Coordination)
+A Python 3.11+ project. The codebase is split between a FastAPI LLM gateway (`core/`) and an MCP orchestrator (`server/`) that route tasks through a self-learning resource graph backed by SQLite + FAISS.
 
-Named agents coordinate via `SendMessage`, not polling or shared state.
+## Common Commands
 
-```
-Lead (you) ←→ architect ←→ developer ←→ tester ←→ reviewer
-              (named agents message each other directly)
-```
-
-### Spawning a Coordinated Team
-
-```javascript
-// ALL agents in ONE message, each knows WHO to message next
-Agent({ prompt: "Research the codebase. SendMessage findings to 'architect'.",
-  subagent_type: "researcher", name: "researcher", run_in_background: true })
-Agent({ prompt: "Wait for 'researcher'. Design solution. SendMessage to 'coder'.",
-  subagent_type: "system-architect", name: "architect", run_in_background: true })
-Agent({ prompt: "Wait for 'architect'. Implement it. SendMessage to 'tester'.",
-  subagent_type: "coder", name: "coder", run_in_background: true })
-Agent({ prompt: "Wait for 'coder'. Write tests. SendMessage results to 'reviewer'.",
-  subagent_type: "tester", name: "tester", run_in_background: true })
-Agent({ prompt: "Wait for 'tester'. Review code quality and security.",
-  subagent_type: "reviewer", name: "reviewer", run_in_background: true })
-
-// Kick off the pipeline
-SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
-```
-
-### Patterns
-
-| Pattern | Flow | Use When |
-|---------|------|----------|
-| **Pipeline** | A → B → C → D | Sequential dependencies (feature dev) |
-| **Fan-out** | Lead → A, B, C → Lead | Independent parallel work (research) |
-| **Supervisor** | Lead ↔ workers | Ongoing coordination (complex refactor) |
-
-### Rules
-
-- ALWAYS name agents — `name: "role"` makes them addressable
-- ALWAYS include comms instructions in prompts — who to message, what to send
-- Spawn ALL agents in ONE message with `run_in_background: true`
-- After spawning: STOP, tell user what's running, wait for results
-- NEVER poll status — agents message back or complete automatically
-
-## Swarm & Routing
-
-### Config
-- **Topology**: hierarchical-mesh (anti-drift)
-- **Max Agents**: 15
-- **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+All Python commands assume the venv at `/home/roshan/nexus/venv` is active (or use `venv/bin/python3` directly).
 
 ```bash
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+# Install / editable install
+pip install -r requirements.txt
+pip install -e .                          # exposes `nexus`, `nexus-mcp`, `nexus-http`, `nexus-dashboard`, `nexus-harness`
+
+# Tests
+pytest tests/ -q                          # full suite
+pytest tests/test_unified.py -v           # single test file
+pytest tests/test_context_harness.py::test_foo -v  # single test
+pytest tests/ -m "not integration"          # skip real-backend tests
+pytest tests/ --run-integration             # run integration tests
+pytest tests/ --benchmark                   # run benchmark tests
+
+# CI / ops gates
+bash scripts/ci_eval.sh                   # unit + ops gates
+bash scripts/ci_eval.sh --ab                # + quick A/B
+bash scripts/ci_eval.sh --full-ab           # + full 20-query A/B (slow)
+
+# Run the unified server (LLM gateway + routing on :8000)
+bash start.sh
+# or
+uvicorn server.unified:app --host 0.0.0.0 --port 8000
+
+# Run individual components
+python server/nexus-mcp-enhanced.py       # stdio MCP server (used by .mcp.json)
+python server/nexus_http_daemon.py        # persistent HTTP execution plane (default :8080)
+python server/dashboard/server.py         # ops dashboard (:8765)
+python server/context_harness/server.py   # context-harness MCP (optional)
+
+# Database / maintenance
+python scripts/init_db.py                 # create/upgrade nexus.db
+python scripts/rebuild_faiss.py           # rebuild FAISS resource index
+python scripts/benchmark_nexus.py         # run router benchmark
+python scripts/run_ops_eval.py --json --out logs/ops_eval_ci.json
 ```
 
-### Agent Routing
+Formatting is configured in `pyproject.toml` (`tool.black`, line length 100). There is no separate lint script; use `black` or `ruff` manually if needed.
 
-| Task | Agents | Topology |
-|------|--------|----------|
-| Bug Fix | researcher, coder, tester | hierarchical |
-| Feature | architect, coder, tester, reviewer | hierarchical |
-| Refactor | architect, coder, reviewer | hierarchical |
-| Performance | perf-engineer, coder | hierarchical |
-| Security | security-architect, auditor | hierarchical |
+## Project Structure
 
-### When to Swarm
-- **YES**: 3+ files, new features, cross-module refactoring, API changes, security, performance
-- **NO**: single file edits, 1-2 line fixes, docs updates, config changes, questions
-
-### 3-Tier Model Routing
-
-| Tier | Handler | Use Cases |
-|------|---------|-----------|
-| 1 | Agent Booster (WASM) | Simple transforms — skip LLM, use Edit directly |
-| 2 | Haiku | Simple tasks, low complexity |
-| 3 | Sonnet/Opus | Architecture, security, complex reasoning |
-
-## Memory & Learning
-
-### Before Any Task
-```bash
-npx @claude-flow/cli@latest memory search --query "[task keywords]" --namespace patterns
-npx @claude-flow/cli@latest hooks route --task "[task description]"
+```
+nexus/
+├── nexus.yaml                # central YAML config (providers, routing, feature flags)
+├── pyproject.toml            # package metadata, deps, pytest + black config
+├── requirements.txt          # runtime + dev deps
+├── core/                     # LLM gateway: FastAPI server, config, metrics, learner
+│   ├── server.py             # /v1/chat/completions proxy
+│   ├── learner.py            # Thompson Sampling beliefs
+│   ├── config.py             # NexusConfig + LearningConfig (feature-flag source of truth)
+│   └── ...
+├── server/                   # MCP orchestrator + routing + learning pipeline
+│   ├── unified.py            # unified FastAPI entry point (port 8000)
+│   ├── nexus-mcp-enhanced.py # stdio MCP server exposing NEXUS tools
+│   ├── nexus_http_daemon.py  # persistent HTTP execution plane (port 8080)
+│   ├── router.py             # v4 routing pipeline (cluster → ISO → Thompson)
+│   ├── learning.py           # outcome tracking, TS, reflection, cluster affinity
+│   ├── db.py                 # consolidated DB connection helpers
+│   ├── router_v2/
+│   │   ├── v5.py             # production unified_route_v5 (USE_UNIFIED_ROUTER=2)
+│   │   ├── unified_route.py  # v2 unifier (USE_UNIFIED_ROUTER=1)
+│   │   └── fusion.py         # L3 rerank weights
+│   ├── context_harness/      # multi-backend context retrieval engine
+│   ├── dashboard/            # ops UI
+│   └── ...
+├── db/
+│   ├── nexus.db              # live SQLite DB (gitignored)
+│   ├── migrations/           # numbered SQL migrations
+│   └── faiss/                # FAISS index files
+├── scripts/                  # maintenance, benchmarks, backfills
+└── tests/                    # pytest suite; conftest.py sets in-memory DB fixtures
 ```
 
-### After Success
-```bash
-npx @claude-flow/cli@latest memory store --namespace patterns --key "[name]" --value "[what worked]"
-npx @claude-flow/cli@latest hooks post-task --task-id "[id]" --success true --store-results true
-```
+## Architecture
 
-### MCP Tools (use `ToolSearch("keyword")` to discover)
+### Two systems
 
-| Category | Key Tools |
-|----------|-----------|
-| **Memory** | `memory_store`, `memory_search`, `memory_search_unified` |
-| **Bridge** | `memory_import_claude`, `memory_bridge_status` |
-| **Swarm** | `swarm_init`, `swarm_status`, `swarm_health` |
-| **Agents** | `agent_spawn`, `agent_list`, `agent_status` |
-| **Hooks** | `hooks_route`, `hooks_post-task`, `hooks_worker-dispatch` |
-| **Security** | `aidefence_scan`, `aidefence_is_safe`, `aidefence_has_pii` |
-| **Hive-Mind** | `hive-mind_init`, `hive-mind_consensus`, `hive-mind_spawn` |
+1. **LLM Gateway (`core/`)**: proxies chat-completions requests to Ollama Cloud / NVIDIA NIM providers and tracks latency/tokens.
+2. **MCP Orchestrator (`server/`)**: exposes NEXUS tools to IDEs, routes user tasks to skills/resources, and learns from outcomes.
 
-### Background Workers
+### Routing pipeline
 
-| Worker | When |
-|--------|------|
-| `audit` | After security changes |
-| `optimize` | After performance work |
-| `testgaps` | After adding features |
-| `map` | Every 5+ file changes |
-| `document` | After API changes |
+Routing is selected by `USE_UNIFIED_ROUTER` (env var) and `core.config.LearningConfig`:
 
-```bash
-npx @claude-flow/cli@latest hooks worker dispatch --trigger audit
-```
+- `USE_UNIFIED_ROUTER=0` — legacy v4 `route_task` in `server/router.py`.
+- `USE_UNIFIED_ROUTER=1` — v2 unifier `unified_route` in `server/router_v2/unified_route.py`.
+- `USE_UNIFIED_ROUTER=2` — production v5 `unified_route_v5` in `server/router_v2/v5.py`.
 
-## Agents
+Default in `.mcp.json` and `supervisord.conf` is `2`. Rollback: set `USE_UNIFIED_ROUTER=0` and restart the MCP.
 
-**Core**: `coder`, `reviewer`, `tester`, `planner`, `researcher`
-**Architecture**: `system-architect`, `backend-dev`, `mobile-dev`
-**Security**: `security-architect`, `security-auditor`
-**Performance**: `performance-engineer`, `perf-analyzer`
-**Coordination**: `hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
-**GitHub**: `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
+The v5 pipeline (L1 intent → L2 topic → L3 rerank → L4 autocut) is documented in `server/router_v2/v5.py:13`. Blend weights live in `server/router_v2/fusion.py` and can be overridden via `NEXUS_V5_W_*` env vars.
 
-Any string works as a custom agent type.
+### Feature flags
 
-## Build & Test
+All flags resolve **YAML > env var > code default** via `core.config.LearningConfig`:
 
-- ALWAYS run tests after code changes
-- ALWAYS verify build succeeds before committing
+| Flag | Env var | Default |
+|------|---------|---------|
+| Thompson routing | `NEXUS_THOMPSON_ROUTING` | `true` |
+| Cluster routing | `NEXUS_CLUSTER_ROUTING` | `false` |
+| Reflection | `NEXUS_REFLECTION` | `false` |
+| MCP sync | `NEXUS_MCP_SYNC` | `false` |
+| Auto invoke | `NEXUS_AUTO_INVOKE` | `false` |
 
-```bash
-npm run build && npm test
-```
+### Process topology
 
-## CLI Quick Reference
+The project uses **split ownership**, not a single parent. See `docs/process_topology.md`.
 
-```bash
-npx @claude-flow/cli@latest init --wizard           # Setup
-npx @claude-flow/cli@latest swarm init --v3-mode     # Start swarm
-npx @claude-flow/cli@latest memory search --query "" # Vector search
-npx @claude-flow/cli@latest hooks route --task ""    # Route to agent
-npx @claude-flow/cli@latest doctor --fix             # Diagnostics
-npx @claude-flow/cli@latest security scan            # Security scan
-npx @claude-flow/cli@latest performance benchmark    # Benchmarks
-```
+| Component | Port | Primary owner | Notes |
+|-----------|------|---------------|-------|
+| Unified server | `:8000` | manual / optional | FastAPI gateway |
+| HTTP execution plane | `:8080` | systemd `nexus-daemon.service` | persistent daemon |
+| MCP stdio server | n/a | IDE via `.mcp.json` | per-session spawn |
+| Dashboard | `:8765` | supervisord | `autostart=true` |
+| Context harness | n/a | MCP bridge in-process | `server/harness_mcp_bridge.py` |
 
-26 commands, 140+ subcommands. Use `--help` on any command for details.
+`supervisorctl status` showing MCP/HTTP/harness as **STOPPED** is intentional; do not flip `autostart=true` while the IDE or systemd owns those processes.
 
-## Setup
+### Database
 
-```bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
-```
+Single SQLite DB at `db/nexus.db` (default; override with `NEXUS_DB_PATH`). Key tables:
 
-**Agent tool** handles execution (agents, files, code, git). **MCP tools** handle coordination (swarm, memory, hooks). **CLI** is the same via Bash.
+- `resources` — skills, agents, commands, MCP tools, docs
+- `resource_sections` — OKF-style sections per resource
+- `resource_edges` — co-trigger / similar-to edges
+- `bundle_membership` — project-type and core-infra bundles
+- `classification` — project-type classifications
+- `reflection_failures` / `reflection_fixes` — self-reflection data
+- `outcome_log` / `routing_log` — feedback-loop history
 
-## Ponytail Mode (Lazy Senior Dev)
+Migrations are in `db/migrations/`. The test suite uses an in-memory DB seeded by `tests/conftest.py`.
 
-Active by default. Before writing code, stop at the first rung that holds:
+## Development Conventions
 
-1. Does this need to exist at all? (YAGNI)
-2. Already in this codebase? Reuse it.
-3. Stdlib does it? Use it.
-4. Native platform feature? Use it.
-5. Installed dependency? Use it.
-6. One line? One line.
-7. Only then: the minimum that works.
+- Read a file before editing it.
+- Keep files under 500 lines; split if growing larger.
+- Never create documentation files unless explicitly requested.
+- Never save working files or tests to the repository root; use `tests/`, `scripts/`, `docs/`.
+- Do not commit `.env`, secrets, or the live `db/nexus.db` (they are gitignored).
+- Validate inputs at system boundaries.
+- Feature flags must go through `core.config.LearningConfig`; avoid reading env vars directly.
+- Scripts that import `core.*` or `server.*` must put the repo root on `sys.path` (several scripts already do this; tests handle it via `conftest.py`).
 
-Rules:
-- No unrequested abstractions
-- No new dependency if avoidable
-- No boilerplate nobody asked for
-- Deletion over addition. Boring over clever.
-- Fewest files possible. Shortest working diff wins.
-- Mark intentional simplifications with `ponytail:` comment.
+## Testing Notes
 
-Skills available: `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`.
+- `pytest.ini` / `pyproject.toml` configure `testpaths = ["tests"]` and `asyncio_mode = auto`.
+- Tests marked `integration` hit real backends/network and are skipped unless `--run-integration`.
+- Tests marked `benchmark` are skipped unless `--benchmark`.
+- `conftest.py` disables learning/routing by default via env vars so unit tests are deterministic.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
@@ -238,5 +201,4 @@ This project is indexed by GitNexus as **nexus** (7968 symbols, 13495 relationsh
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
 <!-- gitnexus:end -->
