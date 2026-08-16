@@ -30,17 +30,19 @@ open("/tmp/nexus_smoke_model", "w").write(model)
 '
 model=$(cat /tmp/nexus_smoke_model)
 
-# 3 + 4 — feedback event must move learner beliefs (the loop that IS NEXUS)
+# 3 + 4 — feedback event must move the ROUTED MODEL's belief (the loop that IS NEXUS)
 "$PY" - "$BASE" "$model" <<'EOF'
 import sys, json, urllib.request
 
 base, model = sys.argv[1], sys.argv[2]
 
-def get(url):
-    with urllib.request.urlopen(url, timeout=10) as r:
-        return json.load(r)
+def beliefs():
+    with urllib.request.urlopen(f"{base}/nexus/beliefs", timeout=10) as r:
+        data = json.load(r)
+    return {b["model"]: (b["alpha"], b["beta"], b["total_requests"])
+            for b in data.get("beliefs", [])}
 
-before = get(f"{base}/nexus/beliefs")
+before = beliefs()
 req = urllib.request.Request(
     f"{base}/nexus/event",
     data=json.dumps({
@@ -53,12 +55,12 @@ with urllib.request.urlopen(req, timeout=60) as r:  # 60s: first event may load 
     assert r.status == 200, f"event POST -> {r.status}"
 print("3/4 /nexus/event -> 200")
 
-after = get(f"{base}/nexus/beliefs")
-if before == after:
-    print(f"4/4 FAIL: beliefs identical before/after (model={model})")
-    print("  before:", json.dumps(before)[:300])
-    sys.exit(1)
-print("4/4 /nexus/beliefs -> CHANGED (learning loop closed)")
+after = beliefs()
+b0, b1 = before.get(model), after.get(model)
+assert b1 is not None, f"model {model} has no belief row after feedback — event did not land"
+assert b0 != b1, (f"belief for ROUTED model {model} unchanged "
+                  f"(alpha/beta/requests {b0} -> {b1}) — learning loop did not close")
+print(f"4/4 /nexus/beliefs -> {model} belief moved {b0} -> {b1}")
 EOF
 
 echo "SMOKE GREEN"

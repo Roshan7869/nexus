@@ -15,12 +15,58 @@ os.environ.setdefault("NEXUS_THOMPSON_ROUTING", "false")
 
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
-    """Point the module at a throwaway DB via NEXUS_DB_PATH."""
+    """Isolated DB via NEXUS_DB_PATH (lazy resolution in db.py — no reload needed).
+
+    routing_log comes from its owner (server.db.ensure_routing_log_schema);
+    model_beliefs is provisioned here as test DDL (its owner, learning.py,
+    self-heals columns in production).
+    """
     db = tmp_path / "continuity.db"
+    monkeypatch.delenv("NEXUS_BROKER_DB_PATH", raising=False)
     monkeypatch.setenv("NEXUS_DB_PATH", str(db))
-    import importlib
+    # db.get_db_path caches its first resolution for the process; tests that
+    # point it elsewhere must reset the cache explicitly.
+    from server.db import get_db_path
+    if hasattr(get_db_path, "_cached"):
+        del get_db_path._cached
+
+    import sqlite3
+    conn = sqlite3.connect(str(db))
+    # db.py's ensure_routing_log_schema is a copy-migration that assumes the
+    # table exists; a fresh test DB provisions the columns resume() reads.
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS routing_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_summary TEXT NOT NULL,
+            project TEXT NOT NULL DEFAULT 'default',
+            matched_tier INTEGER NOT NULL DEFAULT 2,
+            matched_model TEXT NOT NULL DEFAULT 'unknown',
+            matched_skills TEXT NOT NULL DEFAULT '[]',
+            actual_model_used TEXT,
+            outcome TEXT,
+            skill_name TEXT,
+            tokens_used INTEGER DEFAULT 0,
+            ide TEXT DEFAULT 'unknown',
+            action_type TEXT,
+            repeat_count_1h INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS model_beliefs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT NOT NULL DEFAULT 'nexus',
+            model TEXT NOT NULL,
+            task_type TEXT NOT NULL DEFAULT 'general',
+            alpha REAL NOT NULL DEFAULT 1.0,
+            beta REAL NOT NULL DEFAULT 1.0,
+            total_requests INTEGER NOT NULL DEFAULT 0,
+            total_reward REAL DEFAULT 0.0,
+            UNIQUE(provider, model, task_type)
+        );
+    """)
+    conn.commit()
+    conn.close()
+
     import server.project_continuity as pc
-    importlib.reload(pc)  # re-read env at module import
     pc.ensure_schema()
     return pc, db, tmp_path
 
