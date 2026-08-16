@@ -68,7 +68,10 @@ def tmp_db(tmp_path, monkeypatch):
 
     import server.project_continuity as pc
     pc.ensure_schema()
-    return pc, db, tmp_path
+    yield pc, db, tmp_path
+    # restore the process-wide cache for downstream tests in the same run
+    if hasattr(get_db_path, "_cached"):
+        del get_db_path._cached
 
 
 class TestSchema:

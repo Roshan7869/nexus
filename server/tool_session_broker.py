@@ -329,6 +329,18 @@ class ToolSessionBroker:
             "",
         ]
 
+        # assemble() seam (decision: context rules concentrate in one module).
+        # Inline learnings/resources below migrate into adapters next; today
+        # the assembled block (repo-map + AGENTS.md + notes) is prepended.
+        try:
+            from server.context_assembly import assemble
+            asm = assemble(query, project, route.get("task_type", "general"))
+            if asm["block"]:
+                parts.append(asm["block"])
+                parts.append("")
+        except Exception:
+            pass
+
         try:
             from server.context_harness.nexus_bridge import search_learnings
             learnings = search_learnings(query, limit=3)
