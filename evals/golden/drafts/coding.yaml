@@ -1,0 +1,178 @@
+# DRAFT — pending human curation (Week1 card 4.1, drafted by agent swarm 2026-08-17)
+# Review rule: reject/fix anything you wouldn't defend in a demo. After curation,
+# merge into ../routing_cases.yaml and delete this file. Do NOT merge uncured.
+
+- id: coding-dark-mode-toggle-001
+  prompt: "Add a dark mode toggle to our marketing site header. It needs to persist across page loads and respect the user's OS preference on first visit."
+  expect_skills: [frontend-ui-engineering, design-html]
+  accept_clusters: [frontend_ui, architect]
+  top_k: 5
+  tags: [coding, frontend]
+
+- id: coding-dashboard-responsive-002
+  prompt: "The analytics dashboard grid breaks on iPad — cards overflow and the sidebar collapses onto the chart. Rebuild the layout with proper responsive breakpoints and a keyboard-accessible drawer."
+  expect_skills: [frontend-ui-engineering, design-html]
+  accept_clusters: [frontend_ui]
+  top_k: 5
+  tags: [coding, frontend]
+
+- id: coding-pricing-landing-003
+  prompt: "Make a landing page for our new pricing tiers: hero, feature grid, FAQ accordion. Static HTML and CSS is fine, no framework needed."
+  expect_skills: [design-html, frontend-ui-engineering]
+  accept_clusters: [architect, frontend_ui]
+  top_k: 5
+  tags: [coding, frontend]
+
+- id: coding-scaffold-skill-004
+  prompt: "I've hand-scaffolded the same component-boilerplate workflow five times this month. Turn it into a reusable skill so the agent can spin up new UI components the same way every time."
+  expect_skills: [skill-builder, frontend-ui-engineering]
+  accept_clusters: [frontend_ui]
+  top_k: 5
+  tags: [coding, frontend]
+
+- id: coding-orders-pagination-005
+  prompt: "Our /orders endpoint returns 50k rows in one response and times out under load. Design proper pagination, filtering, and sorting for the REST API and update the handlers accordingly."
+  expect_skills: [api-design, backend-patterns]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [coding, backend-api]
+
+- id: coding-webhook-subscriptions-006
+  prompt: "I need to add webhook subscriptions to our platform: customers register endpoints, receive signed events, and get retries with backoff on failure. How should I shape the API and the delivery pipeline?"
+  expect_skills: [api-design, backend-patterns]
+  accept_clusters: [backend_api, architect]
+  top_k: 5
+  tags: [coding, backend-api]
+
+- id: coding-jwt-auth-middleware-007
+  prompt: "Add JWT auth middleware to the Express service and protect the /admin routes."
+  expect_skills: [backend-patterns, api-design]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [coding, backend-api]
+
+- id: coding-users-column-migration-008
+  prompt: "We're renaming users.fullname to display_name and splitting the address fields out into their own table. Write the migrations so we can deploy to production without downtime on a live Postgres database."
+  expect_skills: [database-migrations, postgres-patterns]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [coding, database]
+
+- id: coding-slow-booking-query-009
+  prompt: "This Postgres query joins four tables and takes 40 seconds in production. Fix it — I suspect missing indexes and a nasty N+1 coming from the ORM layer."
+  expect_skills: [postgres-patterns, backend-patterns]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [coding, database]
+
+- id: coding-invoicing-schema-010
+  prompt: "Design the schema for a multi-tenant invoicing app on Postgres: tenants, invoices, line items, payments. It needs sensible constraints and indexes from day one, not bolted on later."
+  expect_skills: [postgres-patterns, backend-patterns]
+  accept_clusters: [backend_api, architect]
+  top_k: 5
+  tags: [coding, database]
+
+- id: coding-tdd-discount-engine-011
+  prompt: "Implement the discount engine for the shopping cart using TDD — start with failing tests for edge cases like stacked coupons and zero-quantity line items, then make them pass."
+  expect_skills: [tdd-workflow, qa]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, testing]
+
+- id: coding-payments-coverage-012
+  prompt: "Coverage on the payments module dropped to 34% after last week's refactor, and we ship Friday. Fill in the missing unit and integration tests so we're not gambling on the release."
+  expect_skills: [qa, tdd-workflow]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, testing]
+
+- id: coding-automate-signup-qa-013
+  prompt: "QA keeps manually clicking through the signup flow before every release and it's driving everyone crazy. Automate it — happy path plus the email-already-taken case."
+  expect_skills: [qa, qa-only]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, testing]
+
+- id: coding-canary-payments-014
+  prompt: "The last full rollout bricked checkout for an hour. Set up a canary deployment for the payments service so a bad build auto-rolls back before it reaches everyone."
+  expect_skills: [canary, deployment-patterns]
+  accept_clusters: [devops_infra]
+  top_k: 5
+  tags: [coding, deployment]
+
+- id: coding-land-feature-branch-015
+  prompt: "Help me land and deploy the feature branch that's been sitting in review for two weeks — squash the commits, get it merged, and push it out to staging."
+  expect_skills: [land-and-deploy, ship]
+  accept_clusters: [devops_infra]
+  top_k: 5
+  tags: [coding, deployment]
+
+- id: coding-zero-downtime-ecs-016
+  prompt: "We need zero-downtime deploys for the API on ECS. Compare blue-green versus rolling updates for our setup, then write the task definitions and health checks."
+  expect_skills: [deployment-patterns, ship]
+  accept_clusters: [devops_infra]
+  top_k: 5
+  tags: [coding, deployment]
+
+- id: coding-review-notification-pr-017
+  prompt: "Review this PR before we merge it — it rewrites the notification service. Look for race conditions, missing tests, and anything that could regress delivery."
+  expect_skills: [qa, guard]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, review]
+
+- id: coding-guard-safety-pass-018
+  prompt: "Before this change goes out I want a safety pass: run the guard checks and verify we're not shipping console.logs, leftover TODOs, or unvalidated request input."
+  expect_skills: [guard, qa]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, review]
+
+- id: coding-qa-only-merge-019
+  prompt: "qa-only this branch — don't touch any code, just tell me if it's safe to merge."
+  expect_skills: [qa-only, qa]
+  accept_clusters: [quality_security]
+  top_k: 5
+  tags: [coding, review]
+
+- id: coding-split-monolith-file-020
+  prompt: "server.ts is 3000 lines and three of us had merge conflicts in it this week alone. Split it into routers, services, and middleware modules without changing any behavior."
+  expect_skills: [backend-patterns, guard]
+  accept_clusters: [backend_api, quality_security]
+  top_k: 5
+  tags: [coding, refactoring]
+
+- id: coding-characterize-pricing-021
+  prompt: "I want to refactor the pricing rules module safely — wrap the current behavior in characterization tests first, then restructure it into a strategy pattern."
+  expect_skills: [tdd-workflow, backend-patterns]
+  accept_clusters: [quality_security, backend_api]
+  top_k: 5
+  tags: [coding, refactoring]
+
+- id: coding-extract-csv-export-022
+  prompt: "New hire here, finishing my first ticket. I'm supposed to extract the CSV export logic out of the Django views into its own service, but honestly I'm not sure where to start or what I should be testing."
+  expect_skills: [backend-patterns, tdd-workflow]
+  accept_clusters: [analyzer_planner, backend_api]
+  top_k: 5
+  tags: [coding, refactoring]
+
+- id: coding-debug-intermittent-500-023
+  prompt: "Users in Berlin get intermittent 500s on /api/bookings — the logs show a stale connection error but only under load. Trace where it's coming from and propose a fix."
+  expect_skills: [qa, backend-patterns]
+  accept_clusters: [quality_security, backend_api]
+  top_k: 5
+  tags: [coding, debugging]
+
+- id: coding-debug-modal-hydration-024
+  prompt: "The modal works fine locally, but in production the backdrop never renders and clicks fall through to the page behind it — console shows a hydration mismatch warning. Any ideas what's going on?"
+  expect_skills: [frontend-ui-engineering, qa]
+  accept_clusters: [frontend_ui, quality_security]
+  top_k: 5
+  tags: [coding, debugging]
+
+- id: coding-debug-ledger-deadlock-025
+  prompt: "Production Postgres deadlocks on the ledger table every night during the batch import window. Figure out which transactions are fighting and how to break the cycle."
+  expect_skills: [postgres-patterns, backend-patterns]
+  accept_clusters: [backend_api]
+  top_k: 5
+  tags: [coding, debugging]

@@ -46,10 +46,14 @@ Day 3  [x] 3.1  evals/ package skeleton
                 pass_rate 0.6, skill_match 0.5, cluster_ok 0.75
                 (frontend + qa-security seeds miss; embedder reloads per call —
                 candidate optimization later, not a blocker)
-Day 4  [ ] 4.1  golden set → 100 cases (swarm drafts + human curation)
-       [ ] 4.2  evals/golden/holdout.yaml split
+Day 4  [~] 4.1  golden set — 100 drafts DONE by swarm (evals/golden/drafts/
+            {coding,reasoning,general,ood}.yaml), validated (unique ids, all
+            expect_skills/accept_clusters exist in DB); HUMAN CURATION PENDING —
+            after curation merge into routing_cases.yaml, then delete drafts/
+       [ ] 4.2  evals/golden/holdout.yaml split (after curation)
        [ ] 4.3  evals/verifiers/ fixtures + verifier_runner
-       [ ] 4.4  server/db.py routing_log columns
+       [x] 4.4  server/db.py routing_log columns (commit 64f2d7b; verified on
+            DB copy + test_unified 38/38)
 Day 5  [ ] 5.1  evals/replay.py
        [ ] 5.2  evals/judge.py
        [ ] 5.3  scripts/ci.sh (+ optional workflow)
