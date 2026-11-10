@@ -64,12 +64,16 @@ class TestMemoryBackendGcodeAvailable:
         results = search("gcode query", max_results=5)
         assert results[0]["source"] == "gcode-memory"
 
-    def test_store_uses_cli_when_available(self, mock_gcode_available):
-        """store() calls _cli_exec when gcode binary exists."""
+    def test_store_refuses_when_gcode_write_path_missing(self, mock_gcode_available):
+        """With gcode present, store() refuses: no stdin write path exists yet.
+
+        It must never report "stored" under the gcode backend, and must not
+        call the CLI with an empty payload (FA-A10 / design T5).
+        """
         with patch("server.context_harness.gcode_backend._cli_exec", return_value='{"stored": true}') as mock_cli:
             result = store("key", "value", tags=["t"])
-            mock_cli.assert_called_once()
-            assert result["status"] == "stored"
+            mock_cli.assert_not_called()
+            assert result["status"] == "error"
             assert result["backend"] == "gcode-memory"
 
     def test_stats_uses_gcode_when_available(self, mock_gcode_available):

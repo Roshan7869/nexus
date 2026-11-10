@@ -11,6 +11,8 @@ import re
 import time
 from typing import Any
 
+from server.net_guard import guarded_request
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,9 +121,9 @@ class SherlockProbeChannel:
                 try:
                     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
                         if method == "GET":
-                            resp = await client.get(url, headers=headers, follow_redirects=True)
+                            resp = await guarded_request(client, "GET", url, headers=headers)
                         else:
-                            resp = await client.post(url, headers=headers, follow_redirects=True)
+                            resp = await guarded_request(client, "POST", url, headers=headers)
 
                     if error_type == "status_code":
                         exists = resp.status_code not in (int(e) for e in error_msg.split(",")) if error_msg else resp.status_code == 200

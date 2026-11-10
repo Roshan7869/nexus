@@ -23,6 +23,7 @@ CORE_PEERS = frozenset({"frontend_ui", "backend_api", "quality_security", "devop
 MAX_SEATS = 6
 BRIEFS_SUBDIR = ".nexus/briefs"
 SESSION_PREFIX = "nexus-forge-"
+_SESSION_SEP = "--"  # cannot occur in a project slug, so the project is recoverable exactly
 BOOT_WAIT_S = 8.0   # OpenCode TUI boot on 2-core CPU before pointer delivery
 BOOT_RETRY_WAIT_S = 3.0  # wait before re-sending a pointer the TUI dropped
 
@@ -129,9 +130,28 @@ def _tmux(*args: str) -> tuple[int, str, str]:
     return r.returncode, r.stdout, r.stderr
 
 
+def _session_name(project: str, cluster: str) -> str:
+    if _SESSION_SEP in project or not project:
+        raise ValueError(f"invalid forge project name {project!r}")
+    return f"{SESSION_PREFIX}{project}{_SESSION_SEP}{cluster}"
+
+
+def _session_project(name: str) -> str | None:
+    """Project that owns a forge session name, or None if not a forge session."""
+    if not name.startswith(SESSION_PREFIX) or _SESSION_SEP not in name:
+        return None
+    return name[len(SESSION_PREFIX):].split(_SESSION_SEP, 1)[0]
+
+
+def _session_cluster(name: str) -> str | None:
+    if _SESSION_SEP not in name:
+        return None
+    return name.split(_SESSION_SEP, 1)[1]
+
+
 def _launch_seat(seat: dict, project_dir: str, project: str) -> tuple[str, int | None]:
     from server.ide_manager import launch_tmux
-    name = f"nexus-forge-{project}-{seat['cluster']}"
+    name = _session_name(project, seat["cluster"])
     try:
         return launch_tmux("opencode", name, cwd=project_dir)
     except Exception:
@@ -151,8 +171,10 @@ def _discover_sessions(project: str) -> list[str]:
     rc, out, _ = _tmux("list-sessions", "-F", "#{session_name}")
     if rc != 0:
         return []
-    prefix = f"{SESSION_PREFIX}{project}-"
-    return [l.strip() for l in out.splitlines() if l.strip().startswith(prefix)]
+    return [
+        l.strip() for l in out.splitlines()
+        if _session_project(l.strip()) == project
+    ]
 
 
 def _pane_has_pointer(session: str, cluster: str) -> bool:
@@ -216,7 +238,6 @@ def team_status(project: str) -> dict:
     Seats are discovered from live tmux (works across processes); the in-process
     registry only enriches metadata (role, brief path) when available.
     """
-    prefix = f"{SESSION_PREFIX}{project}-"
     meta_by_session = {r["tmux_session"]: r for r in _TEAMS.get(project, [])}
     names = list(dict.fromkeys(
         _discover_sessions(project) + [s for s in meta_by_session if s]))
@@ -228,7 +249,7 @@ def team_status(project: str) -> dict:
         meta = meta_by_session.get(name, {})
         seats.append({
             "tmux_session": name,
-            "cluster": name[len(prefix):] if name.startswith(prefix) else meta.get("cluster"),
+            "cluster": _session_cluster(name) or meta.get("cluster"),
             "role": meta.get("role", "peer"),
             "brief_path": meta.get("brief_path", ""),
             "alive": rc == 0,

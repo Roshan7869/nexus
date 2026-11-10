@@ -26,6 +26,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from server.net_guard import guarded_request
+
 def _load_domain_rules() -> dict[str, dict]:
     try:
         from server.site_registry import get_domain_rules
@@ -94,7 +96,7 @@ class TargetSiteChannel:
                     "Accept": "text/html,application/xhtml+xml",
                     "Accept-Language": "en-US,en;q=0.9",
                 },
-                follow_redirects=True,
+                follow_redirects=False,
             )
         return self._client
 
@@ -133,7 +135,7 @@ class TargetSiteChannel:
 
         rule = self._get_rule(url)
         try:
-            resp = await self.client.get(url)
+            resp = await guarded_request(self.client, "GET", url)
             resp.raise_for_status()
             html = resp.text
             status = resp.status_code

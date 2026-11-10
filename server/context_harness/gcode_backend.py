@@ -9,8 +9,8 @@ Gcode socket protocol: NDJSON over Unix socket at ~/.gcode/runtime/gcode.sock
 Message type 'memory' to store/retrieve from the petgraph-based memory graph.
 """
 import json
-import os
 import socket
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -45,10 +45,19 @@ def _cli_exec(args: list[str]) -> Optional[str]:
     if not _gcode_available():
         return None
     try:
-        result = os.popen(f"{GCODE_BINARY} {' '.join(args)} 2>/dev/null").read()
-        return result.strip() or None
-    except Exception:
+        result = subprocess.run(
+            [str(GCODE_BINARY), *args],
+            shell=False,
+            timeout=10,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
         return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def search(query: str, max_results: int = 10) -> list[dict]:
@@ -69,9 +78,14 @@ def search(query: str, max_results: int = 10) -> list[dict]:
 def store(key: str, value: str, tags: list[str] | None = None) -> dict:
     """Store context in gcode memory graph. Falls back to NEXUS learning_notes."""
     if _gcode_available():
-        out = _cli_exec(["memory", "import", "-"])
-        if out:
-            return {"status": "stored", "backend": "gcode-memory", "key": key}
+        # No write path to gcode exists yet (import needs a stdin pipe we do not
+        # open), so nothing is written here. Never report "stored" for this branch.
+        return {
+            "status": "error",
+            "backend": "gcode-memory",
+            "key": key,
+            "error": "gcode write path not implemented; nothing was stored",
+        }
 
     from server.context_harness.nexus_bridge import store_learning
     rid = store_learning(key, value, tags)

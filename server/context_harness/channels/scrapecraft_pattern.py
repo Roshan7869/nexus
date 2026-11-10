@@ -25,6 +25,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from server.net_guard import guarded_request
+
 logger = logging.getLogger(__name__)
 
 DB_PATH = _resolve_db_path()
@@ -86,9 +88,9 @@ class PatternLearner:
         """
         domain = urlparse(url).netloc
         async with httpx.AsyncClient(
-            headers=_SHARED_HEADERS, timeout=15, follow_redirects=True
+            headers=_SHARED_HEADERS, timeout=15, follow_redirects=False
         ) as client:
-            resp = await client.get(url)
+            resp = await guarded_request(client, "GET", url)
             html = resp.text
 
         learned: dict[str, str] = {}
@@ -193,9 +195,9 @@ class PatternLearner:
 
         try:
             async with httpx.AsyncClient(
-                headers=_SHARED_HEADERS, timeout=15, follow_redirects=True
+                headers=_SHARED_HEADERS, timeout=15, follow_redirects=False
             ) as client:
-                resp = await client.get(url)
+                resp = await guarded_request(client, "GET", url)
                 html = resp.text
         except Exception as e:
             return {
@@ -255,28 +257,19 @@ class PatternLearner:
         return [r[0] for r in rows]
 
 
+_LLM_URL = "http://localhost:11434/v1/chat/completions"
+# The API key is sent only to these hosts. Local endpoints never receive it.
+_KEY_HOSTS = frozenset({"ollama.com", "api.ollama.com"})
+
+
 def _load_ollama_key() -> str:
-    for src in (
-        os.environ.get("OLLAMA_API_KEY"),
-        _read_bashrc_var("OLLAMA_API_KEY"),
-        _read_bashrc_var("OPENAI_API_KEY"),
-    ):
-        if src and src != "local":
-            return src
-    return ""
+    """Read the key from the process environment only (never from ~/.bashrc)."""
+    value = os.environ.get("OLLAMA_API_KEY", "").strip()
+    return "" if value in ("", "local") else value
 
 
-def _read_bashrc_var(name: str) -> str:
-    try:
-        bashrc = Path.home() / ".bashrc"
-        if not bashrc.exists():
-            return ""
-        for line in bashrc.read_text().splitlines():
-            if line.startswith(f"export {name}="):
-                return line.split("=", 1)[1].strip().strip('"')
-    except Exception:
-        pass
-    return ""
+def _key_allowed_for(url: str) -> bool:
+    return (urlparse(url).hostname or "") in _KEY_HOSTS
 
 
 class SemanticExtractor:
@@ -293,9 +286,9 @@ class SemanticExtractor:
     ) -> dict[str, Any]:
         if not html:
             async with httpx.AsyncClient(
-                headers=_SHARED_HEADERS, timeout=15, follow_redirects=True
+                headers=_SHARED_HEADERS, timeout=15, follow_redirects=False
             ) as client:
-                resp = await client.get(url)
+                resp = await guarded_request(client, "GET", url)
                 html = resp.text
 
         snippet = html[:8000]
@@ -310,7 +303,7 @@ class SemanticExtractor:
 
         try:
             headers = {"Content-Type": "application/json"}
-            if self._ollama_key:
+            if self._ollama_key and _key_allowed_for(_LLM_URL):
                 headers["Authorization"] = f"Bearer {self._ollama_key}"
 
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -327,7 +320,7 @@ class SemanticExtractor:
                     "temperature": 0.1,
                 }
                 resp = await client.post(
-                    "http://localhost:11434/v1/chat/completions",
+                    _LLM_URL,
                     json=payload,
                     headers=headers,
                 )

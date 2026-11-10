@@ -114,8 +114,8 @@ class TestSpawnStatusStop:
         monkeypatch.setattr(forge, "_TEAMS", {})  # no registry — discovery only
         monkeypatch.setattr(
             forge, "_discover_sessions",
-            lambda project: [f"nexus-forge-{project}-frontend_ui",
-                             f"nexus-forge-{project}-backend_api"])
+            lambda project: [f"nexus-forge-{project}--frontend_ui",
+                             f"nexus-forge-{project}--backend_api"])
         monkeypatch.setattr(forge, "_tmux",
                             lambda *a, **k: (0, "opencode v1.18\n▌Read .nexus/briefs/x.md", ""))
         status = forge.team_status("tp")

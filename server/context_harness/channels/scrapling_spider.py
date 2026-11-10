@@ -11,6 +11,8 @@ import time
 import uuid
 from typing import Any
 
+from server.net_guard import guarded_request
+
 logger = logging.getLogger(__name__)
 
 STALE_SESSION_HOURS = 1
@@ -116,7 +118,7 @@ class ScraplingSpiderChannel:
 
         try:
             async with httpx.AsyncClient(
-                headers=headers, follow_redirects=True, timeout=30.0
+                headers=headers, follow_redirects=False, timeout=30.0
             ) as client:
                 while queue and len(session.pages_crawled) < session.max_pages:
                     url = queue.pop(0)
@@ -124,7 +126,7 @@ class ScraplingSpiderChannel:
                         await asyncio.sleep(session.download_delay)
 
                     try:
-                        resp = await client.get(url)
+                        resp = await guarded_request(client, "GET", url)
                         page: dict[str, Any] = {
                             "url": str(resp.url),
                             "status": resp.status_code,
