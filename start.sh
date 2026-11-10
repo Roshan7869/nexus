@@ -16,4 +16,4 @@ export NEXUS_API_KEY="${NEXUS_API_KEY:-nexus-secret}"
 [ -d .venv ] && source .venv/bin/activate
 
 echo "Starting Nexus Unified Server on port ${NEXUS_PORT:-8000}..."
-exec uvicorn server.unified:app --host 0.0.0.0 --port "${NEXUS_PORT:-8000}" --log-level info
+exec uvicorn server.unified:app --host 127.0.0.1 --port "${NEXUS_PORT:-8000}" --log-level info

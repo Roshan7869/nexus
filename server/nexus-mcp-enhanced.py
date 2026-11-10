@@ -803,7 +803,7 @@ def task_status(session_id: str) -> str:
 
 @mcp.tool()
 def autopilot_run(task: str, project: str = "default", ide_name: str = "claude-code",
-                  mode: str = "safemode", auto_execute: bool = True) -> str:
+                  mode: str = "safemode", auto_execute: bool = False) -> str:
     """Run a task through the adaptive-imagining-cat broker/autopilot layer."""
     initialize_runtime()
     result = create_task_run(
@@ -1435,6 +1435,21 @@ def get_cluster_affinities() -> str:
 
 # ── Ruflo Proxy Tools ────────────────────────────────
 
+# Ruflo tool names that ruflo_invoke refuses before dispatch (fnmatch patterns).
+# Fail closed: a match here wins even if the name is otherwise valid.
+RUFLO_DENIED_TOOL_PATTERNS = (
+    "terminal_*",
+    "browser_eval",
+    "config_set",
+    "system_reset",
+)
+
+
+def _ruflo_tool_denied(tool_name: str) -> bool:
+    import fnmatch
+    return any(fnmatch.fnmatchcase(tool_name, pat) for pat in RUFLO_DENIED_TOOL_PATTERNS)
+
+
 @mcp.tool()
 async def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
     """Call a ruflo MCP tool through NEXUS proxy.
@@ -1455,6 +1470,9 @@ async def ruflo_invoke(tool_name: str, arguments_json: str = "{}") -> str:
     """
     import json
     from server.integrations.ruflo_async_proxy import acall_ruflo_tool
+    if _ruflo_tool_denied(tool_name):
+        return json.dumps({"ruflo_tool": tool_name, "isError": True,
+                           "error": "tool denied by NEXUS ruflo policy"})
     arguments = json.loads(arguments_json) if arguments_json else {}
     return await acall_ruflo_tool(tool_name, arguments)
 

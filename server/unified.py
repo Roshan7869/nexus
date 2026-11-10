@@ -153,7 +153,7 @@ class AutopilotRunRequest(BaseModel):
     mode: str = "safemode"
     cwd: str = ""
     repo_context: Dict[str, Any] = {}
-    auto_execute: bool = True
+    auto_execute: bool = False
 
 
 class TaskReviewRequest(BaseModel):
@@ -1168,4 +1168,4 @@ async def startup():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("NEXUS_PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

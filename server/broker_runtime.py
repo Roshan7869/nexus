@@ -75,9 +75,24 @@ def _resolve_db_path() -> Path:
     return get_db_path()
 
 
+# Server-side ceiling: the highest mode a caller may request. Set here (server
+# config), never by the caller. A caller may only ask for this mode or narrower.
+MAX_CALLER_MODE = "safemode"
+MODE_RANK = {"safemode": 0, "godmode": 1}
+
+
 def normalize_mode(mode: str | None) -> str:
-    mode = (mode or "safemode").strip().lower()
-    return mode if mode in MODE_POLICIES else "safemode"
+    """Return the requested mode if known and within MAX_CALLER_MODE, else raise.
+
+    Unknown modes are an error, not a silent downgrade; a mode above the
+    server ceiling (e.g. godmode) is refused rather than honoured.
+    """
+    requested = (mode or "safemode").strip().lower()
+    if requested not in MODE_POLICIES:
+        raise ValueError(f"unknown mode: {requested!r}")
+    if MODE_RANK[requested] > MODE_RANK[MAX_CALLER_MODE]:
+        raise ValueError(f"mode {requested!r} exceeds server ceiling {MAX_CALLER_MODE!r}")
+    return requested
 
 
 def normalize_ide(ide_name: str | None) -> str:
@@ -552,11 +567,14 @@ def create_task_run(
     project: str = "default",
     cwd: str = "",
     repo_context: Optional[Dict[str, Any]] = None,
-    auto_execute: bool = True,
+    auto_execute: bool = False,
 ) -> Dict[str, Any]:
+    try:
+        mode = normalize_mode(mode)
+    except ValueError as exc:
+        return {"status": "error", "error": str(exc), "task": task_text}
     initialize_runtime()
     ide_name = normalize_ide(ide_name)
-    mode = normalize_mode(mode)
     repo_context = repo_context or {}
 
     route_result = route_for_task(
@@ -1077,7 +1095,9 @@ def _close_routing_outcomes(
         try:
             record_outcome(
                 skill_name=skill_name,
-                outcome="correct",
+                # Timeout sweep never observed the result: write a non-terminal
+                # label so no counter/belief moves (fail closed, no fabricated verdict).
+                outcome="unverified",
                 task_summary=row["task_summary"],
                 project=project if project and project != "all" else "default",
                 ide=ide,

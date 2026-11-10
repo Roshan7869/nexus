@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import shutil
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -43,7 +42,7 @@ def resolve_db_path() -> Path:
       1. ``NEXUS_BROKER_DB_PATH`` env var (legacy / broker-specific)
       2. ``NEXUS_DB_PATH`` env var
       3. ``~/nexus/db/nexus.db`` (default)
-      4. ``/tmp/nexus.db`` (fallback if default exists but is unwritable)
+      4. Unwritable existing DB: raises RuntimeError (no /tmp fallback)
 
     Unlike the previous duplicated versions, this function ALWAYS ensures
     the parent directory exists before returning.
@@ -64,16 +63,12 @@ def resolve_db_path() -> Path:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return db_path
 
-    # Default exists but is NOT writable (e.g. permissions changed) →
-    # copy to /tmp as a fallback so the system keeps working.
+    # Exists but NOT writable: refuse. No copy, no /tmp fallback (fail closed).
     if db_path.exists() and not os.access(db_path, os.W_OK):
-        tmp = Path("/tmp/nexus.db")
-        try:
-            shutil.copy2(str(db_path), str(tmp))
-        except Exception:
-            pass  # swallow copy failure; fall through to ensure directory
-        if tmp.exists():
-            db_path = tmp
+        raise RuntimeError(
+            f"NEXUS database at {db_path} is not writable; refusing to fall back "
+            "to a copy. Fix the file permissions or set NEXUS_DB_PATH."
+        )
 
     # Ensure the parent directory exists — this is the key fix that was missing.
     # Without it, sqlite3.connect() raises "unable to open database file"
