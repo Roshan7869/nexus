@@ -24,6 +24,7 @@ This module is read-only w.r.t. the live MCP and the Thompson tables: it only re
 route_task and unified_route outputs. Default OFF — wired in by P4 (USE_UNIFIED_ROUTER=2).
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import os
 import sqlite3
@@ -43,8 +44,11 @@ from router_v2 import unified_route  # noqa: E402
 from router_v2.fusion import (  # noqa: E402  — L3 fusion math (P3)
     v5_get_weights, v5_fusion_scores, v5_agreement,
 )
+# A2-2: the interception seam. Placed here (module scope) so the dispatcher is
+# imported once and the hook is a no-op until something registers on the channel.
+from dispatch import waterfall as _dispatch_waterfall, POST_AUTOCUT as _POST_AUTOCUT  # noqa: E402
 
-DB_PATH = _REPO / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 def _load_reflexion_context(conn) -> tuple[dict[int, list[tuple[str, int]]], set[str]]:
@@ -265,7 +269,11 @@ def _short_circuit(intent: dict, top_k: int, db_path: str) -> list[dict]:
             "source": "l1_short_circuit",
             "hot": rid in triggered,
         })
-    return _autocut(merged, top_k)
+    # A2-2: post-autocut interception. Called AFTER `_autocut` returns (not inside
+    # it) so the veto is observable and *ordered* — a listener sees the final L4 set
+    # and can drop entries from it. Unregistered channel => `_dispatch_waterfall`
+    # returns the same object untouched, so this is byte-identical to the baseline.
+    return _dispatch_waterfall(_POST_AUTOCUT, _autocut(merged, top_k))
 
 
 def _v5_components(topic_merged: list[dict], intent: dict) -> tuple:
@@ -492,6 +500,10 @@ def unified_route_v5(query: str, top_k: int = 10, cold_fraction: float = 0.3,
     # Re-enable via autocut=True when tuning for precision over recall.
     if autocut:
         merged = _autocut(merged, top_k)
+
+    # A2-2: the same interception point on the full L3 path. Applied unconditionally
+    # (whether or not autocut ran) so the seam has exactly one meaning on both returns.
+    merged = _dispatch_waterfall(_POST_AUTOCUT, merged)
 
     # ── Shadow cutover (P3): compute the weighted-RRF BASELINE on the SAME
     # candidate set and report top-k agreement. Production `merged` is the

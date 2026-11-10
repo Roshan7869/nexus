@@ -48,6 +48,11 @@ EMBEDDING_LOADED = False
 EMBEDDING_LOAD_TIME = 0.0
 
 def preload_embeddings():
+    # RCA-F6(unified.py:50): MISDIRECTED WARM-UP — this warms TA_V4.intent_router, but the live v5
+    #   routing path loads the IsoEmbedder singleton (server/iso_embedder.py:30 .get(), used by
+    #   cluster_router.py:206 / cross_type_router.py:48). The all-MiniLM Torch import (~14s) is still
+    #   paid on the first real v5 request. Also call IsoEmbedder.get(db).warmup() here.
+    #   See docs/rca/F6-cold-start-latency.md
     global EMBEDDING_LOADED, EMBEDDING_LOAD_TIME
     start = time.time()
     try:

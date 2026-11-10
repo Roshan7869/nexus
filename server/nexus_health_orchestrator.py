@@ -4,6 +4,7 @@ mapping, data integrity, and resource health issues across the 1,097 resources.
 
 Auto-triggered by: 'health', 'repair', 'fix nexus', 'audit', 'integrity'
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json, os, sqlite3, time, sys, logging
 from pathlib import Path
@@ -12,7 +13,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 SERVER_PATH = Path.home() / "nexus/server"
 
 sys.path.insert(0, str(SERVER_PATH))

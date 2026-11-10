@@ -21,6 +21,7 @@ This is the integration glue the MCP ``find_skills`` tool calls when
 ``USE_UNIFIED_ROUTER=1`` is set (P2 wiring, default OFF = zero live change).
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import re
 import sqlite3
@@ -46,7 +47,13 @@ from router_v2 import scoring as _scoring  # noqa: E402
 from router_v2.lazy_embedder import LazyEmbedder, EmbedderUnavailableError  # noqa: E402
 from router_v2.chunk_retrieval import retrieve_chunks as _retrieve_chunks  # noqa: E402
 
-DB_PATH = _SELF.parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
+
+# Decision D1 corpus for the chunk stream: "chunks" (ingestion_chunks, today's
+# default) or "sections" (OKF resource_sections / sections_fts). Module-level
+# constant, NOT an env flag (decision D4) — flipped once in Phase 2 after the
+# golden A/B adopts the OKF corpus.
+RETRIEVAL_CORPUS = "chunks"
 
 # stopwords stripped from lexical queries (FTS AND over common words matches nothing)
 _STOPWORDS = {
@@ -275,7 +282,10 @@ def _chunk_resource_stream(query: str, db_path: str, k: int,
     """
     try:
         rc = _retrieve_chunks(query, top_k=k, clusters=clusters,
-                              db_path=db_path, vec=True)
+                              db_path=db_path, vec=True,
+                              corpus=RETRIEVAL_CORPUS,
+                              graph_lane=False)   # L1-b: router ensemble is
+                              # top-1-calibrated; lane serves RAG consumers
     except Exception:
         return []
     # aggregate chunk hits by resource_id; keep the best (highest rrf) chunk

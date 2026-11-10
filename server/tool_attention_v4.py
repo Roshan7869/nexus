@@ -14,6 +14,7 @@ Implements Algorithm 1 (Per-Turn Middleware Pass) exactly:
   7. Observability events per turn
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 import json, sqlite3, time, os, hashlib, sys
 from pathlib import Path
 from typing import Optional
@@ -34,7 +35,7 @@ from server.router import find_matching_skills
 from server.numpy_router import NumpyRouter
 
 # ── Constants from paper ─────────────────────────────────────────
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 INDEX_PATH = Path.home() / "nexus/db/faiss/resources.index"
 DIM = 384
 MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"

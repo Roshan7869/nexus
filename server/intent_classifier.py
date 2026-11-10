@@ -4,12 +4,29 @@ Verb-Intent Classifier — maps task verbs + context to skill names.
 Sits as Step 3.5 in route_task pipeline.
 Provides learning loop via outcome logging + weight updates.
 """
-import sqlite3, json, re, time, hashlib
+from server.db import get_db_path as _resolve_db_path
+import sqlite3, json, re, time, hashlib, logging
 from pathlib import Path
 from collections import defaultdict
 from typing import Optional
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
+
+logger = logging.getLogger(__name__)
+
+
+def _metric_fail(op: str, exc: Exception) -> None:
+    """Fail-loud seam for swallowed learning-signal writes (G13, atom A5_feedback).
+
+    A silent ``except: pass`` on a ``routing_log`` write makes the row vanish from
+    *both* sides of the coverage ratio (rl_feedback_loop.py:74 reads routing_log),
+    so the loop cannot see its own dropped signal (Reflexion arXiv:2303.11366).
+
+    Today this emits a greppable, structured WARNING (``NEXUS_WRITE_FAIL``) — a
+    log-scrapeable metric with no new schema. G12 may upgrade this single seam to a
+    durable counter sink WITHOUT touching the call sites below.
+    """
+    logger.warning("NEXUS_WRITE_FAIL op=%s err=%s", op, exc)
 
 # ── Stop words (filtered from verb extraction) ──
 STOP_WORDS = {
@@ -409,8 +426,9 @@ def log_intent_telemetry(task: str, predicted_skills: list[str], actual_outcome:
                 ide="opencode",
                 co_skills=skills[1:] or None,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("intent record_outcome failed: %s", e)
+            _metric_fail("record_outcome", e)
         if actual_outcome == "correct":
             try:
                 conn = sqlite3.connect(str(DB_PATH))
@@ -422,8 +440,9 @@ def log_intent_telemetry(task: str, predicted_skills: list[str], actual_outcome:
                     """, (verb, json.dumps(skills[:3])))
                 conn.commit()
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("intent_learning insert failed: %s", e)
+                _metric_fail("intent_learning", e)
         return
 
     try:
@@ -441,8 +460,9 @@ def log_intent_telemetry(task: str, predicted_skills: list[str], actual_outcome:
         ))
         conn.commit()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("routing_log insert failed: %s", e)
+        _metric_fail("routing_log", e)
 
 
 def update_weights(verb: str, correct_skills: list[str]):
@@ -458,8 +478,9 @@ def update_weights(verb: str, correct_skills: list[str]):
         """, (verb, json.dumps(correct_skills)))
         conn.commit()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("update_weights insert failed: %s", e)
+        _metric_fail("update_weights", e)
 
 
 def ensure_schema():
@@ -552,8 +573,7 @@ def recalibrate():
         conn.close()
         return len(rows)
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"Recalibrate failed: {e}")
+        logger.warning(f"Recalibrate failed: {e}")
         return 0
 
 

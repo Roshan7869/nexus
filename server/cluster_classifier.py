@@ -11,6 +11,7 @@ Usage:
     python -m server.cluster_classifier --export-csv      # Export uncertain for review
     python -m server.cluster_classifier --apply           # Write assignments to DB
 """
+from server.db import get_db_path as _resolve_db_path
 
 import csv
 import json
@@ -30,7 +31,7 @@ except Exception:
     from service_layer import canonical_cluster_for_resource
 
 # Path setup for standalone execution
-DB_PATH = Path(__file__).parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 INDEX_PATH = Path(__file__).parent.parent / "db" / "faiss" / "resources.index"
 
 logger = logging.getLogger(__name__)

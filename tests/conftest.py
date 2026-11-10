@@ -1,5 +1,5 @@
 """conftest.py — v2 fixtures: 7 RRF backends, in-memory DB, mocks for all external calls."""
-import sys, os, json, sqlite3, time, hashlib, uuid, threading
+import sys, os, json, sqlite3, time, hashlib, uuid, threading, tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timezone
@@ -28,10 +28,51 @@ def pytest_collection_modifyitems(config, items):
 NEXUS_ROOT = Path("/home/roshan/nexus")
 sys.path.insert(0, str(NEXUS_ROOT))
 
-os.environ.setdefault("NEXUS_THOMPSON_ROUTING", "false")
-os.environ.setdefault("NEXUS_CLUSTER_ROUTING", "false")
-os.environ.setdefault("NEXUS_REFLECTION", "false")
-os.environ.setdefault("NEXUS_LEARNING", "false")
+# ── DB isolation (plan S0) ───────────────────────────────────────────────
+# server/db.py:39 resolve_db_path() already honours NEXUS_DB_PATH, but
+# server/learning.py and server/context_harness/cache.py hardcoded the live
+# path until this change, so every route/record/execute test wrote to
+# db/nexus.db — routing_log carries 71 rows with ide='pytest' as evidence.
+# This must run before any `server.*` import: get_db_path() caches its first
+# resolution for the life of the process, so a later override is a no-op.
+PROD_DB = (NEXUS_ROOT / "db" / "nexus.db").resolve()
+TEST_DB = (Path(tempfile.mkdtemp(prefix="nexus-test-")) / "nexus.db").resolve()
+if PROD_DB.exists():
+    _src = sqlite3.connect(f"file:{PROD_DB}?mode=ro", uri=True)
+    _dst = sqlite3.connect(str(TEST_DB))
+    with _dst:
+        _src.backup(_dst)          # atomic snapshot, safe alongside a live writer
+    _src.close()
+    _dst.close()
+# FORCED, not defaulted: NEXUS_BROKER_DB_PATH outranks NEXUS_DB_PATH, so a
+# stray export from a developer shell must not win.
+os.environ["NEXUS_BROKER_DB_PATH"] = str(TEST_DB)
+os.environ["NEXUS_DB_PATH"] = str(TEST_DB)
+
+# A 596 MB snapshot per run is real disk: without this the previous seven runs
+# left 4.1 GB of nexus-test-* directories behind. Remove on interpreter exit.
+import atexit, shutil as _shutil
+atexit.register(lambda: _shutil.rmtree(Path(TEST_DB).parent, ignore_errors=True))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _hermetic_db_guard():
+    """Fail loudly if anything resolved back to the production database."""
+    from server.db import get_db_path
+    resolved = Path(get_db_path()).resolve()
+    assert resolved == TEST_DB, f"tests resolved to {resolved}, expected {TEST_DB}"
+    assert resolved != PROD_DB, "tests resolved to the PRODUCTION database"
+    yield
+
+# Tests must be hermetic. These are FORCED, not defaulted: `setdefault` is a no-op
+# when the variable is already exported (a developer shell or .env that sources the
+# production flags), and server/learning.py caches these into module globals at import
+# time — so a leaked `true` silently flips the suite into production config and the
+# "disabled" assertions fail. Deterministic tests require deterministic env.
+os.environ["NEXUS_THOMPSON_ROUTING"] = "false"
+os.environ["NEXUS_CLUSTER_ROUTING"] = "false"
+os.environ["NEXUS_REFLECTION"] = "false"
+os.environ["NEXUS_LEARNING"] = "false"
 
 
 # ── Schema ──────────────────────────────────────────────────────────────
@@ -80,7 +121,17 @@ CREATE TABLE IF NOT EXISTS user_learnings (
     created_by TEXT DEFAULT 'engine', created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS resource_policies (
-    resource_id INTEGER PRIMARY KEY, policy TEXT
+    resource_id INTEGER PRIMARY KEY,
+    execution_mode TEXT NOT NULL DEFAULT 'review_only',
+    side_effect_level TEXT NOT NULL DEFAULT 'read',
+    mode_allowance TEXT NOT NULL DEFAULT 'both',
+    stage_allowance TEXT NOT NULL DEFAULT '[]',
+    allowed_ides TEXT NOT NULL DEFAULT '[]',
+    preconditions_json TEXT NOT NULL DEFAULT '[]',
+    fallback_priority INTEGER NOT NULL DEFAULT 50,
+    confidence_floor REAL NOT NULL DEFAULT 0.55,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 

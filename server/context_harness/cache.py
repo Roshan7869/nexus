@@ -20,13 +20,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from server.db import get_db_path as _resolve_db_path
+
 try:
     import msgpack
     HAS_MSGPACK = True
 except ImportError:
     HAS_MSGPACK = False
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+# Single source of truth (server/db.py:39) so NEXUS_DB_PATH is honoured.
+DB_PATH = _resolve_db_path()
 
 
 # ── Named Tuples ──────────────────────────────────────────────────────────────

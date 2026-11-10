@@ -1,8 +1,8 @@
 """Context assembly — one deep module behind the request-path seam.
 
 assemble(query, project, ...) -> ContextBlock, with adapters behind it:
-repo-map (v0 PageRank), project notes + AGENTS.md (continuity), and a
-reserved OKF-sections slot (decision 0002: backfill sections as chunks first).
+OKF sections (retrieved corpus, decision 0002 + Phase 1/2), repo-map
+(v0 PageRank), and project notes + AGENTS.md (continuity).
 
 Interface rules: hard budget_ms (adapters past budget are skipped and
 reported), empty corpora are safe, and the block is pure text a caller can
@@ -28,6 +28,35 @@ def _git_root_for(project: str) -> str | None:
         return row["git_root"] if row else None
     except Exception:
         return None
+
+
+def _adapter_okf_sections(query: str, project: str, git_root: str | None) -> tuple[str, str]:
+    """Retrieve OKF sections for the query (Phase 3). Best-effort by contract.
+
+    Uses the sections corpus explicitly (this is context assembly, not routing —
+    Phase 2's verdict A governs RETRIEVAL_CORPUS on the routing path only).
+    Hybrid vec stays on: quality matters more than the ~60ms here, and the
+    budget loop drops this adapter (reported as ``okf_sections(budget)``) if a
+    cold embedder load overshoots.
+    """
+    try:
+        from server.db import get_db_path
+        from server.router_v2.chunk_retrieval import retrieve_chunks
+        # env-resolved path (NEXUS_DB_PATH override honored) — the module-level
+        # DB_PATH const is captured at import and breaks DB isolation in tests.
+        rc = retrieve_chunks(query, top_k=5, corpus="sections",
+                             db_path=get_db_path())
+        rows = rc.get("results", [])
+        if not rows:
+            return "", "okf_sections(empty)"
+        body = "\n".join(
+            f"- **{r['resource_name']}** · {r['heading'] or ''}: {r['snippet'][:160]}"
+            for r in rows if r.get("resource_name")
+        )
+        return (f"## Relevant OKF sections\n{body}", "okf_sections") if body \
+            else ("", "okf_sections(empty)")
+    except Exception:
+        return "", "okf_sections(error)"
 
 
 def _adapter_repo_map(query: str, project: str, git_root: str | None) -> tuple[str, str]:
@@ -69,7 +98,8 @@ def _adapter_notes(query: str, project: str, git_root: str | None) -> tuple[str,
         return "", "notes(error)"
 
 
-_ADAPTER_NAMES = ("_adapter_repo_map", "_adapter_project_memory", "_adapter_notes")
+_ADAPTER_NAMES = ("_adapter_okf_sections", "_adapter_repo_map",
+                  "_adapter_project_memory", "_adapter_notes")
 
 
 def assemble(query: str, project: str, task_type: str = "general",

@@ -2,12 +2,13 @@
 Blocks predicted tools that don't exist, are inactive, or have unmet preconditions.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 import sqlite3, time
 from typing import Optional
 from collections.abc import Callable
 from precondition import GLOBAL_GATES, StateVariable
 
-DB_PATH = "/home/roshan/nexus/db/nexus.db"
+DB_PATH = str(_resolve_db_path())
 HALLUCINATE_SCORE_THRESHOLD = 0.45  # minimum score to pass
 
 class HallucinationGate:

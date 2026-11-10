@@ -7,6 +7,7 @@ Tests Phase 0-8: DB migration, routing pipeline, reflection, event bridge,
 
 Run: python -m tests.test_unified
 """
+from server.db import get_db_path as _resolve_db_path
 import os, sys, json, sqlite3, unittest, shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -14,7 +15,7 @@ from unittest.mock import patch, MagicMock
 NEXUS_ROOT = Path("/home/roshan/nexus")
 sys.path.insert(0, str(NEXUS_ROOT))
 
-DB_PATH = NEXUS_ROOT / "db/nexus.db"
+DB_PATH = Path(_resolve_db_path())
 
 
 # ═══════════════════════════════════════════════════════════════════════

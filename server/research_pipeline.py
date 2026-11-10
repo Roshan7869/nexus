@@ -21,6 +21,7 @@ Usage:
     report = rp.research("tool routing for LLM agents", sources=["arxiv","github","local"])
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import os
@@ -34,7 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 USER_AGENT = "NEXUS-research-pipeline/1.0 (mailto:research@nexus.local)"
 HTTP_TIMEOUT = 20
 

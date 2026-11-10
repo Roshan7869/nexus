@@ -11,6 +11,7 @@ the library is available. The FAISS library check is retained for
 possible future integration. For FAISS-based search, use IsoEmbedder
 or ToolAttention classes instead.
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import logging
@@ -22,7 +23,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 class ClusterNumpySearch:

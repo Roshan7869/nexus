@@ -5,6 +5,7 @@ with classification + workflow affinity boost. Target: <50 ms.
 """
 
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import logging
 import statistics
@@ -86,7 +87,7 @@ class HubAndSpokeRouter:
     def __init__(
         self, db_path: str | None = None, config: RouterConfig | None = None
     ) -> None:
-        self.db_path = db_path or str(Path.home() / "nexus/db/nexus.db")
+        self.db_path = db_path or str(_resolve_db_path())
         merged = dict(_DEFAULT_CONFIG)
         if config:
             merged.update(config)

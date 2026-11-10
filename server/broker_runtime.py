@@ -988,6 +988,7 @@ def _close_routing_outcomes(
     ide: str = "unknown",
     max_rows: int = 500,
     quality: float = 0.3,
+    min_age_seconds: int = 60,
 ) -> Dict[str, Any]:
     """Close the feedback loop for routing_log entries that never got outcomes.
 
@@ -1014,35 +1015,48 @@ def _close_routing_outcomes(
         ide: Filter by IDE (default: all)
         max_rows: Maximum rows to close in one batch
         quality: Confidence weight for the derived verdict, [0,1].
+        min_age_seconds: Timeout gate — only rows older than this are closed, so
+              a freshly-routed entry keeps its window to receive an *explicit*
+              human outcome before it is auto-closed as a derived verdict. The
+              lifecycle is open → (explicit-outcome window) → timeout → auto-close.
+              Default 60s matches implicit_outcomes.STALE_MS. Closed rows are
+              tagged outcome_source='timeout' (G12 audit marker) so they stay
+              distinguishable from explicit verdicts.
 
     Returns:
         Dict with closed count, breakdown by previous outcome, and any errors.
     """
+    # Timeout gate: leave fresh rows open for an explicit outcome; sweep the
+    # OLDEST stale rows first (ORDER ASC) — the reverse of closing newest-first,
+    # which would auto-verdict rows still likely to get a real human outcome.
+    age_expr = "(julianday('now') - julianday(created_at)) * 86400 >= ?"
     # Find unclosed entries with skill_name
     if project and project != "all":
         rows = conn.execute(
-            """
+            f"""
             SELECT id, skill_name, task_summary, outcome, ide
             FROM routing_log
             WHERE skill_name IS NOT NULL AND skill_name != ''
               AND (outcome IS NULL OR outcome IN ('routed', 'pending'))
               AND project = ?
-            ORDER BY created_at DESC
+              AND {age_expr}
+            ORDER BY created_at ASC
             LIMIT ?
             """,
-            (project, max_rows),
+            (project, min_age_seconds, max_rows),
         ).fetchall()
     else:
         rows = conn.execute(
-            """
+            f"""
             SELECT id, skill_name, task_summary, outcome, ide
             FROM routing_log
             WHERE skill_name IS NOT NULL AND skill_name != ''
               AND (outcome IS NULL OR outcome IN ('routed', 'pending'))
-            ORDER BY created_at DESC
+              AND {age_expr}
+            ORDER BY created_at ASC
             LIMIT ?
             """,
-            (max_rows,),
+            (min_age_seconds, max_rows),
         ).fetchall()
 
     if not rows:
@@ -1069,6 +1083,7 @@ def _close_routing_outcomes(
                 ide=ide,
                 quality=quality,
                 routed_id=row["id"],
+                outcome_source="timeout",
             )
             closed += 1
         except Exception as e:
@@ -1079,6 +1094,7 @@ def _close_routing_outcomes(
         "closed": closed,
         "breakdown": breakdown,
         "quality": quality,
+        "min_age_seconds": min_age_seconds,
         "errors": errors[:10],
     }
 

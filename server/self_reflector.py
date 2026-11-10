@@ -9,13 +9,14 @@ When a tool fails, the system:
 3. Retries with learned context
 4. Max 3 attempts
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json, sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-DB_PATH = Path.home() / 'nexus/db/nexus.db'
+DB_PATH = _resolve_db_path()
 
 @dataclass
 class ReflectionResult:

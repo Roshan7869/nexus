@@ -3,6 +3,7 @@
 Orchestrates TF-IDF scoring from P0-S2 into full resource classifications
 with confidence scoring, persistent caching, and batch processing.
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import sqlite3
@@ -61,7 +62,7 @@ class Classifier:
         db_path: str | None = None,
         config: ClassifyConfig | None = None,
     ):
-        self._db_path = db_path or str(Path.home() / "nexus/db/nexus.db")
+        self._db_path = db_path or str(_resolve_db_path())
         self._config = {**_DEFAULT_CONFIG, **(config or {})}
         self._score_cache = ScoreCache()
 

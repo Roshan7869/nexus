@@ -162,7 +162,7 @@ Migrations are in `db/migrations/`. The test suite uses an in-memory DB seeded b
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **nexus** (8712 symbols, 15191 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **nexus** (11120 symbols, 18515 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -212,4 +212,3 @@ At session start, before other NEXUS tools:
 3. When you learn something durable about the project (convention, gotcha, architecture decision): `project_note(project=..., text=...)` — survives IDE switches (DB + `.nexus/memory.md`).
 
 These work in every IDE that connects to the NEXUS MCP server (OpenCode, Claude Code, ZCode).
-

@@ -225,6 +225,7 @@ def register_harness_tools(mcp: Any) -> int:
                 project: str = "default",
                 task_type: str = "general",
             ) -> str:
+                """Store a (key, value) context entry, namespaced by project and task type."""
                 return context_store_unified(
                     key=key, value=value, source=source, tags=tags,
                     project=project, task_type=task_type,
@@ -241,6 +242,7 @@ def register_harness_tools(mcp: Any) -> int:
                 project: str = "default",
                 ingest: bool = False,
             ) -> str:
+                """Run smart research via the harness engine for a query; returns numbered results."""
                 return harness_smart_research_unified(
                     query=query, max_results=max_results, execute=execute,
                     project=project, ingest=ingest,

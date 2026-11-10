@@ -58,6 +58,10 @@ class IsoEmbedder:
             self.load_index(path)
 
     def load_model(self):
+        # RCA-F6(iso_embedder.py:60): first-use lazy load of all-MiniLM (~14s Torch import + ~1.4s
+        #   weights). This singleton is the live v5 embedder; warm it at boot (background) instead of
+        #   on the first request. Consider a warmup() helper: self.load(); self.model.encode(["warmup"]).
+        #   See docs/rca/F6-cold-start-latency.md
         if self.model is None:
             print(f"[IsoEmbedder] Loading {self.model_id}...")
             # Prefer local cache only for reliable offline usage in TUI/sandbox sessions.

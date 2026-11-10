@@ -26,7 +26,9 @@ import sqlite3
 
 logger = logging.getLogger(__name__)
 
-NEXUS_DB = Path(__file__).parent.parent / "db" / "nexus.db"
+from server.db import get_db_path as _resolve_db_path
+
+NEXUS_DB = _resolve_db_path()
 
 # ── Event Types + Rewards ───────────────────────────────────────────────────
 

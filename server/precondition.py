@@ -1,9 +1,12 @@
 """NEXUS v3 State-Aware Precondition Gating — blocks tool use when state preconditions unmet."""
 import json
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 class StateVariable(Enum):
     HAS_DB = "has_db"
@@ -62,10 +65,18 @@ TOOL_PRECONDITIONS: dict[str, Precondition] = {
     ),
 }
 
+@dataclass
+class CoeffectSubscription:
+    """M9: reactive subscription parallel to Precondition (never replacing it)."""
+    key: str                  # "db" | "faiss" | "embedder" | ... ; "*" = all keys
+    realm: str = "global:default"
+    on_change: Callable[[str], None] | None = None
+
+
 class StateGates:
     def __init__(self, config_path: str = None):
-        self._state: dict[StateVariable, bool] = {
-            StateVariable.HAS_DB: True,
+        self._subs: dict[str, list[CoeffectSubscription]] = {}  # M9: reactive subs
+        self._state: dict[StateVariable, bool] = {            StateVariable.HAS_DB: True,
             StateVariable.HAS_AUTH: False,
             StateVariable.HAS_FILE: True,
             StateVariable.HAS_BROWSER: False,
@@ -111,6 +122,37 @@ class StateGates:
     def snapshot(self) -> dict[str, bool]:
         return {s.value: v for s, v in self._state.items()}
 
+    # ── M9: reactive coeffects (additive — check() semantics untouched) ──
+    def subscribe(self, key: str, realm: str = "global:default",
+                  on_change: Callable[[str], None] | None = None) -> None:
+        """Subscribe to transitions on a coeffect key (Cordis spatial, Thm70).
+
+        Subscribers are notified (not polled) when set_and_notify flips state.
+        """
+        subs = self._subs.setdefault(key, [])
+        subs.append(CoeffectSubscription(key=key, realm=realm, on_change=on_change))
+
+    def set_and_notify(self, var: StateVariable, value: bool,
+                       realm: str = "global:default") -> dict[str, str]:
+        """Set state and push notify trichotomy to matching subscribers.
+
+        Returns {key: activating|deactivating|neutral}. Subscriber errors are
+        isolated (logged, never raised into the gate).
+        """
+        from server.local_harness.context import classify_transition  # lazy: no cycle
+        before = self.snapshot()
+        self.set(var, value)
+        after = self.snapshot()
+        events = classify_transition(before, after)
+        for key, notify in events.items():
+            for sub in self._subs.get(key, []) + self._subs.get("*", []):
+                if sub.realm in ("global:default", realm, "*") and sub.on_change:
+                    try:
+                        sub.on_change(notify)
+                    except Exception as exc:
+                        logger.debug("coeffect subscriber skipped for %s: %s", key, exc)
+        return events
+
 GLOBAL_GATES = StateGates()
 
 def can_invoke(tool_name: str) -> tuple[bool, Optional[str]]:
@@ -123,3 +165,28 @@ def enforce_state(state: dict[str, bool]):
             GLOBAL_GATES.set(sv, v)
         except ValueError:
             pass
+
+
+# ── A4: plan-gate read-only classifier (OpenResearch plan_gate analog) ──
+# A command is read-only when it shows no write intent: no write verbs, no
+# redirect/pipe-to-write, no mutating flags. Conservative: unknown ⇒ False
+# (requires the write coeffect). Used to derive ctx.require() sets.
+_READONLY_VERBS = ("get", "list", "show", "search", "read", "view", "describe",
+                   "status", "log", "diff", "check", "inspect", "query")
+_WRITE_SIGNS = (">", ">>", "|", "--write", "--force", "-f ", "rm ", "del ",
+                "mkdir", "mv ", "cp ", "write", "create", "delete", "update",
+                "insert", "drop", "apply", "commit", "push")
+
+
+def command_is_readonly(cmd: str) -> bool:
+    """True only when cmd carries no write signal. Unknown ⇒ False."""
+    text = (cmd or "").strip().lower()
+    if not text:
+        return True
+    if any(s in text for s in _WRITE_SIGNS):
+        return False
+    first = text.split()[0]
+    first = text.split()[0]
+    # No blanket tool allowlist: bare "git"/"orx" may still mutate via
+    # subcommands (push, exp run). Conservative: unknown ⇒ False.
+    return first in _READONLY_VERBS

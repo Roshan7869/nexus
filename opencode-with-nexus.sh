@@ -6,6 +6,9 @@ set -euo pipefail
 
 NEXUS_DIR="/home/roshan/nexus"
 NEXUS_PORT="${NEXUS_PORT:-8000}"
+NEXUS_IDE="${NEXUS_IDE:-opencode}"
+NEXUS_LOCAL_HARNESS="${NEXUS_LOCAL_HARNESS:-1}"
+export NEXUS_IDE NEXUS_LOCAL_HARNESS
 NEXUS_PID=""
 
 cleanup() {
@@ -40,5 +43,9 @@ if ! kill -0 "$NEXUS_PID" 2>/dev/null; then
   echo "Warning: Nexus server failed to start (check .env keys)"
 fi
 
-echo "Launching OpenCode..."
+echo "Launching OpenCode (NEXUS_IDE=$NEXUS_IDE, LOCAL_HARNESS=$NEXUS_LOCAL_HARNESS)..."
+if [[ "${1:-}" == "--harness-status" ]]; then
+  venv/bin/python3 -c "import json; from server.local_harness.harness import get; h=get('opencode'); print(json.dumps({'harness': h.id(), 'supports_chat': h.supports_chat()}))"
+  exit 0
+fi
 opencode "$@"

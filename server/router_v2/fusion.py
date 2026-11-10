@@ -1,5 +1,9 @@
 """Reciprocal Rank Fusion (RRF) for the NEXUS v2 router.
 
+RCA-F7c(fusion.py): this is the FIRST-STAGE fuser (BM25 + sqlite-vec via RRF) — 3/5 intended lanes.
+    Missing: a stage-2 cross-encoder rerank over top-k (Nogueira & Cho 2019) and a temporal lane
+    (F7a). RRF is fusion, NOT reranking. See docs/rca/F7c-cross-encoder-rerank.md
+
 Combines the FTS5 (lexical BM25) ranked list and the sqlite-vec bit[384]
 (semantic Hamming) ranked list into a single ranking.
 
@@ -315,6 +319,9 @@ V5_DEFAULT_WEIGHTS = {
     "intent": 0.25,
     "skill_match": 0.20,
     "listwise": 0.10,
+    # M10: Hunyuan shared-expert analog — global skill prior. Default 0.0 so
+    # unset-env ranking is byte-identical (0/total renormalization is a no-op).
+    "shared": 0.0,
 }
 RRF_K = DEFAULT_K  # alias for the L3 weighted-RRF baseline (same Cormack constant)
 
@@ -351,14 +358,63 @@ def _v5_ranks(scores: Sequence[float], descending: bool = True) -> list[int]:
 
 
 def v5_convex_combine(topic_norm, intent, skill_match, listwise,
-                      weights: dict | None = None) -> list[float]:
+                      weights: dict | None = None,
+                      shared: Sequence[float] | None = None) -> list[float]:
     """Tuned convex combination of normalized scores — the DEFAULT L3 fusion
-    (Bruch et al. 2022). All inputs in [0, 1], aligned by candidate index."""
+    (Bruch et al. 2022). All inputs in [0, 1], aligned by candidate index.
+
+    M10: optional shared-expert prior (Hunyuan-Large analog). None or
+    w_shared == 0.0 → exactly the prior arithmetic.
+    """
+    import math
     w = v5_get_weights(weights)
-    return [
+    base = [
         w["topic"] * t + w["intent"] * i + w["skill_match"] * s + w["listwise"] * lw
         for t, i, s, lw in zip(topic_norm, intent, skill_match, listwise)
     ]
+    ws = w.get("shared", 0.0)
+    if shared is None or ws == 0.0:
+        return base
+    return [b + ws * p for b, p in zip(base, list(shared) + [0.0] * len(base))]
+
+
+def shared_prior(resource: dict, max_correct: float = 1.0) -> float:
+    """Global common-knowledge prior in [0, 1] (M10).
+
+    log1p(times_correct) / log1p(max_correct): popular, long-correct skills
+    carry the shared-expert signal; unseen skills get 0 (no free rank).
+    """
+    import math
+    try:
+        c = float(resource.get("times_correct", 0) or 0)
+        m = float(max_correct or 1.0)
+    except (TypeError, ValueError):
+        return 0.0
+    if c <= 0 or m <= 0:
+        return 0.0
+    return min(1.0, math.log1p(c) / math.log1p(m))
+
+
+def recycle_spill(ranked: list, cap: int,
+                  cluster_of=lambda r: r.get("cluster", "general")) -> list:
+    """Per-cluster capacity with overflow spill (Hunyuan recycle-routing analog).
+
+    cap <= 0 → unchanged (default). Otherwise the first `cap` items per cluster
+    keep rank; overflow preserves relative order at the tail (spills into the
+    second-cluster order v5 already constrains L2 to).
+    """
+    if cap is None or cap <= 0 or not ranked:
+        return list(ranked)
+    counts: dict[str, int] = {}
+    kept, spilled = [], []
+    for r in ranked:
+        c = cluster_of(r)
+        if counts.get(c, 0) < cap:
+            kept.append(r)
+            counts[c] = counts.get(c, 0) + 1
+        else:
+            spilled.append(r)
+    return kept + spilled
 
 
 def v5_weighted_rrf(topic_scores, intent_scores, skill_match_scores,
@@ -395,13 +451,18 @@ def v5_weighted_rrf(topic_scores, intent_scores, skill_match_scores,
 
 def v5_fusion_scores(topic_norm, intent, skill_match, listwise,
                      mode: str = "convex",
-                     weights: dict | None = None) -> list[float]:
+                     weights: dict | None = None,
+                     shared: Sequence[float] | None = None) -> list[float]:
     """Dispatch: 'convex' (default) → v5_convex_combine; 'wrrf' → v5_weighted_rrf
     baseline. Centralizes the mode switch so v5 and the shadow cutover share
-    one code path and can never diverge in candidate handling."""
+    one code path and can never diverge in candidate handling.
+
+    M10: shared prior applies to convex only (keeps the wrrf baseline pure).
+    """
     if mode == "wrrf":
         return v5_weighted_rrf(topic_norm, intent, skill_match, listwise, weights)
-    return v5_convex_combine(topic_norm, intent, skill_match, listwise, weights)
+    return v5_convex_combine(topic_norm, intent, skill_match, listwise, weights,
+                             shared=shared)
 
 
 # ── FIX 6: L2 Convex Combination fusion (Bruch et al. 2022) ─────────────

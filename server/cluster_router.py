@@ -13,6 +13,7 @@ Algorithm:
 4. If no cluster activates, fall back to 'general' cluster + full search
 5. Return activated cluster names and their resource IDs
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import logging
@@ -30,7 +31,7 @@ if _SELF_DIR not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 class ClusterRouter:

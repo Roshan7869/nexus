@@ -2,6 +2,7 @@
 """
 Verification script for Phase 2: Intent & Error Classification.
 """
+from server.db import get_db_path as _resolve_db_path
 import sys
 import os
 import sqlite3
@@ -14,7 +15,7 @@ sys.path.insert(0, "/home/roshan/nexus/server")
 from core.learner import NexusLearner
 from server.learning import record_outcome
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 
 def run_tests():
     print("=== STARTING PHASE 2 VERIFICATION TESTS ===")

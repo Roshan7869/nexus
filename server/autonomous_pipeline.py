@@ -22,6 +22,7 @@ Design:
     tool call whose name is not in the set is rejected with alternatives.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import re
@@ -38,7 +39,7 @@ if str(_SELF) not in sys.path:
 from router_v2.fts5 import FTS5Search  # noqa: E402  (router_v2/fts5.py)
 from hallucination import HallucinationGate  # noqa: E402
 
-DB_PATH = _SELF.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 ISO_THRESHOLD = 0.28  # arXiv 2604.21816 theta gating
 DEFAULT_TOP_K = 10
 

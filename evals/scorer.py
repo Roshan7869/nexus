@@ -55,6 +55,60 @@ def _rate(values: list) -> Optional[float]:
     return round(sum(1 for v in vals if v) / len(vals), 4) if vals else None
 
 
+# ---------------------------------------------------------------------------
+# Retrieval-arm scoring (Phase 0 / Phase 2, okf-native-cordis)
+#
+# Pure functions over retrieve_chunks()-shaped results:
+#   results = [{resource_name, cluster, rrf_score, ...}, ...]  best-first
+# Cases without expect_skills are health-only (recall/rr = None, excluded).
+# ---------------------------------------------------------------------------
+
+def score_retrieval(case: dict, results: list[dict], default_top_k: int = 5,
+                    latency_ms: Optional[float] = None) -> dict:
+    """Score one golden case against one retrieve_chunks() results list."""
+    k = int(case.get("top_k", default_top_k))
+    top = list(results or [])[:k]
+    names = [r.get("resource_name") for r in top]
+    out: dict[str, Any] = {
+        "id": case.get("id"),
+        "healthy": True,           # reaching the scorer at all = retrieval ran
+        "n_results": len(results or []),
+        "top_resource": names[0] if names else None,
+        "recall_hit": None,
+        "reciprocal_rank": None,
+        "rank": None,
+        "latency_ms": latency_ms,
+    }
+    expected = case.get("expect_skills")
+    if expected:
+        hit_rank = next((i for i, n in enumerate(names, start=1) if n in expected), None)
+        out["recall_hit"] = hit_rank is not None
+        out["rank"] = hit_rank
+        out["reciprocal_rank"] = round(1.0 / hit_rank, 4) if hit_rank else 0.0
+    return out
+
+
+def summarize_retrieval(results: list[dict]) -> dict:
+    """Aggregate recall@k + MRR + latency over scored retrieval cases."""
+    n = len(results)
+    latencies = [r["latency_ms"] for r in results if isinstance(r.get("latency_ms"), (int, float))]
+    recalls = [r["recall_hit"] for r in results if r.get("recall_hit") is not None]
+    rrs = [r["reciprocal_rank"] for r in results if r.get("reciprocal_rank") is not None]
+    p50 = None
+    if latencies:
+        s = sorted(latencies)
+        p50 = round(s[len(s) // 2], 2)
+    return {
+        "cases": n,
+        "scored": len(recalls),
+        "health_only": n - len(recalls),
+        "recall_at_k": round(sum(1 for v in recalls if v) / len(recalls), 4) if recalls else None,
+        "mrr": round(sum(rrs) / len(rrs), 4) if rrs else None,
+        "p50_ms": p50,
+        "avg_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else None,
+    }
+
+
 def summarize(results: list[dict]) -> dict:
     """Aggregate pass rates. Cases with no active checks count via 'passed'."""
     n = len(results)

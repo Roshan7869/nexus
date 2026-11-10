@@ -9,6 +9,7 @@ CSS selector pattern learning and semantic extraction.
 Patterns stored in NEXUS SQLite.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import asyncio
 import hashlib
@@ -26,7 +27,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 _SHARED_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "

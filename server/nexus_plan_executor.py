@@ -10,6 +10,7 @@ Flow:
   4. On OOC/OOM: next session calls resume_plan(plan_id)  →  picks up exactly where left off
   5. Executor handles retries, dependency resolution, parallel dispatch
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import logging
@@ -21,7 +22,7 @@ from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / "nexus" / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 class PlanExecutor:

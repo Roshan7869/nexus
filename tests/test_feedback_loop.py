@@ -3,6 +3,7 @@
 P4-1: End-to-end test suite verifying all 8 gap fixes.
 Covers: feedback loop, cold-start, cluster consistency, ingestion pipeline, edge decay.
 """
+from server.db import get_db_path as _resolve_db_path
 import sys, os, sqlite3, unittest, time
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "server"))
 
-DB_PATH = REPO_ROOT / "db" / "nexus.db"
+DB_PATH = Path(_resolve_db_path())
 
 TEST_PREFIX = "test-e2e-"
 

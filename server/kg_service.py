@@ -4,6 +4,7 @@ Restores backed-up ``similar_to`` edges and runs ``scripts/densify_kg`` passes
 to collapse zero-edge resource count below the <500 gate.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import sqlite3
 import sys
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 NEXUS_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = NEXUS_ROOT / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 SCRIPTS = NEXUS_ROOT / "scripts"
 
 # Gate targets from second-brain-execution-plan P7

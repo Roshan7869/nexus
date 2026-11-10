@@ -21,10 +21,14 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = REPO_ROOT / 'db' / 'nexus.db'
 
 # ── Config — imported from centralized config ───────────────────────────
 from core.config import get_learning_config
+from server.db import get_db_path as _resolve_db_path
+
+# Single source of truth for the DB location (server/db.py:39). A hardcoded
+# path here ignored NEXUS_DB_PATH, so the test suite wrote to the live DB.
+DB_PATH = _resolve_db_path()
 _LEARN_CFG = get_learning_config()
 THOMPSON_ENABLED = _LEARN_CFG.is_thompson_routing()
 CLUSTER_LEARNING = _LEARN_CFG.is_cluster_routing()
@@ -322,7 +326,8 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                    project: str = "default", ide: str = "unknown",
                    tokens_used: int = 0, routed_id: int = None,
                    quality: float = 1.0,
-                   co_skills: List[str] | None = None) -> dict:
+                   co_skills: List[str] | None = None,
+                   outcome_source: str = "explicit") -> dict:
     """
     Record whether a routing outcome was correct or wrong.
 
@@ -343,6 +348,12 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
     signal (IRC arXiv:2604.02869 / P0 design plan). They may update
     routing_log telemetry only — never counters, Thompson, edges, or affinity.
     Default quality=1.0 preserves legacy behavior for explicit human verdicts.
+
+    `outcome_source` ∈ {'explicit','derived','timeout'} (G12 audit marker) is
+    persisted on the routing_log row so a derived/auto-closed verdict is
+    distinguishable from an explicit human one. Default 'explicit' keeps every
+    legacy caller correctly tagged. It is metadata only — it does not alter any
+    counter/Thompson/degradation behavior.
     """
     outcome = _normalize_outcome_label(outcome)
 
@@ -360,16 +371,17 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         try:
             if routed_id:
                 conn.execute(
-                    "UPDATE routing_log SET outcome=? WHERE id=?",
-                    (outcome if outcome else "routed", routed_id),
+                    "UPDATE routing_log SET outcome=?, outcome_source=?, quality=? WHERE id=?",
+                    (outcome if outcome else "routed", outcome_source, quality, routed_id),
                 )
             else:
                 conn.execute("""
                     INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
-                                           matched_skills, outcome, skill_name, tokens_used, ide)
-                    VALUES(?,?,?,?,?,?,?,?,?)
+                                           matched_skills, outcome, skill_name, tokens_used, ide,
+                                           outcome_source, quality)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
                 """, (task_summary or "outcome_reported", project, 0, "unknown", "[]",
-                      outcome or "routed", skill_name, tokens_used, ide))
+                      outcome or "routed", skill_name, tokens_used, ide, outcome_source, quality))
             conn.commit()
             return {
                 "status": "logged_non_terminal",
@@ -399,15 +411,16 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         # ── 1a. Update routing_log ─────────────────────────────────────
         if routed_id:
             conn.execute("""
-                UPDATE routing_log SET outcome=? WHERE id=?
-            """, (outcome, routed_id))
+                UPDATE routing_log SET outcome=?, outcome_source=?, quality=? WHERE id=?
+            """, (outcome, outcome_source, quality, routed_id))
         else:
             conn.execute("""
                 INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
-                                       matched_skills, outcome, skill_name, tokens_used, ide)
-                VALUES(?,?,?,?,?,?,?,?,?)
+                                       matched_skills, outcome, skill_name, tokens_used, ide,
+                                       outcome_source, quality)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)
             """, (task_summary or "outcome_reported", project, 0, "unknown", "[]",
-                  outcome, skill_name, tokens_used, ide))
+                  outcome, skill_name, tokens_used, ide, outcome_source, quality))
         
         # ── 1b. Update resource counters ───────────────────────────────
         if outcome == "correct":
@@ -1122,24 +1135,23 @@ def _update_cluster_affinity(conn, cluster_name: str, skill_name: str, outcome: 
         """, (cluster_name,)).fetchone()
         old_affinity = float(prior["new_affinity"]) if prior else 0.5
 
-        # B2: log an affinity history row for ALL outcomes, not just success.
-        #   correct → positive delta (+0.05 baseline, scaled via new_affinity)
-        #   wrong  → negative delta (-0.05)
-        #   partial→ neutral delta (0.0)
-        # Closes the asymmetric learning gap so the system learns which clusters are BAD too.
-        if outcome == "correct":
-            delta = 0.05
-        elif outcome == "wrong":
-            delta = -0.05
-        else:  # partial or unknown
-            delta = 0.0
+        # B2: log an affinity history row for ALL outcomes, not just success — so the system also
+        # learns which clusters are BAD. The written value is the Beta(1,1) posterior mean over the
+        # cluster's graded outcomes, NOT a saturating additive nudge.
+        # RCA-F5(learning.py:1139): FIXED — the old fixed ±0.05 additive delta saturated at the [0,1]
+        #   clamp under ~90% correct outcomes → flatline. Replaced with the Laplace-smoothed Beta mean
+        #   (correct+1)/(total+2), which asymptotes to the true success ratio and never pins at 1.0
+        #   (Chapelle & Li 2011). Aligns this write column with the live read path
+        #   (get_cluster_affinity_scores also uses correct/total). See docs/rca/F5-affinity-flatline.md
+        beta_affinity = (correct + 1.0) / (total + 2.0)
+        delta = beta_affinity - old_affinity  # retained for the audit reason string only
 
         conn.execute("""
             INSERT INTO cluster_affinity_history(cluster_name, trigger_query, old_affinity, new_affinity, reason)
             VALUES(?, ?, ?, ?, ?)
         """, (cluster_name, skill_name, old_affinity,
-              max(0.0, min(1.0, old_affinity + delta)),
-              f"outcome={outcome}, total={total}, correct={correct}, delta={delta}"))
+              round(beta_affinity, 4),
+              f"outcome={outcome}, total={total}, correct={correct}, beta={beta_affinity:.4f}, delta={delta:+.4f}"))
         conn.commit()
 
 
@@ -1177,6 +1189,9 @@ def _apply_affinity_decay(conn):
             continue
         
         if hours_since > _DECAY_STALE_HOURS:
+            # RCA-F5(learning.py:1188): decay (0.1%/step, every 50 outcomes, >24h stale) is far too
+            #   weak to counteract a +0.05 ratchet on active clusters. Prefer a γ-discounted sufficient
+            #   statistic (Garivier & Moulines 2011). See docs/rca/F5-affinity-flatline.md
             current = latest["new_affinity"]
             # Pull toward neutral (0.5) — the further from 0.5, the harder the pull
             new = current - _DECAY_RATE * (current - 0.5)

@@ -14,6 +14,7 @@ tier (times_triggered > 0, Thompson-driven) and a cold tier (never triggered,
 UCB-driven) and merges them.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import math
 import sqlite3
@@ -37,7 +38,7 @@ from router_v2.fusion import (  # noqa: E402
     ucb1_bonus,
 )
 
-DB_PATH = Path(__file__).resolve().parent.parent.parent / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 def _connect(db_path: str | Path = DB_PATH) -> sqlite3.Connection:

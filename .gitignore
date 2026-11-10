@@ -46,4 +46,5 @@ db/*.bak
 db/backups/
 logs/
 run/
+artifacts/
 .zcode/

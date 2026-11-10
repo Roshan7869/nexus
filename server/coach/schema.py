@@ -1,4 +1,5 @@
 """Coach schema management — table creation and DBTables dataclass."""
+from server.db import get_db_path as _resolve_db_path
 
 import os
 import sqlite3
@@ -8,7 +9,7 @@ from pathlib import Path
 
 DB_PATH = os.environ.get(
     "NEXUS_DB_PATH",
-    str(Path(__file__).parent.parent.parent / "db" / "nexus.db"),
+    str(_resolve_db_path()),
 )
 SCHEMA_SQL_PATH = Path(__file__).parent / "schema.sql"
 

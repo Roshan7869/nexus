@@ -2,6 +2,7 @@
 """
 Verification script for Phase 3: Epsilon-Greedy Routing.
 """
+from server.db import get_db_path as _resolve_db_path
 import sys
 import os
 import sqlite3
@@ -16,7 +17,7 @@ sys.path.insert(0, str(REPO_ROOT / "server"))
 
 from server.router import find_matching_skills
 
-DB_PATH = REPO_ROOT / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 class TestEpsilonGreedyRouting(unittest.TestCase):
     

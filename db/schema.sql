@@ -1,6 +1,14 @@
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
 
+-- RCA-F7a/F7d: KG design gaps requiring schema evolution (add idempotently via server/db.py ensure_*):
+--   F7a temporal facts   → add valid_at / invalid_at bitemporal envelope to edge/fact tables
+--                          (Graphiti 2025; Snodgrass 1999). See docs/rca/F7a-temporal-fact-model.md
+--   F7d provenance       → add source_ref / activity / agent to edges (W3C PROV-O 2013)
+--                          See docs/rca/F7d-provenance.md
+--   F7b identity resolution → new entity_resolution(entity_id, canonical_id, score, decision, method)
+--                          (Fellegi-Sunter 1969). See docs/rca/F7b-identity-resolution.md
+
 CREATE TABLE IF NOT EXISTS resources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,

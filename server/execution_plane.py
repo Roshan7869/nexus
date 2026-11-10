@@ -125,6 +125,35 @@ def _belief_delta(
     return deltas
 
 
+# ── A07: session artifact manifest (evidence-in-context) ──────────────
+# The manifest (paths + hashes) is the Cordis test-word list for a session:
+# same manifest ⇒ same evidence. Backfill-safe: missing dir → None / [].
+ARTIFACTS_ROOT = Path(
+    os.environ.get("NEXUS_ARTIFACTS_DIR", str(NEXUS_ROOT / "artifacts"))
+)
+
+
+def artifact_dir(session_id: str) -> Path:
+    d = ARTIFACTS_ROOT / session_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def artifact_manifest(session_id: str) -> tuple[str | None, list[dict[str, Any]]]:
+    d = ARTIFACTS_ROOT / session_id
+    if not d.is_dir():
+        return None, []
+    import hashlib
+
+    items = []
+    for f in sorted(d.iterdir()):
+        if not f.is_file():
+            continue
+        digest = hashlib.sha256(f.read_bytes()).hexdigest()
+        items.append({"path": str(f), "sha256": digest, "bytes": f.stat().st_size})
+    return str(d), items
+
+
 def health_v1() -> dict[str, Any]:
     """GET /v1/health payload."""
     from server.router_cutover import get_router_status
@@ -171,6 +200,7 @@ def open_session(
     ide: str = "http",
     use_embedding: bool = True,
     ide_session_id: str | None = None,
+    local_session=None,  # M6: prebuilt LocalHarnessSession; None = legacy path
 ) -> dict[str, Any]:
     """Open an execution session: route + load tools + harness plan."""
     task = (task or "").strip()
@@ -190,15 +220,19 @@ def open_session(
     # 2) Ephemeral tool session (learning on report only)
     from server.tool_session_broker import get_tool_session_broker
     broker = get_tool_session_broker()
-    # Prefer tools from route skills names
-    session = broker.start_session(
-        project=project,
-        query=task,
-        ide=ide,
-        use_embedding=use_embedding,
-        max_tools=budget,
-        ide_session_id=ide_session_id,
-    )
+    if local_session is None:
+        # Prefer tools from route skills names
+        session = broker.start_session(
+            project=project,
+            query=task,
+            ide=ide,
+            use_embedding=use_embedding,
+            max_tools=budget,
+            ide_session_id=ide_session_id,
+        )
+    else:
+        # M6: prebuilt LocalHarnessSession (already started + effect-tracked)
+        session = local_session.inner
 
     # Prefer cutover ranking order when present
     skill_names = [
@@ -321,6 +355,14 @@ def report_session(
     after = _belief_snapshot(tools)
     deltas = _belief_delta(before, after)
 
+    # A07: evidence manifest (additive keys only; backfill-safe for old sessions).
+    adir = ARTIFACTS_ROOT / session_id
+    if adir.is_dir():
+        import json as _json
+        (adir / "summary.json").write_text(_json.dumps(
+            {"outcome": o, "notes": notes, "quality": quality}))
+    artifacts_dir, manifest = artifact_manifest(session_id)
+
     return {
         "contract": CONTRACT,
         "version": API_VERSION,
@@ -334,6 +376,8 @@ def report_session(
         "belief_updated": len(deltas) > 0,
         "notes": notes,
         "quality": quality,
+        "artifacts_dir": artifacts_dir,
+        "artifact_manifest": manifest,
     }
 
 

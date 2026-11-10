@@ -12,9 +12,13 @@ Passes:
        NEXUS_PRUNE_SIMILAR env; backs up to resource_edges_backup).
   7g — networkx Louvain community detection with resolution sweep (gated
        write via --write-communities). Leiden-CPM is the out-of-session upgrade.
+  7h — typed edges (second-brain-kg L1-a): alternative_to (same-cluster
+       cos>=0.82, never co-triggered) + documented_by (doc wikilinks /
+       name correspondence). Runs with the default pass sequence.
 
 Reversible: edges added in this run get created_at = run timestamp;
-    DELETE FROM resource_edges WHERE created_at >= '<run_ts>' AND edge_type='similar_to'.
+    DELETE FROM resource_edges WHERE created_at >= '<run_ts>' AND edge_type='similar_to';
+    7h: ... AND edge_type IN ('alternative_to','documented_by').
 
 Usage: python3 scripts/densify_kg.py [--dry-run] [--threshold 0.65]
        [--prune-cotrigger] [--write-communities]
@@ -22,6 +26,7 @@ Usage: python3 scripts/densify_kg.py [--dry-run] [--threshold 0.65]
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -487,6 +492,199 @@ def pass_7g_communities(conn, dry_run, write=False):
     return chosen
 
 
+# ── 7h typed edges (second-brain-kg L1-a) ───────────────────────────────────
+TYPED_ALT_THRESHOLD = 0.82   # stricter than similar_to's 0.65
+TYPED_ALT_CAP = 4            # max alternative_to per node
+TYPED_DOC_TYPES = ("doc", "spec", "topic")     # explainer types (wikilink signal)
+TYPED_TOOL_TYPES = ("skill", "agent", "command", "cli_tool", "mcp", "hook")
+TYPED_NAME_PREFIXES = ("skills-", "docs-", "claude-skill-")  # name/path signal
+_WIKILINK_RE = None          # lazy compile (module import stays light)
+
+
+def _norm_name(s: str) -> str:
+    return re.sub(r"[\s_]+", "-", (s or "").strip().lower())
+
+
+def _co_triggered_pairs(conn) -> set[tuple[int, int]]:
+    """Unordered pairs with ANY co-trigger evidence (complements, not substitutes)."""
+    pairs: set[tuple[int, int]] = set()
+    for a, b in conn.execute(
+        "SELECT source_id, target_id FROM resource_edges "
+        "WHERE edge_type='co_triggered' AND co_trigger_count > 0"
+    ).fetchall():
+        pairs.add((a, b))
+        pairs.add((b, a))
+    return pairs
+
+
+def _resolve_wikilink(target: str, name_by_norm: dict) -> int | None:
+    """Resolve a [[wikilink]] target to a resource id (path/heading tolerant)."""
+    t = (target or "").strip().lower()
+    if not t:
+        return None
+    segs = re.split(r"[/#]", t)
+    cands = [t]
+    cands += ["/".join(segs[i:]) for i in range(1, len(segs))]
+    cands.append(segs[-1])
+    if len(segs) >= 2 and segs[0].rstrip("s") in {
+            p.rstrip("s") for p in TYPED_DOC_TYPES + ("skill", "agent", "command", "mcp", "hook")}:
+        cands.append("/".join(segs[1:]))
+    for c in dict.fromkeys(cands):
+        rid = name_by_norm.get(_norm_name(c))
+        if rid is not None:
+            return rid
+    return None
+
+
+def _derive_documented_by(conn, typed_existing: set[tuple[int, int]]) -> list[tuple[int, int, float]]:
+    """(documented_resource, explaining_doc, weight): skill/tool → doc that
+    explains it (direction per second-brain-kg change doc role statement).
+
+    Signal 1 — obsidian [[wikilinks]] in doc-like bodies (topic/doc/spec
+    resources reference what they explain). Signal 2 — name/path
+    correspondence: a doc named ``skills-X``/``docs-X``/``claude-skill-X``
+    explains skill ``X``.
+    """
+    global _WIKILINK_RE
+    if _WIKILINK_RE is None:
+        _WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+    name_by_norm: dict[str, int] = {}
+    type_by_id: dict[int, str] = {}
+    for rid, name, rtype in conn.execute(
+            "SELECT id, name, resource_type FROM resources").fetchall():
+        name_by_norm.setdefault(_norm_name(name), rid)
+        type_by_id[rid] = rtype
+
+    counts: dict[tuple[int, int], int] = {}
+    # signal 1: wikilinks from doc-like resources
+    for rid, rtype, body in conn.execute(
+        "SELECT id, resource_type, body_text FROM resources "
+        "WHERE body_text LIKE '%[[%'"
+    ).fetchall():
+        if rtype not in TYPED_DOC_TYPES or not body:
+            continue
+        for target in _WIKILINK_RE.findall(body):
+            dst = _resolve_wikilink(target, name_by_norm)
+            if dst is None or dst == rid:
+                continue
+            # only skill/tool -> doc counts; explainer -> explainer chains don't
+            if type_by_id.get(dst) not in TYPED_TOOL_TYPES:
+                continue
+            key = (dst, rid)          # source=skill/tool, target=explaining doc
+            if key in typed_existing:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+
+    # signal 2: name/path correspondence
+    type_ph = ",".join("?" * len(TYPED_DOC_TYPES))
+    for did, dname in conn.execute(
+        f"SELECT id, name FROM resources WHERE resource_type IN ({type_ph})",
+        TYPED_DOC_TYPES).fetchall():
+        d = _norm_name(dname)
+        for pref in TYPED_NAME_PREFIXES:
+            if d.startswith(pref):
+                rid = name_by_norm.get(d[len(pref):])
+                if (rid is not None and rid != did
+                        and type_by_id.get(rid) in TYPED_TOOL_TYPES
+                        and (rid, did) not in typed_existing):
+                    counts[(rid, did)] = max(counts.get((rid, did), 0), 0)
+                break
+
+    edges = []
+    for (skill, doc), n in counts.items():
+        # repeated wikilinks weigh more; name-only matches sit mid-scale
+        w = 0.9 if n > 1 else (0.7 if n == 1 else 0.5)
+        edges.append((skill, doc, w))
+    return edges
+
+
+def pass_7h_typed_edges(conn, ids, mat, dry_run):
+    """7h: alternative_to (same non-NULL cluster, cos>=0.82, never co-triggered)
+    + documented_by (doc wikilinks / name correspondence). Reversible via run_ts:
+        DELETE FROM resource_edges WHERE created_at >= '<run_ts>'
+          AND edge_type IN ('alternative_to','documented_by').
+
+    DELTA vs the plan sketch: alternative_to skips only pairs that already have
+    an alternative_to edge (or are co-triggered) — skipping ALL existing edges
+    would starve the pass of exactly the >=0.82 pairs 7b already typed
+    similar_to, i.e. the high-cos substitutes it exists to label. TYPED_ALT_CAP
+    is a *cumulative* per-node incident cap (counts source+target, pre-seeded
+    from existing rows) so repeated runs are idempotent, not cap-per-run.
+    """
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    cotrig = _co_triggered_pairs(conn)
+    type_pairs: dict[str, set[tuple[int, int]]] = {}
+    for et, a, b in conn.execute(
+        "SELECT edge_type, source_id, target_id FROM resource_edges "
+        "WHERE edge_type IN ('alternative_to','documented_by')").fetchall():
+        s = type_pairs.setdefault(et, set())
+        s.add((a, b))
+        s.add((b, a))
+    alt_existing = type_pairs.get("alternative_to", set())
+    doc_existing = type_pairs.get("documented_by", set())
+
+    # ── alternative_to: reuse the normalized mat (vectorized, no python double loop)
+    id_to_cluster = {r[0]: r[1] for r in conn.execute(
+        "SELECT id, cluster FROM resources WHERE cluster IS NOT NULL").fetchall()}
+    # cumulative incident count (source OR target) so the cap holds across runs
+    alt_incident: dict[int, int] = {}
+    for a, b in conn.execute(
+        "SELECT source_id, target_id FROM resource_edges "
+        "WHERE edge_type='alternative_to'").fetchall():
+        alt_incident[a] = alt_incident.get(a, 0) + 1
+        alt_incident[b] = alt_incident.get(b, 0) + 1
+    sim = mat @ mat.T
+    np.fill_diagonal(sim, -1.0)
+    alt_edges: list[tuple[int, int, float]] = []
+    for i, a in enumerate(ids):
+        if alt_incident.get(a, 0) >= TYPED_ALT_CAP:
+            continue
+        row = sim[i]
+        above = np.where(row >= TYPED_ALT_THRESHOLD)[0]
+        if above.size == 0:
+            continue
+        order = above[np.argsort(-row[above])]
+        for j in order:
+            if alt_incident.get(a, 0) >= TYPED_ALT_CAP:
+                break
+            b = ids[j]
+            ca = id_to_cluster.get(a)
+            if ca is None or ca != id_to_cluster.get(b):
+                continue                       # both must share a real cluster
+            if (a, b) in alt_existing or (b, a) in alt_existing:
+                continue                       # already typed this run/earlier
+            if (a, b) in cotrig:
+                continue                       # co-use = complement, not substitute
+            if alt_incident.get(b, 0) >= TYPED_ALT_CAP:
+                continue                       # cap counts both endpoints
+            alt_edges.append((a, b, float(row[j])))
+            alt_existing.add((a, b))
+            alt_existing.add((b, a))
+            alt_incident[a] = alt_incident.get(a, 0) + 1
+            alt_incident[b] = alt_incident.get(b, 0) + 1
+
+    # ── documented_by: docs explaining skills/tools
+    doc_edges = _derive_documented_by(conn, doc_existing)
+
+    print(f"7h: alternative_to={len(alt_edges)} documented_by={len(doc_edges)} "
+          f"{'(dry-run)' if dry_run else ''}")
+    if not dry_run and (alt_edges or doc_edges):
+        conn.executemany(
+            "INSERT INTO resource_edges "
+            "(source_id, target_id, edge_type, weight, co_trigger_count, created_at, updated_at) "
+            "VALUES (?, ?, 'alternative_to', ?, 0, ?, ?)",
+            [(a, b, round(w, 4), ts, ts) for a, b, w in alt_edges])
+        conn.executemany(
+            "INSERT INTO resource_edges "
+            "(source_id, target_id, edge_type, weight, co_trigger_count, created_at, updated_at) "
+            "VALUES (?, ?, 'documented_by', ?, 0, ?, ?)",
+            [(a, b, round(w, 4), ts, ts) for a, b, w in doc_edges])
+        conn.commit()
+        print(f"7h: inserted alternative_to={len(alt_edges)} "
+              f"documented_by={len(doc_edges)} (run_ts={ts})")
+    return len(alt_edges), len(doc_edges)
+
+
 def main():
     dry_run = "--dry-run" in sys.argv
     prune_cotrigger = "--prune-cotrigger" in sys.argv
@@ -517,6 +715,7 @@ def main():
         pass_7c_louvain_report(conn)
     pass_7e_promote_co_triggered(conn, dry_run, prune=prune_cotrigger)
     pass_7f_prune_similar_to(conn, ids, mat, dry_run, threshold=0.78)
+    n7h_alt, n7h_doc = pass_7h_typed_edges(conn, ids, mat, dry_run)
     pass_7g_communities(conn, dry_run, write=write_communities)
 
     after_0 = conn.execute(
@@ -531,6 +730,7 @@ def main():
     print(f"AFTER: 0-edge resources={after_0} (target <500, was {before_0})")
     print(f"AFTER: NULL cluster={after_null} (target <100, was {before_null})")
     print(f"AFTER: total edges={total_edges} (+{n7b} similar_to)")
+    print(f"  typed edges: +{n7h_alt} alternative_to, +{n7h_doc} documented_by (7h)")
     print(f"  0-edge delta: {before_0} -> {after_0} ({before_0 - after_0} resolved)")
     conn.close()
 

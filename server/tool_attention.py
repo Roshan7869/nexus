@@ -1,4 +1,5 @@
 """NEXUS v3 Tool Attention Router - complete integration."""
+from server.db import get_db_path as _resolve_db_path
 import os, json, sqlite3, threading, numpy as np, faiss
 from pathlib import Path
 from typing import Optional
@@ -7,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from lazy_loader import LazyLoader
 from cross_type_router import CrossTypeRouter
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 INDEX_PATH = Path.home() / "nexus/db/faiss/resources.index"
 DIM = 384
 MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"

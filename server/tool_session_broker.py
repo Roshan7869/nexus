@@ -115,6 +115,7 @@ class ToolSessionBroker:
         use_embedding: bool = False,
         max_tools: int = MAX_SESSION_TOOLS,
         ide_session_id: str | None = None,
+        ctx=None,  # M7: NexusContext for effect tracking; None = legacy behavior
     ) -> ToolSession:
         project = (project or "default").strip()
         query = (query or "").strip()
@@ -149,6 +150,18 @@ class ToolSessionBroker:
         )
         self._active[session_id] = session
         self._persist_session(session)
+        if ctx is not None:
+            # M7: Cordis temporal — register the persisted-row inverse, then
+            # declare cluster-implied coeffects. effect() runs the outer fn now
+            # and holds the returned inner lambda as the LIFO inverse.
+            ctx.effect(lambda sid=session_id: (lambda: self._inverse_for_persisted(sid)))
+            try:
+                from server.local_harness.session import keys_for_cluster as _kfc
+                _keys = _kfc(cluster)
+            except Exception:
+                _keys = ("db",)
+            for _k in _keys:
+                ctx.require(_k)
         if ide_session_id:
             try:
                 from server.ide_manager import get_manager
@@ -174,6 +187,7 @@ class ToolSessionBroker:
         ide_session_id: str | None = None,
         *,
         record_learning: bool = True,
+        ctx=None,  # M7: disposed after learning, before _active.pop; None = legacy
     ) -> dict[str, Any]:
         session = self._resolve_session(session_id)
         if session.status != "active":
@@ -190,6 +204,13 @@ class ToolSessionBroker:
         if record_learning:
             self._record_learning(session, outcome)
         self._update_persisted_session(session)
+        if ctx is not None:
+            # M7: run LIFO disposers after learning is recorded. dispose() is
+            # armed/at-most-once and never raises; belt-and-suspenders guard.
+            try:
+                ctx.dispose()
+            except Exception as exc:
+                logger.debug("ctx dispose skipped for %s: %s", session_id, exc)
         self._active.pop(session_id, None)
 
         if ide_session_id:
@@ -410,6 +431,24 @@ class ToolSessionBroker:
                 """,
                 (session.status, session.outcome, session.summary, session.session_id),
             )
+
+    def _inverse_for_persisted(self, session_id: str) -> None:
+        """Cordis inverse for start_session's INSERT: abandon the row IFF still active.
+
+        Conditional so an already-completed session is never clobbered
+        (completed work stands). Best-effort: never raises into the dispose chain.
+        """
+        try:
+            with db_conn() as conn:
+                conn.execute(
+                    """
+                    UPDATE tool_sessions SET status = 'abandoned'
+                    WHERE session_id = ? AND status = 'active'
+                    """,
+                    (session_id,),
+                )
+        except Exception as exc:
+            logger.debug("persisted-session inverse skipped for %s: %s", session_id, exc)
 
     def _archive_context(self, session: ToolSession) -> None:
         if not session.context_block and not session.summary:

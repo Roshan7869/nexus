@@ -1,9 +1,10 @@
 """NEXUS DB bridge — query resources, routing_log, outcome_log, learnings."""
+from server.db import get_db_path as _resolve_db_path
 import sqlite3
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 def get_conn() -> sqlite3.Connection:

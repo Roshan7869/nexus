@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **nexus** (8712 symbols, 15191 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **nexus** (11120 symbols, 18515 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -42,3 +42,22 @@ This project is indexed by GitNexus as **nexus** (8712 symbols, 15191 relationsh
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Skill routing (NEXUS)
+
+Match the task to a skill first, then follow that skill's steps. Skills live in `skills/<name>/SKILL.md`.
+
+| Intent | Skill |
+|--------|-------|
+| Any coding task routed through NEXUS | `nexus-router` — `task_start` → use only the listed tools → `task_complete` |
+| Open, report, or reconcile an IDE-local harness session (sites bound per `task_type`) | `nexus-harness` — `local_harness_open(task_type=…)` → `local_harness_report` (returns `sites_released`) → `local_harness_reconcile` |
+| Change routing weights or logic | `nexus-eval` — A/B gate (`router_ab_suite`, `route_ab_compare`) must pass before proposing |
+| Over-engineering review of a diff | `ponytail-review` |
+| Whole-repo over-engineering audit | `ponytail-audit` |
+| Harvest `ponytail:` deferral comments | `ponytail-debt` |
+
+Rules:
+- Never improvise tools outside a skill's listed set.
+- Never skip the closing step (`task_complete` / `local_harness_report`); learning depends on it.
+- No default-weight change without a passing A/B receipt.
+- Session start: follow the NEXUS Session Protocol above (`project_attach` → `project_resume`).

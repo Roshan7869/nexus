@@ -166,8 +166,45 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
     The original CHECK constraint ``CHECK(outcome IN ('correct','wrong','partial'))``
     was too restrictive — ``auto_invoke`` writes ``'pending'`` as a transient state.
     This migration replaces the constraint with the broader set.
+
+    Idempotency: three branches. A **missing** table is created fresh with the
+    relaxed CHECK. An existing **strict** table takes the one-time copy-rebuild
+    (explicit 12-column copy, not ``SELECT *``, to survive width drift vs
+    db/schema.sql). A table that **already allows** 'routed'/'pending' skips
+    straight to the additive-ALTER block — a blind re-run of the rebuild would
+    feed 20+ live columns into the 14-column temp table and crash.
     """
-    conn.executescript("""
+    existing_sql_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='routing_log'"
+    ).fetchone()
+    table_exists = existing_sql_row is not None
+    existing_sql = (existing_sql_row[0] if existing_sql_row else "") or ""
+    already_relaxed = "'routed'" in existing_sql or "'pending'" in existing_sql
+    if not table_exists:
+        # Fresh DB: create the table directly with the relaxed CHECK. The
+        # copy-rebuild below assumes an existing table to rename, so a missing
+        # table must take this path — otherwise the RENAME crashes with
+        # "no such table: routing_log".
+        conn.executescript("""
+        CREATE TABLE routing_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_summary TEXT NOT NULL,
+            project TEXT NOT NULL DEFAULT 'default',
+            matched_tier INTEGER NOT NULL,
+            matched_model TEXT NOT NULL,
+            matched_skills TEXT NOT NULL DEFAULT '[]',
+            actual_model_used TEXT,
+            outcome TEXT CHECK(outcome IN ('correct','wrong','partial','pending','routed')),
+            skill_name TEXT,
+            tokens_used INTEGER DEFAULT 0,
+            ide TEXT NOT NULL DEFAULT 'unknown' CHECK(ide IN ('opencode','claude-code','unknown','hermes','codex','mcp','auto_invoke','http','eval','pytest')),
+            action_type TEXT,
+            repeat_count_1h INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    """)
+    elif not already_relaxed:
+        conn.executescript("""
         -- Create a temporary table without the strict CHECK
         CREATE TABLE IF NOT EXISTS routing_log_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,9 +223,18 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Copy data if old table exists
+        -- Copy data if old table exists. Explicit column list (not SELECT *)
+        -- so this survives column drift between db/schema.sql's routing_log and
+        -- routing_log_new — a bare SELECT * crashes when the two definitions
+        -- differ in width (they do: schema.sql omits action_type/repeat_count_1h).
         INSERT OR IGNORE INTO routing_log_new
-            SELECT * FROM routing_log;
+            (id, task_summary, project, matched_tier, matched_model,
+             matched_skills, actual_model_used, outcome, skill_name,
+             tokens_used, ide, created_at)
+            SELECT id, task_summary, project, matched_tier, matched_model,
+                   matched_skills, actual_model_used, outcome, skill_name,
+                   tokens_used, ide, created_at
+            FROM routing_log;
 
         -- Rename tables (drop old, rename new)
         DROP TABLE IF EXISTS routing_log_old;
@@ -207,6 +253,11 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
         "ALTER TABLE routing_log ADD COLUMN cost REAL",
         "ALTER TABLE routing_log ADD COLUMN injected_ctx_len INTEGER DEFAULT 0",
         "ALTER TABLE routing_log ADD COLUMN harness_tag TEXT DEFAULT 'raw-api'",
+        # G12 — audit marker so a derived/auto-closed verdict is distinguishable
+        # from an explicit human one. NULL on legacy rows (predate the column).
+        # outcome_source ∈ {'explicit','derived','timeout'}; quality ∈ [0,1].
+        "ALTER TABLE routing_log ADD COLUMN outcome_source TEXT",
+        "ALTER TABLE routing_log ADD COLUMN quality REAL",
     ):
         try:
             conn.execute(_ddl)

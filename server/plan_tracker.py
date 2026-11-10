@@ -15,6 +15,7 @@ Usage:
     next_phase = get_next_plan(plan)
     complete_phase(plan["id"])
 """
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import logging
@@ -25,7 +26,7 @@ from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 
 
 def _connect():

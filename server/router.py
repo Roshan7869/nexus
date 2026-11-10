@@ -16,6 +16,7 @@ When routing (Thompson) ON: Step 6 overrides tier model selection.
 
 Papers: ToolkenGPT (2310.03054), Reflexion (2303.11366), SWE-agent (2405.15793)
 """
+from server.db import get_db_path as _resolve_db_path
 import sys, json, sqlite3, os, logging, time, hashlib, math, re, random
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -33,7 +34,9 @@ except Exception:
     intent_log = None
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = REPO_ROOT / 'db' / 'nexus.db'
+DB_PATH = _resolve_db_path()
+
+from traffic_class import classify_traffic  # noqa: E402
 
 # ── Feature Flags — imported from centralized config ──
 # Resolution: YAML > env var > code default (false).
@@ -1270,15 +1273,35 @@ def _log_decision(task: str, result: dict, outcome: str = None,
         conn.execute("PRAGMA busy_timeout=15000")
         skills_json = json.dumps([s["name"] for s in result.get("skills", [])])[:500]
         cur = conn.cursor()
+        # Instrumentation: these columns were schema-present but never written,
+        # so routing latency / cost / context-injection / traffic class were
+        # unmeasurable. Populated best-effort from `result`; absent values stay
+        # NULL rather than being faked with 0.
+        top_skill = result.get("skills", [{}])[0] if result.get("skills") else {}
+        traffic = classify_traffic(task, result.get("project"), ide)
+        # route_match: did the intent classifier drive the top pick?
+        # 1 = intent-sourced, 0 = iso/fallback-sourced, NULL = undeterminable.
+        src = top_skill.get("_source") if isinstance(top_skill, dict) else None
+        route_match = 1 if src == "intent" else (0 if src else None)
         cur.execute("""
             INSERT INTO routing_log(task_summary, project, matched_tier, matched_model,
-                                   matched_skills, outcome, skill_name, ide)
-            VALUES(?,?,?,?,?,?,?,?)
+                                   matched_skills, outcome, skill_name, ide,
+                                   action_type, intent, route_match, latency_ms,
+                                   cost, tokens_used, injected_ctx_len, harness_tag)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (task[:200], result.get("project", "default"),
               result.get("tier", 0), result.get("model", "unknown"),
               skills_json, outcome,
-              result.get("skills", [{}])[0].get("name") if result.get("skills") else None,
-              ide))
+              top_skill.get("name") if isinstance(top_skill, dict) else None,
+              ide,
+              result.get("method"),
+              result.get("cluster") or result.get("task_type"),
+              route_match,
+              result.get("latency_ms"),
+              result.get("cost"),
+              result.get("tokens_used", 0),
+              result.get("injected_ctx_len", 0),
+              traffic))
         conn.commit()
         rowid = cur.lastrowid
         conn.close()

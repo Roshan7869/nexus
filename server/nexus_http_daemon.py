@@ -19,6 +19,7 @@ Endoints:
 Based on: AUDIT-3 Phase 2a — Persistent Daemon + MCP Integration
 Audit-4: All blocking sync calls now wrapped in run_in_executor to unblock event loop.
 """
+from server.db import get_db_path as _resolve_db_path
 
 import os
 import sys
@@ -37,7 +38,7 @@ from typing import Optional
 # ── Paths ───────────────────────────────────────────────
 SERVER_DIR = Path(__file__).parent.resolve()
 PROJECT_DIR = SERVER_DIR.parent
-DB_PATH = Path.home() / "nexus/db/nexus.db"
+DB_PATH = _resolve_db_path()
 
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(SERVER_DIR))

@@ -4,6 +4,7 @@ Wraps ``research_pipeline.ResearchPipeline`` with site-registry project
 context, optional ingestion into NEXUS resources, and project_contexts persistence.
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import sqlite3
@@ -14,7 +15,7 @@ from typing import Any
 from server.research_pipeline import ResearchPipeline, SOURCES
 
 NEXUS_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = NEXUS_ROOT / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 
 # Gate: ≥2 sources return findings (second-brain P9)
 MIN_SOURCES_GATE = 2

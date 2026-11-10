@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sqlite3
 import time
 from collections import Counter
 from typing import Any
@@ -68,7 +69,31 @@ def get_feedback_coverage(conn=None) -> dict[str, Any]:
         ts_correct = conn.execute(
             "SELECT COUNT(*) FROM tool_sessions WHERE outcome = 'correct'"
         ).fetchone()[0]
-        return {
+        # G12 — explicit-vs-derived split of the terminal-outcome rows. Makes the
+        # headline routing_coverage_pct auditable (how much is human verdict vs
+        # timeout/derived auto-close). Guarded: a pre-migration DB (no
+        # outcome_source column) returns the legacy shape without these keys.
+        by_outcome_source: dict[str, int] = {}
+        explicit_with_outcome = derived_with_outcome = None
+        try:
+            by_outcome_source = {
+                (r[0] or "legacy_null"): r[1]
+                for r in conn.execute(
+                    """
+                    SELECT outcome_source, COUNT(*) FROM routing_log
+                    WHERE outcome IN ('correct','wrong','partial')
+                    GROUP BY outcome_source
+                    """
+                ).fetchall()
+            }
+            explicit_with_outcome = by_outcome_source.get("explicit", 0)
+            derived_with_outcome = sum(
+                v for k, v in by_outcome_source.items()
+                if k in ("timeout", "derived")
+            )
+        except sqlite3.OperationalError:
+            pass  # column not migrated yet — omit the split, keep legacy shape
+        result = {
             "routing_log_total": total_routes,
             "routing_log_with_outcome": with_outcome,
             "routing_log_pending": null_outcome,
@@ -80,6 +105,11 @@ def get_feedback_coverage(conn=None) -> dict[str, Any]:
             "tool_sessions_correct": ts_correct,
             "session_success_pct": round(100.0 * ts_correct / max(ts_done, 1), 2),
         }
+        if explicit_with_outcome is not None:
+            result["explicit_with_outcome"] = explicit_with_outcome
+            result["derived_with_outcome"] = derived_with_outcome
+            result["by_outcome_source"] = by_outcome_source
+        return result
     finally:
         if owns:
             conn.close()

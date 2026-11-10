@@ -245,3 +245,98 @@ def backfill_cold_sections(
         "cold_without_sections_remaining": remaining,
         "okf_residual_gate_pass": remaining <= 20,
     }
+
+
+def backfill_section_embeddings(
+    conn: sqlite3.Connection,
+    batch_size: int = 256,
+    report: Any = None,
+) -> dict[str, int]:
+    """Populate section-grain embeddings (decision D1 vec arm, gap 5 follow-on).
+
+    Encodes every ``resource_sections.content`` lacking a row in
+    ``section_embeddings`` and writes both stores:
+
+    * ``section_embeddings`` — float32[384] blob per section (cosine rerank)
+    * ``vec_sections_content`` — vec0 bit[384] row per section (Hamming scan,
+      created/repaired by :class:`router_v2.chunk_index.SectionIndex`)
+
+    Encoding is text-hash cached in the shared ``chunk_embed_cache``, so text
+    already embedded as a chunk is reused — only genuinely new text hits the
+    model. Re-running is a no-op once coverage is complete.
+
+    Args:
+        conn: open connection to nexus.db (committed by caller afterwards;
+            encode_batch may commit the shared embed cache on this conn).
+        batch_size: sections per model encode call.
+        report: optional callable ``(phase: str, done: int, total: int)``.
+
+    Returns: ``{candidates, embedded, skipped_empty}``.
+    """
+    import sys
+    from pathlib import Path
+
+    _server = Path(__file__).resolve().parent
+    if str(_server) not in sys.path:
+        sys.path.insert(0, str(_server))
+    from router_v2.chunk_embedder import ChunkEmbedder
+    from router_v2.chunk_index import SectionIndex
+
+    # SectionIndex first: its __init__ lazily creates section_embeddings and
+    # repairs the legacy plain vec_sections_content into a vec0 virtual table.
+    db = str(_default_db(conn))
+    embedder = ChunkEmbedder(db)
+    with SectionIndex(db, embedder=embedder) as idx:
+        # Missing in EITHER store counts as pending: a partial crash can leave
+        # floats without vec rows (or vice versa) — the re-run repairs both.
+        # Each membership set is read on a connection that can see its table
+        # (vec_sections_content is vec0 — only readable where the extension
+        # is loaded, i.e. on idx.con, not the caller's conn).
+        have_floats = {
+            int(r[0]) for r in conn.execute(
+                "SELECT section_id FROM section_embeddings"
+            ).fetchall()
+        }
+        have_vec = {
+            int(r[0]) for r in idx.con.execute(
+                "SELECT rowid FROM vec_sections_content"
+            ).fetchall()
+        }
+        rows = conn.execute(
+            "SELECT id, content FROM resource_sections"
+        ).fetchall()
+        todo = [
+            (int(r[0]), (r[1] or "")) for r in rows
+            if int(r[0]) not in have_floats or int(r[0]) not in have_vec
+        ]
+        skipped_empty = sum(1 for _, txt in todo if not txt.strip())
+        todo = [(sid, txt) for sid, txt in todo if txt.strip()]
+        total = len(todo)
+        if report:
+            report("start", 0, total)
+
+        if not total:
+            return {"candidates": 0, "embedded": 0, "skipped_empty": skipped_empty}
+
+        embedded = 0
+        for start in range(0, total, batch_size):
+            batch = todo[start:start + batch_size]
+            vecs = embedder.encode_batch([txt for _, txt in batch], con=conn)
+            idx.store_floats(
+                [(sid, txt, vecs[i]) for i, (sid, txt) in enumerate(batch)]
+            )
+            idx.add_many(
+                [(sid, vecs[i]) for i, (sid, _) in enumerate(batch)]
+            )
+            embedded += len(batch)
+            if report:
+                report("embed", embedded, total)
+    return {"candidates": total, "embedded": embedded, "skipped_empty": skipped_empty}
+
+
+def _default_db(conn: sqlite3.Connection) -> Path:
+    """Path of the database ``conn`` is attached to (fallback: repo db)."""
+    row = conn.execute("PRAGMA database_list").fetchone()
+    if row and row[2]:
+        return Path(row[2])
+    return Path(__file__).resolve().parent.parent / "db" / "nexus.db"

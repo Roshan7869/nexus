@@ -20,6 +20,7 @@ Performance (1,174 vectors × 384 dims):
   - Memory: 1.8MB (float32 matrix)
 """
 from __future__ import annotations
+from server.db import get_db_path as _resolve_db_path
 
 import json
 import logging
@@ -34,7 +35,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / "nexus" / "db" / "nexus.db"
+DB_PATH = _resolve_db_path()
 DIM = 384
 ROUTABLE_TYPES = {"skill", "command", "agent", "mcp"}
 
