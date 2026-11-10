@@ -163,7 +163,9 @@ def _record_smart_research_outcome(query: str, payload: dict, *, project: str) -
 
     label = "+".join(c for c in channels if c) or "plan_only"
     fused = payload.get("fused") or []
-    outcome = "correct" if fused or payload.get("channels") else "partial"
+    # The bridge does not judge outcomes: the payload is returned as-is and the
+    # verdict comes from the caller's explicit report_outcome (FIX-DESIGN S1-b).
+    outcome = "unverified"
     meta = {
         "intent": payload.get("intent"),
         "detected_fields": payload.get("detected_fields"),
@@ -177,7 +179,7 @@ def _record_smart_research_outcome(query: str, payload: dict, *, project: str) -
         project=project,
         ide="claude-code",
         tokens_used=0,
-        quality=0.85 if outcome == "correct" else 0.5,
+        quality=None,
     )
 
 

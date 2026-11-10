@@ -146,10 +146,27 @@ def get_bridge() -> EventBridge:
         _bridge = EventBridge()
     return _bridge
 
+_OUTCOME_TO_LEARNING = {"error": "wrong", "timeout": "skip"}
+
+
 def record_outcome(outcome: str, route_result: Dict, ide: str = "unknown"):
-    """Convenience: one-call outcome recording."""
-    bridge = get_bridge()
-    return bridge.outcome_to_event(outcome, route_result, ide)
+    """Delegate to learning.record_outcome: one writer for outcome counters.
+
+    Only the learning module updates resource counters and beliefs
+    (FIX-DESIGN S1-e). Returns None when learning is disabled.
+    """
+    if not LEARNING_ENABLED:
+        return None
+    from server.learning import record_outcome as _learning_record
+    route_result = route_result or {}
+    label = _OUTCOME_TO_LEARNING.get(outcome, outcome)
+    return _learning_record(
+        skill_name=route_result.get("skill_name") or route_result.get("task_type") or "unknown",
+        outcome=label,
+        task_summary=str(route_result.get("task_summary", ""))[:200],
+        project=route_result.get("project", "default"),
+        ide=ide,
+    )
 
 def shutdown_bridge():
     global _bridge

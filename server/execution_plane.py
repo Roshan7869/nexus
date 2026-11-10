@@ -241,8 +241,9 @@ def open_session(
     ]
     if skill_names:
         session.tools_loaded = skill_names[:budget]
+        # Do not persist here: _update_persisted_session stamps ended_at, which
+        # marks an open session as closed (FIX-DESIGN S1-d). Only close sets it.
         try:
-            broker._update_persisted_session(session)  # type: ignore[attr-defined]
             broker._active[session.session_id] = session
         except Exception:
             pass
@@ -338,7 +339,7 @@ def report_session(
                 task_summary=session.query[:200],
                 project=session.project,
                 ide=session.ide,
-                quality=float(quality or 1.0),
+                quality=None if quality is None else float(quality),
                 co_skills=co,
             )
         )
