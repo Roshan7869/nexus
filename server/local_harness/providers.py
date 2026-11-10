@@ -35,14 +35,23 @@ def _net_ok(timeout: float = 0.3) -> bool:
         return False
 
 
-def liveness_snapshot(realm: str) -> dict[str, bool]:
+def site_key(url: str) -> str:
+    """Stable coeffect key for a site URL (P1.2): ``site:<sha1[:12]>``."""
+    import hashlib
+    return "site:" + hashlib.sha1(str(url).encode("utf-8")).hexdigest()[:12]
+
+
+def liveness_snapshot(realm: str, sites: dict[str, bool] | None = None) -> dict[str, bool]:
     """Best-effort {coeffect_key: alive} for the coeffect keys. Never raises.
 
     Args:
         realm: session realm (``local:<session_id>``); reserved for per-realm
             probing (e.g. bound git_root) — today all probes are process-wide.
+        sites: session-owned ``site:<id>`` states (P1.2). Caller-supplied,
+            since site liveness is per session, not process-wide.
 
-    Returns: keys ``db``, ``faiss``, ``git``, ``internet``, ``embedder``.
+    Returns: keys ``db``, ``faiss``, ``git``, ``internet``, ``embedder``,
+    plus any ``site:`` keys passed in ``sites``.
     """
     live: dict[str, bool] = {}
 
@@ -79,5 +88,9 @@ def liveness_snapshot(realm: str) -> dict[str, bool]:
         live["embedder"] = True
     except Exception:
         live["embedder"] = False
+
+    for key, alive in (sites or {}).items():
+        if str(key).startswith("site:"):
+            live[str(key)] = bool(alive)
 
     return live

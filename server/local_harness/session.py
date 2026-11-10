@@ -44,6 +44,8 @@ class LocalHarnessSession:
         self.state = INACTIVE
         self._committed: dict[str, str] = {}  # ω committed provider view
         self._resolve: Callable[[str], str] | None = None  # last commit resolver (M9 recommit)
+        self.site_urls: dict[str, str] = {}   # P1.2: site:<id> key -> URL bound to this task
+        self._site_live: dict[str, bool] = {}  # P1.2: session-owned site liveness
         # Armed guard lives on ctx (single source); dispose() delegates.
 
     def effect(self, fn: Callable[[], Any]) -> None:
@@ -75,7 +77,7 @@ class LocalHarnessSession:
         from server.local_harness.context import classify_transition
         if current is None:
             from server.local_harness.providers import liveness_snapshot
-            current = liveness_snapshot(self.ctx.realm)
+            current = liveness_snapshot(self.ctx.realm, sites=self._site_live)
         before = {k: (self._committed.get(k) is not None) for k in self.ctx.deps}
         events = classify_transition(before, {k: current.get(k, False) for k in self.ctx.deps})
         if self.state == INACTIVE and any(v == "activating" for v in events.values()):
@@ -102,14 +104,25 @@ class LocalHarnessSession:
         self.ctx.dispose()
 
 
+def _task_site_urls(project: str, task_type: str) -> list[str]:
+    """Sites bound to (project, task_type); [] on any registry problem (P1.1)."""
+    try:
+        from server.site_registry import get_task_sites
+        return get_task_sites(project, task_type)
+    except Exception:
+        return []
+
+
 def open_local_session(task: str, project: str = "default", budget: int = 8,
-                       ide: str = "opencode") -> LocalHarnessSession:
+                       ide: str = "opencode", task_type: str = "general") -> LocalHarnessSession:
     """Route + start broker session, wrap in Cordis-style session.
 
     The ctx is created FIRST and passed into the broker so M7 registers the
     persisted-row inverse and cluster coeffects on the live path (not just tests).
+    Sites bound to (project, task_type) become ``site:<id>`` coeffects (P1.2).
     """
     from server.local_harness.context import NexusContext
+    from server.local_harness.providers import site_key
     from server.tool_session_broker import get_tool_session_broker
     broker = get_tool_session_broker()
     ctx = NexusContext(realm="local:pending")
@@ -117,6 +130,10 @@ def open_local_session(task: str, project: str = "default", budget: int = 8,
                              max_tools=min(max(1, budget), 8), ctx=ctx)
     lh = LocalHarnessSession(s, realm=f"local:{s.session_id}", ctx=ctx)
     lh.require(*keys_for_cluster(s.cluster))
+    lh.site_urls = {site_key(u): u for u in _task_site_urls(project, task_type)}
+    if lh.site_urls:
+        lh.require(*lh.site_urls)
+    lh._site_live = {k: True for k in lh.site_urls}  # P1.3 flips this per harvest result
     lh.commit_providers(resolve=lambda k: f"{k}:{s.session_id}")
     lh.state = ACTIVE  # providers committed at open → session is live; refresh() reacts from here
     _WRAPPERS[s.session_id] = lh
