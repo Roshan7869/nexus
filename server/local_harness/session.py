@@ -46,6 +46,8 @@ class LocalHarnessSession:
         self._resolve: Callable[[str], str] | None = None  # last commit resolver (M9 recommit)
         self.site_urls: dict[str, str] = {}   # P1.2: site:<id> key -> URL bound to this task
         self._site_live: dict[str, bool] = {}  # P1.2: session-owned site liveness
+        self.site_status: dict[str, str] = {}  # P1.3: URL -> "bound" | failure reason
+        self.project: str = ""                 # P1.3: project scope for harvested rows
         # Armed guard lives on ctx (single source); dispose() delegates.
 
     def effect(self, fn: Callable[[], Any]) -> None:
@@ -133,8 +135,11 @@ def open_local_session(task: str, project: str = "default", budget: int = 8,
     lh.site_urls = {site_key(u): u for u in _task_site_urls(project, task_type)}
     if lh.site_urls:
         lh.require(*lh.site_urls)
-    lh._site_live = {k: True for k in lh.site_urls}  # P1.3 flips this per harvest result
+    lh.project = project
     lh.commit_providers(resolve=lambda k: f"{k}:{s.session_id}")
+    if lh.site_urls:  # P1.3: harvest each site; failures become unsatisfied coeffects
+        from server.local_harness.sites import bind_all
+        bind_all(lh, session_id=s.session_id)
     lh.state = ACTIVE  # providers committed at open → session is live; refresh() reacts from here
     _WRAPPERS[s.session_id] = lh
     return lh
