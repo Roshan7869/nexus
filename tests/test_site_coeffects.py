@@ -180,3 +180,35 @@ def test_site_flap_disposes_rows_exactly_once(monkeypatch):
     state["alive"] = False
     asyncio.run(lh.refresh())                           # second loss: armed guard
     assert rows["deleted"] == [1]                       # still exactly one delete
+
+
+def test_mcp_local_harness_open_passes_task_type_and_reports_sites(monkeypatch):
+    import importlib.util, inspect, json
+    from pathlib import Path
+    import server.local_harness.session as sess
+
+    path = Path(__file__).resolve().parent.parent / "server" / "nexus-mcp-enhanced.py"
+    spec = importlib.util.spec_from_file_location("nexus_mcp_p15", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert inspect.signature(mod.local_harness_open).parameters["task_type"].default == "general"
+
+    seen = {}
+
+    def fake_open(task, project, budget, ide, task_type="general"):
+        seen["task_type"] = task_type
+        inner = SimpleNamespace(session_id="s1", to_dict=lambda: {"session_id": "s1"})
+        return SimpleNamespace(inner=inner, ctx=SimpleNamespace(realm="local:s1"),
+                               site_status={"https://docs.example/a": "bound"})
+
+    monkeypatch.setattr(sess, "open_local_session", fake_open)
+    monkeypatch.setattr(mod, "initialize_runtime", lambda: None, raising=False)
+    monkeypatch.setattr(mod, "_local_harness_enabled", lambda: True, raising=False)
+    monkeypatch.setattr(mod, "get_tool_session_broker", lambda: SimpleNamespace(
+        get_mcp_proxy_config=lambda sid: {}), raising=False)
+
+    out = json.loads(mod.local_harness_open("t", "kaari", 4, "opencode", task_type="coding"))
+    assert seen["task_type"] == "coding"
+    assert out["site_status"] == {"https://docs.example/a": "bound"}
+    assert out["session_kind"] == "local_harness"

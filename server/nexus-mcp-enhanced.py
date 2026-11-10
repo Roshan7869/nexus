@@ -1587,5 +1587,174 @@ from server.harness_mcp_bridge import register_harness_tools
 register_harness_tools(mcp)
 
 
+# ── Local harness tools (M5; additive — existing tools untouched) ──
+
+def _local_harness_enabled() -> bool:
+    # M05 contract: only the exact value "1" enables (default "1"); anything
+    # else — including "0"/unset-to-other — delegates to legacy task_start.
+    return os.environ.get("NEXUS_LOCAL_HARNESS", "1") == "1"
+
+
+@mcp.tool()
+def local_harness_open(
+    task: str,
+    project: str = "default",
+    budget: int = 8,
+    ide: str = "opencode",
+    task_type: str = "general",
+) -> str:
+    """Open a Cordis-style local-harness session (OpenCode-first).
+
+    ``task_type`` selects the project's per-task sites (P1.5); sites are
+    harvested on open and released on local_harness_report.
+    Flag off (NEXUS_LOCAL_HARNESS=0) delegates to task_start exactly.
+    """
+    if not _local_harness_enabled():
+        return task_start(query=task, project=project, ide=ide, max_tools=budget)
+    initialize_runtime()
+    from server.local_harness.session import open_local_session  # lazy
+    lh = open_local_session(task, project, budget, ide, task_type=task_type)
+    payload = lh.inner.to_dict()
+    payload["session_kind"] = "local_harness"
+    payload["realm"] = lh.ctx.realm
+    payload["site_status"] = dict(lh.site_status)
+    payload["mcp_proxy"] = get_tool_session_broker().get_mcp_proxy_config(
+        lh.inner.session_id)
+    payload["instructions"] = (
+        "Use only visible_tools for this task. "
+        "Call local_harness_report(session_id, outcome, summary) when finished."
+    )
+    return json.dumps(payload, indent=2)
+
+
+@mcp.tool()
+def local_harness_report(
+    session_id: str,
+    outcome: str = "correct",
+    notes: str = "",
+    quality: float = 1.0,
+    skill_name: str = "",
+) -> str:
+    """Close a local-harness session: belief_delta + LIFO dispose safety."""
+    initialize_runtime()
+    from server.local_harness.session import dispose_by_id  # lazy
+    return json.dumps(
+        dispose_by_id(session_id, outcome, notes, quality, skill_name), indent=2)
+
+
+@mcp.tool()
+def local_harness_reconcile(desired_json: str, project: str = "default",
+                            apply: bool = True) -> str:
+    """Diff a desired skill-entry tree against live resources and APPLY it (HMR).
+
+    CONTRACT: desired_json is the COMPLETE desired active set (declarative,
+    loader §5.2.1) — any active resource omitted from `entries` is ARCHIVED.
+    Pass apply=false for a dry-run preview (applied=false, no mutations, no
+    audit row).
+
+    Live (Phase 5): one txn per call — add/remove/reload/rebuild/reassign/
+    intercept mutate the resource surface (resources.status, cluster/sections,
+    intercept meta). On failure the loader reverses applied ops LIFO, the txn
+    rolls back (rolled_back=true, DB unchanged), and one row is written to
+    local_harness_reconciles either way (audit counts = pre-diff on failure).
+    Preview-only rollback: pass apply=false / delete apply_db.py.
+    """
+    from server.local_harness.apply_db import make_apply, record_reconcile
+    from server.local_harness.loader import Entry, EntryTree, diff_trees, reconcile
+    try:
+        desired_raw = json.loads(desired_json or "{}")
+    except Exception as exc:
+        return json.dumps({"error": f"invalid desired_json: {exc}"})
+    entries = {}
+    items = desired_raw.get("entries", desired_raw) if isinstance(desired_raw, dict) else []
+    if isinstance(items, dict):
+        items = items.values()
+    for e in items if isinstance(items, list) else []:
+        if isinstance(e, dict) and e.get("id"):
+            entries[e["id"]] = Entry(id=e["id"], kind=e.get("kind", "skill"),
+                                     config=e.get("config", {}),
+                                     disabled=bool(e.get("disabled", False)),
+                                     isolate=e.get("isolate", "local"),
+                                     intercept=e.get("intercept", {}) or {})
+    desired = EntryTree(entries)
+    try:
+        conn = get_db()
+    except Exception as exc:
+        return json.dumps({"error": f"resources snapshot failed: {exc}"})
+    try:
+        try:
+            current = EntryTree({
+                row["name"]: Entry(id=row["name"], kind="skill")
+                for row in conn.execute(
+                    "SELECT name FROM resources WHERE status = 'active'")})
+        except Exception as exc:
+            return json.dumps({"error": f"resources snapshot failed: {exc}"})
+        added, removed, maybe = diff_trees(current, desired)
+        base = {"project": project, "added": sorted(added),
+                "removed": sorted(removed), "maybe_changed": sorted(maybe)}
+        if not apply:
+            return json.dumps({**base, "applied": False,
+                               "reason": "preview (apply=false)"}, indent=2)
+        try:
+            report = reconcile(current, desired,
+                               apply=make_apply(conn, realm=f"local:{project}"))
+            conn.commit()
+        except Exception as exc:
+            # loader already reversed applied ops LIFO; txn rollback discards
+            # any partial writes → DB == prestate. Audit the failed run, then
+            # report rolled_back=true.
+            try:
+                conn.rollback()
+                record_reconcile(conn, project, added_ids=added,
+                                 removed_ids=removed, changed_ids=maybe,
+                                 extra={"rolled_back": True, "error": str(exc),
+                                        "applied_ops": []})
+                conn.commit()
+            except Exception:
+                print(f"[reconcile] audit row failed after rollback: {exc}",
+                      file=sys.stderr, flush=True)
+            return json.dumps({**base, "applied": False, "rolled_back": True,
+                               "error": str(exc)}, indent=2)
+        record_reconcile(conn, project, added_ids=report.added,
+                         removed_ids=report.removed,
+                         changed_ids=report.reloaded + report.rebuilt,
+                         extra={"rolled_back": report.rolled_back,
+                                "untouched": report.untouched})
+        conn.commit()
+        return json.dumps({**base,
+                           "changed": sorted(report.reloaded + report.rebuilt),
+                           "applied": not report.rolled_back,
+                           "rolled_back": report.rolled_back}, indent=2)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def local_harness_status() -> str:
+    """Local-harness status: flag, sessions, redis, router mode."""
+    try:
+        from server.tool_session_broker import get_tool_session_broker
+        active = len(get_tool_session_broker().list_active_sessions())
+    except Exception:
+        active = -1
+    try:
+        from server.router_cutover import get_router_status
+        router_mode = get_router_status().get("mode")
+    except Exception:
+        router_mode = "unknown"
+    try:
+        from server.cache import redis_cache  # may not exist pre-M12... it does (Wave 0)
+        redis_on = redis_cache.get_redis() is not None
+    except Exception:
+        redis_on = False
+    return json.dumps({
+        "local_harness": _local_harness_enabled(),
+        "active_sessions": active,
+        "redis_l4": redis_on,
+        "router_mode": router_mode,
+        "ide_default": "opencode",
+    }, indent=2)
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
