@@ -95,6 +95,35 @@ def get_project_urls(project: str, *, include_local: bool = False) -> list[str]:
     return urls
 
 
+def get_task_sites(project: str, task_type: str,
+                   registry: dict[str, Any] | None = None) -> list[str]:
+    """URLs for one task of one project (P1.1).
+
+    Uses ``projects.<project>.tasks.<task_type>.sites`` when present and
+    non-empty; otherwise falls back to the project-wide ``sites``.
+    Unknown project → []. Never raises on malformed entries.
+    """
+    reg = registry if registry is not None else load_site_registry()
+    projects = reg.get("projects") or {}
+    key = (project or "").strip().lower()
+    spec = projects.get(key) if isinstance(projects, dict) else None
+    if not isinstance(spec, dict):
+        return []
+
+    def _urls(entries: Any) -> list[str]:
+        if not isinstance(entries, list):
+            return []
+        return [str(e["url"]) for e in entries if isinstance(e, dict) and e.get("url")]
+
+    tasks = spec.get("tasks") or {}
+    task = tasks.get((task_type or "").strip().lower()) if isinstance(tasks, dict) else None
+    if isinstance(task, dict):
+        urls = _urls(task.get("sites"))
+        if urls:
+            return urls
+    return _urls(spec.get("sites"))
+
+
 def get_domain_rules() -> dict[str, dict]:
     reg = load_site_registry()
     rules = reg.get("domain_rules") or {}

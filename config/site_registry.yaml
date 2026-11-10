@@ -3,6 +3,11 @@
 
 version: 1
 
+# Per-task sites (optional, under any project):
+#   projects.<id>.tasks.<task_type>.sites: [{url: ...}]
+# A task uses its own sites when non-empty, else the project-wide `sites`.
+# Loader: server/site_registry.py get_task_sites(project, task_type).
+
 publishers:
   harvard:
     label: Harvard University
