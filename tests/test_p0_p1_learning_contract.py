@@ -197,7 +197,8 @@ class TestG12RouteLifecycle(unittest.TestCase):
             "SELECT outcome, outcome_source, quality FROM routing_log"
             " WHERE skill_name='g12-skill'"
         ).fetchone()
-        self.assertEqual(row["outcome"], "correct")
+        # An unobserved timeout is telemetry ("routed"), never a terminal "correct".
+        self.assertEqual(row["outcome"], "routed")
         self.assertEqual(row["outcome_source"], "timeout")  # derived, not explicit
         self.assertEqual(row["quality"], 0.3)
         raw.close()

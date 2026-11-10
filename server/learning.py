@@ -177,11 +177,20 @@ TERMINAL_OUTCOMES = frozenset({"correct", "wrong", "partial", "skip"})
 NON_TERMINAL_OUTCOMES = frozenset({"routed", "pending", "null", ""})
 
 
+_SCHEMA_OUTCOMES = {"correct", "wrong", "partial", "pending", "routed", "skip"}
+# Non-terminal states written by swarm fixes (unverified, dispatched, executed,
+# blocked) are not in the routing_log CHECK constraint, so they are telemetry
+# recorded as "routed". They never touch counters (see TERMINAL_OUTCOMES).
+_UNOBSERVED_LABELS = {"unverified", "dispatched", "executed", "blocked"}
+
+
 def _normalize_outcome_label(outcome: str | None) -> str:
     if outcome is None:
         return "routed"
     label = str(outcome).strip().lower()
     if label in ("none", "null", "nil"):
+        return "routed"
+    if label in _UNOBSERVED_LABELS:
         return "routed"
     return label
 
@@ -522,7 +531,8 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                     pass
         
         # ── 2. Bridge to Thompson Sampling ─────────────────────────────
-        if THOMPSON_ENABLED:
+        # quality None = not measured. An unmeasured outcome moves no belief.
+        if THOMPSON_ENABLED and quality is not None:
             try:
                 _update_thompson_belief(conn, skill_name, outcome, task_summary,
                                         quality=quality)

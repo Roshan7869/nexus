@@ -445,7 +445,7 @@ class TestPhase9_BrokerRuntime(unittest.TestCase):
             run = broker_runtime.create_task_run(
                 "audit routing quality",
                 ide_name="hermes",
-                mode="godmode",
+                mode="safemode",  # godmode is refused for callers (design T2-2)
                 project="default",
                 auto_execute=True,
             )
