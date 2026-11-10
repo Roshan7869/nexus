@@ -389,7 +389,8 @@ def _load_eval_dataset() -> dict:
         _EVAL_DATASET = {}
     return _EVAL_DATASET
 
-def _evaluate_outcome(task: str, returned_skills: list) -> str:
+# OFFLINE A/B ONLY, not production: routing never grades itself (S2-a).
+def _evaluate_outcome_ab_only(task: str, returned_skills: list) -> str:
     """Evaluate routing outcome by comparing against ground truth.
     
     Returns: 'correct', 'wrong' (eval dataset has ground truth), or 'routed'
@@ -993,7 +994,7 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
                 intent_skills = [r["name"] for r in intent_results]
                 # Intent telemetry only when write_feedback; pure rank skips.
                 if write_feedback:
-                    outcome = _evaluate_outcome(task, intent_skills)
+                    outcome = "routed"  # non-terminal; no self-grading (S2-a)
                     try:
                         intent_log(task, intent_skills, outcome)
                     except Exception:
@@ -1263,7 +1264,7 @@ def _log_decision(task: str, result: dict, outcome: str = None,
     """
     if outcome is None:
         skills = [s["name"] for s in result.get("skills", [])]
-        outcome = _evaluate_outcome(task, skills)
+        outcome = "routed"  # non-terminal; no self-grading (S2-a)
     
     # ── Step 1: Fast INSERT to routing_log (own connection, commit+close immediately) ──
     rowid = None

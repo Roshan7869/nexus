@@ -99,7 +99,7 @@ def _scan_environment() -> Dict:
 
 def _discover_resources(task: str, project: str = "default") -> List[Dict]:
     """Query NEXUS for relevant skills/agents/commands."""
-    from router import route_task
+    from server.router import route_task
     result = route_task(task, project, ide=os.environ.get("NEXUS_IDE", "http"))
     return result.get("skills", [])
 
@@ -117,7 +117,7 @@ def phase_1_state_analysis(task: str, project: str) -> Dict:
     # Cluster routing: activate relevant domain clusters
     cluster_routing = None
     try:
-        from cluster_router import ClusterRouter
+        from server.cluster_router import ClusterRouter
         cr = ClusterRouter(str(DB_PATH))
         cluster_routing = cr.route_to_clusters(task, max_clusters=2, project=project)
     except Exception as e:
@@ -289,7 +289,7 @@ def phase_3_execute(plan: Plan, start_index: int = 0) -> Dict:
         phase.status = 'running'
         
         # Route the phase's core task to get model + skills
-        from router import route_task
+        from server.router import route_task
         task_desc = f"{phase.name}: {phase.description}"
         routing = route_task(task_desc, plan.project, ide=os.environ.get("NEXUS_IDE", "http"))
         
@@ -302,7 +302,7 @@ def phase_3_execute(plan: Plan, start_index: int = 0) -> Dict:
             "output_files": phase.outputs,
         }
         results.append(result)
-        phase.status = 'done'
+        phase.status = 'dispatched'  # not 'done': nothing ran; verification decides
         
         # Write checkpoint
         _write_checkpoint(plan, i+1)
@@ -316,7 +316,7 @@ def _write_checkpoint(plan: Plan, current_phase: int):
         "goal": plan.goal,
         "project": plan.project,
         "current_phase": current_phase,
-        "phases_completed": [p.id for p in plan.phases[:current_phase] if p.status == 'done'],
+        "phases_completed": [p.id for p in plan.phases[:current_phase] if p.status == 'dispatched'],
         "phases_remaining": [p.id for p in plan.phases[current_phase:] if p.status == 'pending'],
         "status": "active",
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -326,17 +326,18 @@ def _write_checkpoint(plan: Plan, current_phase: int):
 
 # ── Phase 4: Verification ────────────────────────────────
 def phase_4_verification(plan: Plan, execution_results: Dict) -> Dict:
-    """Verify outputs."""
+    """Verify outputs. A phase is 'verified' only if every declared output exists on disk."""
     print("[Phase 4] Block-Level Verification...", flush=True)
     checks = []
     for phase in plan.phases:
-        # In a real system, we'd check actual file existence, test results, etc.
-        check = {
+        missing = [o for o in phase.outputs if not Path(o).exists()]
+        verified = not missing
+        checks.append({
             "block": phase.id,
-            "verdict": True,  # Placeholder
-            "explanation": "Automated check passed (placeholder)"
-        }
-        checks.append(check)
+            "verdict": "verified" if verified else "unverified",
+            "explanation": "all declared outputs exist" if verified
+                           else f"missing outputs: {', '.join(missing)}",
+        })
     return {"checks": checks}
 
 # ── Phase 5: Audit Report ──────────────────────────────
@@ -347,15 +348,20 @@ def phase_5_audit(plan: Plan, execution_results: Dict, verification: Dict) -> Di
         "goal": plan.goal,
         "plan_type": "adaptive",
         "phases_total": len(plan.phases),
-        "phases_completed": sum(1 for p in plan.phases if p.status == 'done'),
+        "phases_dispatched": sum(1 for p in plan.phases if p.status == 'dispatched'),
         "estimated_tokens": plan.total_estimated_tokens,
         "verification": verification,
     }
     return report
 
 # ── Main Orchestrator Entry Point ────────────────────────
-def orchestrate(task: str, project: str = "default", auto_execute: bool = False) -> Dict:
-    """Run the full adaptive-imagining-cat workflow."""
+def orchestrate(task: str, project: str = "default", auto_execute: bool = False,
+                approval: Optional[Dict] = None) -> Dict:
+    """Run the adaptive-imagining-cat workflow. Fails closed.
+
+    Nothing executes unless `approval` is an approval record with approved == True.
+    `auto_execute` no longer bypasses the gate.
+    """
     print("═══════════════════════════════════════════════════════════════", flush=True)
     print(f"  NEXUS Orchestrator  |  Task: {task}", flush=True)
     print("═══════════════════════════════════════════════════════════════", flush=True)
@@ -369,21 +375,25 @@ def orchestrate(task: str, project: str = "default", auto_execute: bool = False)
     
     result = {
         "plan": asdict(plan),
+        "status": "blocked_pending_approval",
         "approved": False,
         "execution": None,
         "verification": None,
         "audit": None,
     }
-    
-    # User approval gate
-    if not auto_execute:
-        print("\n▶ Plan ready for approval. Type 'go' to execute. (Not implemented in headless mode)", flush=True)
+
+    # Approval gate: no approval record -> execute nothing.
+    if not isinstance(approval, dict) or approval.get("approved") is not True:
+        print("\n▶ Plan blocked: no approval record. Nothing executed.", flush=True)
         return result
-    
+
+    result["status"] = "executing"
+    result["approved"] = True  # sourced from the approval record, not a literal
+    result["approved_by"] = approval.get("approved_by")
+
     # Phase 3
     execution = phase_3_execute(plan)
     result["execution"] = execution
-    result["approved"] = True
     
     # Phase 4
     verification = phase_4_verification(plan, execution)

@@ -13,7 +13,7 @@ from server.db import get_db_path as _resolve_db_path
 
 import json, sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 DB_PATH = _resolve_db_path()
@@ -196,16 +196,23 @@ class SelfReflector:
         
         return approach
     
-    def execute_with_retry(self, task: str, initial_candidates: List[Dict]) -> Dict:
+    def execute_with_retry(self, task: str, initial_candidates: List[Dict],
+                           executor: Optional[Callable[[Dict, str], Dict]] = None) -> Dict:
         """
         Execute task with self-reflection retry loop.
-        
+
+        `executor(candidate, task)` must perform the real execution and return
+        {'success': bool, 'output': str, 'error': str}. Without an executor nothing
+        is executed: returns status 'unverified', no retries, no belief updates.
+
         Algorithm from AnyTool paper:
         WHILE attempts < MAX_RETRIES:
             1. Execute selected tool
             2. IF success → return
             3. ELSE → reflect, get alternatives, retry
         """
+        if executor is None:
+            return {'status': 'unverified', 'task': task, 'attempts': []}
         attempts = []
         
         for attempt in range(self.max_retries):
@@ -238,8 +245,7 @@ class SelfReflector:
             if not candidate:
                 return self._format_failure(task, attempts)
             
-            # Execute (simulated)
-            result = self._simulate_execution(candidate['name'], task)
+            result = executor(candidate, task)
             
             attempts.append({
                 'attempt': attempt + 1,
@@ -271,26 +277,6 @@ class SelfReflector:
         if row:
             return dict(row)
         return None
-    
-    def _simulate_execution(self, tool_name: str, task: str) -> Dict:
-        """Simulate tool execution"""
-        # Get tool stats
-        row = self.conn.execute("""
-            SELECT times_correct, times_triggered FROM resources WHERE name = ?
-        """, (tool_name,)).fetchone()
-        
-        if row:
-            tt = row['times_triggered'] or 1
-            tc = row['times_correct'] or 0
-            success_prob = tc / tt if tt > 0 else 0.6
-        else:
-            success_prob = 0.5
-        
-        import random
-        if random.random() < success_prob:
-            return {'success': True, 'output': f"{tool_name} completed successfully"}
-        else:
-            return {'success': False, 'error': f"{tool_name} execution failed"}
     
     def _format_success(self, task: str, attempts: List[Dict]) -> Dict:
         """Format successful result"""
