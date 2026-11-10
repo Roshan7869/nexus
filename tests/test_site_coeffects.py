@@ -140,3 +140,43 @@ def test_refresh_keeps_bound_sites_alive(monkeypatch):
     assert asyncio.run(lh.refresh()) == ACTIVE
     assert seen["sites"] == {site_key(u): True for u in urls}
     lh.dispose()
+
+
+def test_dispose_by_id_reports_released_sites(monkeypatch):
+    import server.execution_plane as ep
+    from server.local_harness.session import dispose_by_id
+
+    good, bad = "https://docs.example/ok", "https://docs.example/down"
+    rows = _patch_open(monkeypatch, [good, bad], fail={bad})
+    lh = open_local_session("task", project="kaari", task_type="coding")
+    monkeypatch.setattr(ep, "report_session", lambda sid, outcome, **kw: {"status": "ok"})
+
+    out = dispose_by_id(lh.inner.session_id, "correct")
+    assert out["status"] == "ok"
+    assert out["sites_released"] == [good]              # only bound sites are released
+    assert rows["live"] == {}                           # rows removed by the undo chain
+
+
+def test_site_flap_disposes_rows_exactly_once(monkeypatch):
+    """Site drops (dispose) → returns (activate) → drops again: no double delete."""
+    urls = ["https://docs.example/a"]
+    rows = _patch_open(monkeypatch, urls)
+    lh = open_local_session("task", project="kaari", task_type="coding")
+    key = site_key(urls[0])
+    state = {"alive": True}
+
+    def snapshot(realm, sites=None):
+        out = {k: True for k in ("db", "faiss", "git", "internet", "embedder")}
+        out.update(sites or {})
+        out[key] = state["alive"]
+        return out
+
+    monkeypatch.setattr(providers, "liveness_snapshot", snapshot)
+    state["alive"] = False
+    assert asyncio.run(lh.refresh()) == "INACTIVE"      # dependency lost → undo runs
+    assert rows["deleted"] == [1]
+    state["alive"] = True
+    assert asyncio.run(lh.refresh()) == ACTIVE          # recovery
+    state["alive"] = False
+    asyncio.run(lh.refresh())                           # second loss: armed guard
+    assert rows["deleted"] == [1]                       # still exactly one delete

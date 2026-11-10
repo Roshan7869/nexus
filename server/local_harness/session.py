@@ -158,16 +158,21 @@ def dispose_by_id(session_id: str, outcome: str = "correct", notes: str = "",
     design); the broker inverse then no-ops on the completed row, as specified.
     """
     from server.execution_plane import report_session
+    released: list[str] = []  # P1.4: URLs whose harvested rows the undo chain removed
     try:
-        return report_session(session_id, outcome, notes=notes,
-                              quality=quality,
-                              skill_name=skill_name or None)
+        out = report_session(session_id, outcome, notes=notes,
+                             quality=quality,
+                             skill_name=skill_name or None)
     finally:
         lh = pop_wrapper(session_id)
         if lh is not None:
+            released = [u for u, st in lh.site_status.items() if st == "bound"]
             try:
                 lh.dispose()
             except Exception:
                 import logging
                 logging.getLogger(__name__).exception(
                     "wrapper dispose skipped for %s", session_id)
+    result = dict(out) if isinstance(out, dict) else {"report": out}
+    result["sites_released"] = released
+    return result
