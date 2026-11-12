@@ -1,0 +1,48 @@
+{
+  "evaluation": "capability_service_v1",
+  "timestamp": "2026-11-13T00:00:38Z",
+  "manifest": "/home/roshan/nexus/config/capability_providers.yaml",
+  "manifest_sha256": "7fc784f61217eccebd0a733db0c3a1f1a9a7bdc8c3844580b7322a98079001e0",
+  "catalog_revision": 1,
+  "total_capabilities_registered": 339,
+  "duplicate_canonical_ids": 0,
+  "reconcile_latency_ms": 172517.05,
+  "evaluated_queries": 15,
+  "latency": {
+    "p50_ms": 152.58,
+    "p95_ms": 330.17,
+    "min_ms": 127.17,
+    "max_ms": 330.17
+  },
+  "cross_harness_consistency": {
+    "harnesses_tested": [
+      "codex",
+      "claude-code",
+      "opencode",
+      "hermes"
+    ],
+    "codex_slate": [
+      "hermes:autonomous-ai-agents/merge-reconciler",
+      "hermes:creative/comfyui",
+      "hermes:gstack/careful",
+      "hermes:data-science/jupyter-live-kernel",
+      "hermes:software-development/debugging-hermes-tui-commands"
+    ],
+    "claude_slate": [
+      "hermes:autonomous-ai-agents/merge-reconciler",
+      "hermes:creative/comfyui",
+      "hermes:gstack/careful",
+      "hermes:data-science/jupyter-live-kernel",
+      "hermes:software-development/debugging-hermes-tui-commands"
+    ],
+    "deterministic_match": true
+  },
+  "gates": {
+    "gate_catalog_nonzero": true,
+    "gate_zero_duplicates": true,
+    "gate_p95_latency": true,
+    "gate_cross_harness": true,
+    "all_gates_pass": true
+  },
+  "total_elapsed_seconds": 177.37
+}

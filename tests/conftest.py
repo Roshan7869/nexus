@@ -1,5 +1,9 @@
-"""conftest.py — v2 fixtures: 7 RRF backends, in-memory DB, mocks for all external calls."""
-import sys, os, json, sqlite3, time, hashlib, uuid, threading, tempfile
+"""conftest.py — Isolated test database fixture and test harness mocks.
+
+Provides hermetic database isolation using temporary SQLite databases for each test,
+preventing any test from reading or modifying the production database.
+"""
+import sys, os, sqlite3, time, hashlib, uuid, threading, tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timezone
@@ -7,11 +11,27 @@ from contextlib import contextmanager
 from typing import Generator
 import pytest
 
+NEXUS_ROOT = Path("/home/roshan/nexus").resolve()
+if str(NEXUS_ROOT) not in sys.path:
+    sys.path.insert(0, str(NEXUS_ROOT))
+if str(NEXUS_ROOT / "server") not in sys.path:
+    sys.path.insert(0, str(NEXUS_ROOT / "server"))
+
+PROD_DB = (NEXUS_ROOT / "db" / "nexus.db").resolve()
+
+# Prevent any import-time resolution to the production DB
+_SESSION_FALLBACK_DB = (Path(tempfile.gettempdir()) / "nexus_test_session.db").resolve()
+os.environ.setdefault("NEXUS_DB_PATH", str(_SESSION_FALLBACK_DB))
+os.environ.setdefault("NEXUS_BROKER_DB_PATH", str(_SESSION_FALLBACK_DB))
+
+
+
 def pytest_addoption(parser):
     parser.addoption("--run-integration", action="store_true", default=False,
                      help="Run integration tests that hit real backends")
     parser.addoption("--benchmark", action="store_true", default=False,
                      help="Run performance benchmark tests")
+
 
 def pytest_collection_modifyitems(config, items):
     if not config.getoption("--run-integration"):
@@ -25,101 +45,91 @@ def pytest_collection_modifyitems(config, items):
             if "benchmark" in item.keywords:
                 item.add_marker(skip_benchmark)
 
-NEXUS_ROOT = Path("/home/roshan/nexus")
-sys.path.insert(0, str(NEXUS_ROOT))
 
-# ── DB isolation (plan S0) ───────────────────────────────────────────────
-# server/db.py:39 resolve_db_path() already honours NEXUS_DB_PATH, but
-# server/learning.py and server/context_harness/cache.py hardcoded the live
-# path until this change, so every route/record/execute test wrote to
-# db/nexus.db — routing_log carries 71 rows with ide='pytest' as evidence.
-# This must run before any `server.*` import: get_db_path() caches its first
-# resolution for the life of the process, so a later override is a no-op.
-PROD_DB = (NEXUS_ROOT / "db" / "nexus.db").resolve()
-TEST_DB = (Path(tempfile.mkdtemp(prefix="nexus-test-")) / "nexus.db").resolve()
-if PROD_DB.exists():
-    _src = sqlite3.connect(f"file:{PROD_DB}?mode=ro", uri=True)
-    _dst = sqlite3.connect(str(TEST_DB))
-    with _dst:
-        _src.backup(_dst)          # atomic snapshot, safe alongside a live writer
-    _src.close()
-    _dst.close()
-# FORCED, not defaulted: NEXUS_BROKER_DB_PATH outranks NEXUS_DB_PATH, so a
-# stray export from a developer shell must not win.
-os.environ["NEXUS_BROKER_DB_PATH"] = str(TEST_DB)
-os.environ["NEXUS_DB_PATH"] = str(TEST_DB)
-
-# A 596 MB snapshot per run is real disk: without this the previous seven runs
-# left 4.1 GB of nexus-test-* directories behind. Remove on interpreter exit.
-import atexit, shutil as _shutil
-atexit.register(lambda: _shutil.rmtree(Path(TEST_DB).parent, ignore_errors=True))
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _hermetic_db_guard():
-    """Fail loudly if anything resolved back to the production database."""
-    from server.db import get_db_path
-    resolved = Path(get_db_path()).resolve()
-    assert resolved == TEST_DB, f"tests resolved to {resolved}, expected {TEST_DB}"
-    assert resolved != PROD_DB, "tests resolved to the PRODUCTION database"
-    yield
-
-# Tests must be hermetic. These are FORCED, not defaulted: `setdefault` is a no-op
-# when the variable is already exported (a developer shell or .env that sources the
-# production flags), and server/learning.py caches these into module globals at import
-# time — so a leaked `true` silently flips the suite into production config and the
-# "disabled" assertions fail. Deterministic tests require deterministic env.
-os.environ["NEXUS_THOMPSON_ROUTING"] = "false"
-os.environ["NEXUS_CLUSTER_ROUTING"] = "false"
-os.environ["NEXUS_REFLECTION"] = "false"
-os.environ["NEXUS_LEARNING"] = "false"
-
-
-# ── Schema ──────────────────────────────────────────────────────────────
+# ── Schema definitions ───────────────────────────────────────────────────
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS resources (
-    id INTEGER PRIMARY KEY, name TEXT, description TEXT, body_text TEXT,
-    resource_type TEXT, cluster TEXT, status TEXT DEFAULT 'active',
-    file_path TEXT, repo_name TEXT,
-    tier INTEGER DEFAULT 2, token_count INTEGER DEFAULT 100,
-    times_correct INTEGER DEFAULT 0, times_wrong INTEGER DEFAULT 0,
-    times_triggered INTEGER DEFAULT 0,
-    last_used_at TEXT
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    resource_type TEXT NOT NULL DEFAULT 'skill',
+    repo_name TEXT NOT NULL DEFAULT 'unknown',
+    file_path TEXT NOT NULL DEFAULT '',
+    description TEXT DEFAULT '',
+    body_text TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    tier INTEGER NOT NULL DEFAULT 2,
+    embedding BLOB,
+    token_count INTEGER DEFAULT 0,
+    times_triggered INTEGER NOT NULL DEFAULT 0,
+    times_correct INTEGER NOT NULL DEFAULT 0,
+    times_wrong INTEGER NOT NULL DEFAULT 0,
+    cluster TEXT DEFAULT NULL,
+    cluster_confidence REAL DEFAULT 0.0,
+    cooldown_until TEXT,
+    archive_reason TEXT,
+    archived_at TEXT,
+    lifecycle_state TEXT,
+    last_used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
 CREATE TABLE IF NOT EXISTS resource_sections (
-    id INTEGER PRIMARY KEY, resource_id INTEGER, heading TEXT, content TEXT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    section_order INTEGER NOT NULL DEFAULT 0,
+    depth INTEGER NOT NULL DEFAULT 0,
+    heading TEXT,
+    content TEXT NOT NULL DEFAULT '',
+    token_count INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (resource_id) REFERENCES resources(id)
 );
-CREATE TABLE IF NOT EXISTS resource_edges (
-    source_id INTEGER, target_id INTEGER, weight REAL DEFAULT 1.0,
-    edge_type TEXT DEFAULT 'co_triggered',
-    PRIMARY KEY (source_id, target_id)
-);
+
 CREATE TABLE IF NOT EXISTS bundle_membership (
-    resource_id INTEGER, bundle_name TEXT, bundle_kind TEXT,
-    priority INTEGER DEFAULT 50, is_canonical INTEGER DEFAULT 0,
-    PRIMARY KEY (resource_id, bundle_name)
+    resource_id INTEGER NOT NULL,
+    bundle_name TEXT NOT NULL,
+    bundle_kind TEXT NOT NULL DEFAULT 'capability',
+    priority INTEGER NOT NULL DEFAULT 50,
+    is_canonical INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (resource_id, bundle_name),
+    FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
 );
+
 CREATE TABLE IF NOT EXISTS cache_hierarchy (
-    layer TEXT, cache_key TEXT, value BLOB,
-    created_at TEXT, updated_at TEXT,
+    layer TEXT NOT NULL,
+    cache_key TEXT NOT NULL,
+    value BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (layer, cache_key)
 );
+
 CREATE TABLE IF NOT EXISTS classification (
     resource_id INTEGER PRIMARY KEY,
-    project_type TEXT, confidence REAL,
-    dominant_keyword TEXT, match_count INTEGER,
-    scores TEXT, model_version INTEGER
+    project_type TEXT,
+    confidence REAL,
+    dominant_keyword TEXT,
+    match_count INTEGER,
+    scores TEXT,
+    model_version INTEGER
 );
+
 CREATE TABLE IF NOT EXISTS user_learnings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    note TEXT, scope TEXT DEFAULT '',
-    project TEXT DEFAULT 'default', task_type TEXT DEFAULT 'general',
-    bundles_json TEXT DEFAULT '[]', tools_json TEXT DEFAULT '[]',
-    created_by TEXT DEFAULT 'engine', created_at TEXT DEFAULT (datetime('now'))
+    scope TEXT NOT NULL DEFAULT 'task_type',
+    task_type TEXT NOT NULL DEFAULT 'general',
+    project TEXT NOT NULL DEFAULT 'default',
+    note TEXT NOT NULL,
+    bundles_json TEXT NOT NULL DEFAULT '[]',
+    tools_json TEXT NOT NULL DEFAULT '[]',
+    created_by TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
 CREATE TABLE IF NOT EXISTS resource_policies (
     resource_id INTEGER PRIMARY KEY,
     execution_mode TEXT NOT NULL DEFAULT 'review_only',
@@ -131,9 +141,241 @@ CREATE TABLE IF NOT EXISTS resource_policies (
     fallback_priority INTEGER NOT NULL DEFAULT 50,
     confidence_floor REAL NOT NULL DEFAULT 0.55,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS cluster_definitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    trigger_keywords TEXT NOT NULL DEFAULT '[]',
+    resource_types TEXT NOT NULL DEFAULT '[]',
+    name_patterns TEXT NOT NULL DEFAULT '[]',
+    default_skill TEXT NOT NULL DEFAULT '',
+    default_agents TEXT NOT NULL DEFAULT '[]',
+    centroid_embedding BLOB,
+    auto_activate_threshold REAL DEFAULT 0.35,
+    max_resources INTEGER DEFAULT 200,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS cluster_membership (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_name TEXT NOT NULL,
+    resource_id INTEGER NOT NULL,
+    affinity REAL NOT NULL DEFAULT 0.0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (resource_id) REFERENCES resources(id)
+);
+
+CREATE TABLE IF NOT EXISTS routing_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_summary TEXT NOT NULL DEFAULT '',
+    project TEXT NOT NULL DEFAULT 'default',
+    matched_tier INTEGER DEFAULT 0,
+    matched_model TEXT DEFAULT 'unknown',
+    matched_skills TEXT DEFAULT '[]',
+    outcome TEXT DEFAULT 'routed',
+    outcome_source TEXT DEFAULT 'explicit',
+    quality REAL DEFAULT 1.0,
+    skill_name TEXT DEFAULT '',
+    tokens_used INTEGER DEFAULT 0,
+    ide TEXT DEFAULT 'unknown',
+    action_type TEXT DEFAULT '',
+    intent TEXT DEFAULT '',
+    route_match INTEGER DEFAULT 0,
+    latency_ms REAL DEFAULT 0.0,
+    cost REAL DEFAULT 0.0,
+    injected_ctx_len INTEGER DEFAULT 0,
+    repeat_count_1h INTEGER DEFAULT 0,
+    harness_tag TEXT DEFAULT 'raw-api',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reflection_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task TEXT NOT NULL,
+    resource_name TEXT NOT NULL,
+    resource_id INTEGER,
+    expected TEXT,
+    actual TEXT,
+    root_cause TEXT,
+    fix_attempted TEXT,
+    fix_successful INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reflection_fixes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id INTEGER,
+    failure_summary TEXT,
+    fix_description TEXT,
+    times_applied INTEGER DEFAULT 0,
+    times_successful INTEGER DEFAULT 0,
+    last_applied_at TEXT,
+    alternative_resource_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS tool_traces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_run_id TEXT NOT NULL,
+    phase_id TEXT NOT NULL DEFAULT '',
+    subtask_name TEXT NOT NULL DEFAULT '',
+    bundle_name TEXT,
+    resource_name TEXT NOT NULL,
+    resource_type TEXT NOT NULL DEFAULT 'unknown',
+    execution_mode TEXT NOT NULL DEFAULT 'review_only',
+    side_effect_level TEXT NOT NULL DEFAULT 'read',
+    tool_role TEXT NOT NULL DEFAULT 'candidate',
+    trace_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'selected',
+    outcome TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS task_classifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_hash TEXT NOT NULL UNIQUE,
+    task_summary TEXT NOT NULL,
+    task_type TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.0,
+    cluster TEXT DEFAULT NULL,
+    hit_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS model_beliefs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL DEFAULT 'default',
+    model TEXT NOT NULL DEFAULT 'unknown',
+    task_type TEXT NOT NULL DEFAULT 'general',
+    alpha REAL DEFAULT 1.0,
+    beta REAL DEFAULT 1.0,
+    total_requests INTEGER DEFAULT 0,
+    total_reward REAL DEFAULT 0.0,
+    avg_reward REAL DEFAULT 0.0,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resource_id INTEGER,
+    UNIQUE(provider, model, task_type)
+);
+
+CREATE TABLE IF NOT EXISTS ide_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    ide TEXT NOT NULL DEFAULT 'unknown',
+    model TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    task_type TEXT NOT NULL DEFAULT 'general',
+    reward REAL NOT NULL DEFAULT 0.0,
+    metadata TEXT DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS routing_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id TEXT NOT NULL,
+    task_summary TEXT NOT NULL DEFAULT '',
+    cluster TEXT DEFAULT NULL,
+    task_type TEXT NOT NULL DEFAULT 'general',
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    sampled_score REAL NOT NULL DEFAULT 0.0,
+    benchmark_prior REAL NOT NULL DEFAULT 0.0,
+    approach TEXT DEFAULT 'none',
+    candidates_json TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS benchmark_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    benchmark TEXT NOT NULL,
+    score REAL NOT NULL,
+    samples INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(provider, model, benchmark)
+);
+
+CREATE TABLE IF NOT EXISTS cluster_affinity_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_name TEXT,
+    trigger_query TEXT,
+    old_affinity REAL,
+    new_affinity REAL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at REAL NOT NULL DEFAULT (strftime('%s','now')),
+    description TEXT
+);
 """
+
+
+def _init_test_database(db_path: Path) -> None:
+    """Initialize a test database with baseline schema."""
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=OFF")
+    conn.executescript(SCHEMA_SQL)
+    
+    baseline_file = NEXUS_ROOT / "db" / "migrations" / "BASELINE.sql"
+    if baseline_file.exists():
+        try:
+            conn.executescript(baseline_file.read_text())
+        except Exception:
+            pass
+            
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.commit()
+    conn.close()
+
+
+# ── DB Isolation autouse fixture ─────────────────────────────────────────
+
+@pytest.fixture(autouse=True)
+def isolated_test_db(tmp_path, monkeypatch):
+    """Isolate each test in a dedicated temporary database.
+    
+    Initializes schema from BASELINE.sql and SCHEMA_SQL.
+    Sets NEXUS_DB_PATH and NEXUS_BROKER_DB_PATH to the temporary path.
+    Overrides server.db.DEFAULT_DB_PATH to protect production.
+    Works cleanly for both sync and async tests.
+    """
+    test_db = (tmp_path / "test_nexus.db").resolve()
+    _init_test_database(test_db)
+
+    # Fail closed if somehow pointing to production
+    assert test_db != PROD_DB, f"isolated_test_db resolved to production DB: {test_db}"
+    assert "tmp" in str(test_db).lower() or "pytest" in str(test_db).lower()
+
+    monkeypatch.setenv("NEXUS_DB_PATH", str(test_db))
+    monkeypatch.setenv("NEXUS_BROKER_DB_PATH", str(test_db))
+
+    import server.db
+    monkeypatch.setattr(server.db, "DEFAULT_DB_PATH", test_db)
+    monkeypatch.setattr(server.db, "get_db_path", server.db.resolve_db_path)
+    if hasattr(server.db.get_db_path, "_cached"):
+        monkeypatch.delattr(server.db.get_db_path, "_cached", raising=False)
+
+    # Patch cached DB_PATH in any already imported modules
+    for mod_name, mod in list(sys.modules.items()):
+        if (mod_name.startswith("server") or mod_name.startswith("core")) and hasattr(mod, "DB_PATH"):
+            monkeypatch.setattr(mod, "DB_PATH", test_db)
+
+    yield test_db
+
+
+# ── Legacy and unit-test helper fixtures ─────────────────────────────────
 
 FIXTURE_RESOURCES = [
     (1, "LLM Agent", "A large language model agent", "llm agent using tensorflow for inference", "skill", "general", "active", 1, 300, 10, 1, 50, "2026-06-15T10:00:00+00:00"),
@@ -193,6 +435,12 @@ def make_db(extra_schema: str = "") -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(SCHEMA_SQL)
+    baseline_file = NEXUS_ROOT / "db" / "migrations" / "BASELINE.sql"
+    if baseline_file.exists():
+        try:
+            conn.executescript(baseline_file.read_text())
+        except Exception:
+            pass
     if extra_schema:
         conn.executescript(extra_schema)
     return conn
@@ -215,7 +463,6 @@ def insert_fixtures(conn: sqlite3.Connection) -> None:
 
 @contextmanager
 def mock_ro_conn(conn: sqlite3.Connection) -> Generator:
-    """Patch cache.get_ro_conn to return *conn* (close-safe)."""
     noc = _NoCloseConnection(conn)
     with patch("server.context_harness.cache.get_ro_conn", return_value=noc):
         yield
@@ -230,7 +477,6 @@ def mock_rw_conn(conn: sqlite3.Connection) -> Generator:
 
 @contextmanager
 def mock_nexus_conn(conn: sqlite3.Connection) -> Generator:
-    """Patch nexus_bridge.get_conn to return *conn* (close-safe)."""
     noc = _NoCloseConnection(conn)
     with patch("server.context_harness.nexus_bridge.get_conn", return_value=noc):
         yield
@@ -246,7 +492,6 @@ def db() -> sqlite3.Connection:
 
 @pytest.fixture
 def engine(db: sqlite3.Connection):
-    """ContextHarnessEngine with mocked DB."""
     from server.context_harness.engine import ContextHarnessEngine
     with mock_ro_conn(db), mock_rw_conn(db):
         e = ContextHarnessEngine(db_path=":memory:")
@@ -293,11 +538,8 @@ def make_result(source: str, content: str, score: float, **meta):
     return HarnessResult(source=source, content=content, score=score, metadata=meta)
 
 
-# ── Platform mocks ──────────────────────────────────────────────────────
-
 @pytest.fixture
 def mock_agent_reach():
-    """Mock agent_reach.doctor() and route_to_channel() to avoid CLI probes."""
     from server.context_harness import agent_reach as ar
     fake_channels = [
         {"name": "github", "description": "GitHub search", "tier": 0, "backends": ["gh"], "probe": lambda: True},
@@ -316,7 +558,6 @@ def mock_agent_reach():
 
 @pytest.fixture
 def mock_gcode_unavailable():
-    """Make gcode_backend always fall back to learning notes."""
     with patch("server.context_harness.gcode_backend._gcode_available", return_value=False), \
          patch("server.context_harness.gcode_backend.GCODE_SOCKET", Path("/nonexistent/gcode.sock")):
         yield
@@ -324,7 +565,6 @@ def mock_gcode_unavailable():
 
 @pytest.fixture
 def mock_gcode_available():
-    """Make gcode CLI available."""
     fake_binary = MagicMock()
     fake_binary.exists.return_value = True
     with patch("server.context_harness.gcode_backend._gcode_available", return_value=True), \

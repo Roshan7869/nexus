@@ -39,6 +39,8 @@ node_modules/
 *.db*
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
 db/nexus.db*
 ruvector.db*
 *.log
