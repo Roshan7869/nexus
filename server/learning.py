@@ -54,11 +54,8 @@ EVENT_REWARDS = {
 
 
 def _get_conn():
-    conn = sqlite3.connect(str(DB_PATH), timeout=60)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=30000")
-    conn.row_factory = sqlite3.Row
-    return conn
+    from server.db import get_connection
+    return get_connection(timeout=60)
 
 
 def check_cooldown_restorations(conn):
@@ -73,7 +70,10 @@ def check_cooldown_restorations(conn):
         degraded_rows = conn.execute("""
             SELECT id, name FROM resources 
             WHERE status = 'degraded' 
-              AND (last_used_at IS NULL OR last_used_at < datetime('now', '-7 days'))
+              AND (
+                (last_used_at IS NULL OR last_used_at < datetime('now', '-7 days'))
+                OR (updated_at < datetime('now', '-7 days'))
+              )
         """).fetchall()
         
         for row in degraded_rows:
@@ -86,6 +86,15 @@ def check_cooldown_restorations(conn):
                 SET status = 'active', times_triggered = 0, times_wrong = 0, times_correct = 0, updated_at = datetime('now')
                 WHERE id = ?
             """, (rid,))
+            
+            # Reset belief priors defensively for restored resource
+            try:
+                conn.execute("""
+                    UPDATE model_beliefs SET alpha = 1.0, beta = 3.0
+                    WHERE model = ?
+                """, (f"resource:{name}",))
+            except Exception:
+                pass
             
             # Note: model_beliefs table uses (provider, model, task_type) as composite key,
             # not resource_id. Individual resource Thompson beliefs are tracked through
@@ -375,7 +384,10 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
     ide = ide_raw if ide_raw in _IDE_OK else "unknown"
 
     # ── P0: non-terminal early return (no invented learning) ──────────
-    if outcome not in TERMINAL_OUTCOMES:
+    # 'partial' and 'skip' (timeouts) are accepted by close_session (TERMINAL_OUTCOMES) but
+    # must not move counters, beliefs or edges from record_outcome: telemetry only.
+    # Only observed 'correct' and 'wrong' outcomes learn.
+    if outcome not in TERMINAL_OUTCOMES or outcome in ("partial", "skip"):
         conn = _get_conn()
         try:
             if routed_id:
@@ -431,11 +443,14 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
             """, (task_summary or "outcome_reported", project, 0, "unknown", "[]",
                   outcome, skill_name, tokens_used, ide, outcome_source, quality))
         
-        # ── 1b. Update resource counters ───────────────────────────────
-        if outcome == "correct":
+        # ── 1b. Update resource counters (Discrete integer rewards) ─────
+        is_correct = outcome == "correct" or (outcome != "wrong" and quality is not None and quality >= 0.5)
+        is_wrong = outcome == "wrong" or (outcome != "correct" and quality is not None and quality < 0.5)
+
+        if is_correct:
             conn.execute("""
                 UPDATE resources SET 
-                    times_correct = times_correct + 1.0,
+                    times_correct = times_correct + 1,
                     times_triggered = times_triggered + 1,
                     last_used_at = datetime('now'),
                     updated_at = datetime('now')
@@ -464,20 +479,10 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                     """, (recent_fail["resource_id"], f"Failed with {recent_fail['root_cause']}", f"Use {skill_name} instead"))
             except Exception as e:
                 logger.warning(f"Failed to update reflection fix success: {e}")
-        elif outcome == "partial":
+        elif is_wrong:
             conn.execute("""
-                UPDATE resources SET 
-                    times_correct = times_correct + 0.5,
-                    times_wrong = times_wrong + 0.5,
-                    times_triggered = times_triggered + 1,
-                    last_used_at = datetime('now'),
-                    updated_at = datetime('now')
-                WHERE name = ?
-            """, (skill_name,))
-        else:
-            conn.execute("""
-                UPDATE resources SET 
-                    times_wrong = times_wrong + 1.0,
+                UPDATE resources SET
+                    times_wrong = times_wrong + 1,
                     times_triggered = times_triggered + 1,
                     last_used_at = datetime('now'),
                     updated_at = datetime('now')
@@ -485,20 +490,14 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
             """, (skill_name,))
 
         # ── 1d. Clamp invariant: times_correct ≤ times_triggered ─────────
-        # Defensive guard against success-rate > 100% (sr = corr/trig). The
-        # partial branch above already splits 0.5/0.5 (balanced), but several
-        # UN-COORDINATED write paths also bump times_correct without a matching
-        # times_triggered (broker_runtime._close_routing_outcomes double-counts
-        # with this function on review_task_run; reflection_loop._feed_ts;
-        # auto_invoke; self_reflector.mark_outcome). Clamping here — in the
-        # PRIMARY feedback path — guarantees the invariant holds regardless of
-        # which prior path inflated the counter. Cap times_correct to
-        # times_triggered so sr ∈ [0, 1.0]. (times_wrong is left untouched;
-        # it only feeds the degradation threshold, never a ratio numerator.)
+        # Defensive guard against success-rate > 100% (sr = corr/trig).
+        # Enforce strict integer types and cap times_correct to times_triggered.
         conn.execute("""
             UPDATE resources
-            SET times_correct = MIN(times_correct, times_triggered)
-            WHERE name = ? AND times_correct > times_triggered
+            SET times_correct = CAST(ROUND(MIN(times_correct, times_triggered)) AS INTEGER),
+                times_wrong = CAST(ROUND(times_wrong) AS INTEGER),
+                times_triggered = CAST(ROUND(times_triggered) AS INTEGER)
+            WHERE name = ?
         """, (skill_name,))
 
         conn.commit()
@@ -545,7 +544,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
         co_trigger_result = None
         error_rate = stats["times_wrong"] / max(stats["times_triggered"], 1) if stats else 0
         should_reflect = (
-            outcome == "wrong"
+            is_wrong
             or (outcome == "partial" and error_rate > 0.30 and REFLECTION_ENABLED)
         )
         if should_reflect and REFLECTION_ENABLED:
@@ -555,7 +554,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                 logger.warning(f"Reflection trigger failed: {e}")
         
         # ── 4. Auto-Invoke Retry on failure ──────────────────────
-        if outcome == "wrong" and AUTO_INVOKE_ENABLED:
+        if is_wrong and AUTO_INVOKE_ENABLED:
             try:
                 auto_invoke_result = auto_invoke_retry(
                     conn, task_summary, skill_name, project
@@ -576,21 +575,21 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                     _affinity_decay_counter = 0
 
                 _update_cluster_affinity(conn, stats["cluster"] or "general",
-                                          skill_name, outcome)
+                                          skill_name, "correct" if is_correct else ("wrong" if is_wrong else outcome))
             except Exception as e:
                 logger.warning(f"Cluster affinity update failed: {e}")
 
         # ── 6. Multiplicative edge weight learning ────────────────────
         # Adjust weights on graph edges connected to this resource based on outcome.
         # Multiplicative updates preserve baseline relative ordering and avoid inflation.
-        if outcome in ("correct", "wrong"):
+        if is_correct or is_wrong:
             try:
                 resource_row = conn.execute(
                     "SELECT id FROM resources WHERE name = ?", (skill_name,)
                 ).fetchone()
                 if resource_row:
                     rid = resource_row["id"]
-                    if outcome == "correct":
+                    if is_correct:
                         # Increase weight by 5%, capped at 1.0
                         conn.execute("""
                             UPDATE resource_edges
@@ -629,7 +628,7 @@ def record_outcome(skill_name: str, outcome: str, task_summary: str = "",
                 if row_ms and row_ms["matched_skills"]:
                     bundle.extend(_parse_skill_list(row_ms["matched_skills"]))
             if len(_parse_skill_list(bundle)) >= 2:
-                co_trigger_result = learn_co_triggers(conn, bundle, outcome)
+                co_trigger_result = learn_co_triggers(conn, bundle, "correct" if is_correct else ("wrong" if is_wrong else outcome))
                 conn.commit()
         except Exception as e:
             logger.warning(f"co-trigger learning failed: {e}")

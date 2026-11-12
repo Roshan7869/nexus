@@ -38,10 +38,16 @@ class ToolAttention:
     def load(self):
         if self.model is None:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
-            try:
-                self.model = SentenceTransformer(MODEL_ID, local_files_only=True)
-            except TypeError:
-                self.model = SentenceTransformer(MODEL_ID)
+            shared = getattr(sys, "_nexus_shared_models", None)
+            if shared is not None and MODEL_ID in shared:
+                self.model = shared[MODEL_ID]
+            else:
+                try:
+                    self.model = SentenceTransformer(MODEL_ID, local_files_only=True)
+                except TypeError:
+                    self.model = SentenceTransformer(MODEL_ID)
+                if shared is not None:
+                    shared[MODEL_ID] = self.model
         if self.index is None:
             self.index = faiss.read_index(str(INDEX_PATH))
             with open(str(INDEX_PATH) + ".meta.json") as f:

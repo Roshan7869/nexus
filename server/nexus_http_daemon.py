@@ -118,6 +118,13 @@ app = FastAPI(
 )
 
 
+@app.middleware("http")
+async def count_requests_middleware(request: Request, call_next):
+    global REQUEST_COUNT
+    REQUEST_COUNT += 1
+    return await call_next(request)
+
+
 # ── P4 Execution plane (AgentRouter / Hermes / CodeNomad contract) ─────
 
 class SessionOpenRequest(BaseModel):
@@ -164,8 +171,6 @@ async def v1_health():
 @app.get("/v1/ops")
 async def v1_ops(project: Optional[str] = None, ab: bool = False, full_ab: bool = False):
     """P5 ops report: terminal close rate, catalog gates, harness metrics, optional AB."""
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         from server.ops_metrics import build_ops_report
         return await _run_sync(
@@ -201,8 +206,6 @@ async def v1_ops_harness(project: Optional[str] = None):
 @app.post("/v1/session/open")
 async def v1_session_open(body: SessionOpenRequest):
     """Open execution session: route + tools + harness plan (stable contract)."""
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         from server.execution_plane import open_session
         return await _run_sync(
@@ -223,8 +226,6 @@ async def v1_session_open(body: SessionOpenRequest):
 @app.post("/v1/session/{session_id}/report")
 async def v1_session_report(session_id: str, body: SessionReportRequest):
     """Report terminal outcome; returns belief_delta when learning applied."""
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         from server.execution_plane import report_session
         return await _run_sync(
@@ -268,8 +269,6 @@ def _handle_ide_event_sync(body: IDEEventRequest) -> dict:
 @app.post("/v1/event")
 async def v1_ide_event(body: IDEEventRequest):
     """Gap 4: IDE feedback → ide_events + session close + record_outcome."""
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         return await _run_sync(_handle_ide_event_sync, body)
     except Exception as e:
@@ -352,11 +351,24 @@ async def startup():
 
 @app.get("/health")
 async def health():
-    """Health check: pipeline state + embedding model status."""
+    """Health check: pipeline state + embedding model status + process supervisor fail-closed gate."""
     uptime = time.time() - START_TIME
     cache_stats = get_cache_stats()
+
+    gate_pass = True
+    proc_status = None
+    try:
+        from server.process_supervisor import get_process_status
+        proc_status = get_process_status()
+        gate_pass = bool(proc_status.get("gate_pass", True))
+    except Exception:
+        gate_pass = False
+
+    is_healthy = DB_AVAILABLE and EMBEDDING_LOADED and gate_pass
     return {
-        "status": "ok" if DB_AVAILABLE and EMBEDDING_LOADED else "degraded",
+        "status": "ok" if is_healthy else "degraded",
+        "gate_pass": gate_pass,
+        "process_supervisor": proc_status,
         "uptime_seconds": round(uptime, 1),
         "embedding_model": "cached" if EMBEDDING_LOADED else "loading" if EMBEDDING_LOAD_TIME == 0 else "failed",
         "embedding_load_time_s": round(EMBEDDING_LOAD_TIME, 2),
@@ -416,8 +428,6 @@ async def route_task_endpoint(
         use_embedding = body.use_embedding
     if not task:
         raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     start = time.time()
     try:
         from server.router_cutover import route_for_task, get_router_flag
@@ -469,8 +479,6 @@ async def route_v4_debug_endpoint(
         max_clusters = body.max_clusters
     if not query:
         raise HTTPException(400, "query is required (send as JSON body or ?query= query param)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     start = time.time()
     try:
         from tool_attention_v4 import route_v4 as _route_v4
@@ -501,8 +509,6 @@ async def cluster_route_endpoint(
         max_clusters = body.max_clusters
     if not task:
         raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         def _blocking():
             from cluster_router import ClusterRouter
@@ -542,8 +548,6 @@ async def cluster_activate_endpoint(
         project = body.project
     if not clusters:
         raise HTTPException(400, "clusters is required (send as JSON body or ?clusters= query param)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         def _blocking():
             from auto_trigger import AutoTrigger
@@ -631,8 +635,6 @@ async def find_skills_endpoint(
         max_results = body.max_results
     if not task:
         raise HTTPException(400, "task is required (send as JSON body or ?task= query param)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     start = time.time()
     try:
         def _blocking():
@@ -686,8 +688,6 @@ async def report_outcome_endpoint(
         project = body.project
     if not skill_name or not outcome:
         raise HTTPException(400, "skill_name and outcome are required (send as JSON body or query params)")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
     try:
         from learning import record_outcome
         result = await _run_sync(record_outcome, skill_name, outcome, task_summary, project, "http", 0)
@@ -715,8 +715,6 @@ async def harness_plan_endpoint(
         execute_research = bool(body.get("execute_research", execute_research))
     if not task:
         raise HTTPException(400, "task is required")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
 
     def _blocking():
         from server.harness_engine.plan import plan_harness
@@ -745,8 +743,6 @@ async def harness_research_endpoint(
         max_results = int(body.get("max_results", max_results))
     if not query:
         raise HTTPException(400, "query is required")
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
 
     def _blocking():
         from server.harness_engine.orchestrator import run_research_orchestrator
@@ -926,6 +922,27 @@ async def ide_unregister(session_id: str):
     if not ok:
         raise HTTPException(404, f"session {session_id} not found")
     return {"status": "unregistered"}
+
+
+# ── Consolidated ASGI Engine (Option A): Mount Unified Gateway Routes ──
+try:
+    from server.unified import app as _unified_app
+    _existing_paths = {r.path for r in app.routes if hasattr(r, 'path')}
+    _mounted = 0
+    for _r in _unified_app.routes:
+        if hasattr(_r, 'path') and _r.path not in _existing_paths:
+            app.routes.append(_r)
+            _mounted += 1
+    logger.info("Consolidated ASGI Engine: mounted %d gateway/orchestration routes from unified.py", _mounted)
+except Exception as _e:
+    logger.warning("Failed to mount unified gateway routes: %s", _e)
+
+try:
+    from server.capability_api import router as _cap_router
+    app.include_router(_cap_router)
+    logger.info("Mounted Shared Capability API (/capabilities/v1)")
+except Exception as _e:
+    logger.warning("Failed to mount shared capability router: %s", _e)
 
 
 # ── Main ────────────────────────────────────────────────

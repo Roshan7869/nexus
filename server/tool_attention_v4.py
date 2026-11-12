@@ -81,8 +81,14 @@ class IntentRouter:
     def load(self):
         if self.model is None:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
-            allow_download = os.environ.get("NEXUS_ALLOW_MODEL_DOWNLOAD", "false").lower() == "true"
-            self.model = SentenceTransformer(MODEL_ID, local_files_only=not allow_download)
+            shared = getattr(sys, "_nexus_shared_models", None)
+            if shared is not None and MODEL_ID in shared:
+                self.model = shared[MODEL_ID]
+            else:
+                allow_download = os.environ.get("NEXUS_ALLOW_MODEL_DOWNLOAD", "false").lower() == "true"
+                self.model = SentenceTransformer(MODEL_ID, local_files_only=not allow_download)
+                if shared is not None:
+                    shared[MODEL_ID] = self.model
         if self._numpy_router is None:
             self._numpy_router = NumpyRouter.get()
             self._numpy_router.load()

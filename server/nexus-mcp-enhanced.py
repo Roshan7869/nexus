@@ -706,9 +706,11 @@ def task_start(
         ide_session_id=ide_session_id or None,
     )
     payload = session.to_dict()
+    payload["recommendations_are_advisory"] = True
     payload["mcp_proxy"] = broker.get_mcp_proxy_config(session.session_id)
     payload["instructions"] = (
-        "Use only visible_tools for this task. "
+        "Recommendations in visible_tools are advisory. "
+        "You can search and retrieve any capability in the catalog using capability_search, capability_get, and skill_read at any time. "
         "Call task_complete(session_id, outcome, summary) when finished."
     )
     return json.dumps(payload, indent=2)
@@ -779,6 +781,108 @@ def nexus_session_report(
         ),
         indent=2,
     )
+
+
+# ── Shared Capability Service Client Bridge (Phase 4) ───────────────────
+def _capability_http(method: str, path: str, body: dict = None, timeout: float = 5.0) -> dict:
+    import urllib.request, urllib.error
+    daemon_url = os.environ.get("NEXUS_DAEMON_URL", "http://127.0.0.1:8000")
+    url = f"{daemon_url}/capabilities/v1{path}"
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    headers = {"Content-Type": "application/json"} if body is not None else {}
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        try:
+            return {"error": True, "status": e.code, "detail": json.loads(err_body)}
+        except Exception:
+            return {"error": True, "status": e.code, "detail": err_body}
+    except Exception as e:
+        return {"error": True, "status": "NETWORK_ERROR", "detail": str(e)}
+
+
+@mcp.tool()
+def capability_search(query: str = "", limit: int = 20, cursor: str = "") -> str:
+    """Search or list canonical capabilities from the Shared Capability Service.
+
+    Advisory and exhaustive: search does not restrict which capabilities can be invoked.
+    """
+    import urllib.parse
+    params = []
+    if query:
+        params.append(f"query={urllib.parse.quote(query)}")
+    if limit:
+        params.append(f"limit={min(max(1, limit), 100)}")
+    if cursor:
+        params.append(f"cursor={urllib.parse.quote(cursor)}")
+    qs = ("?" + "&".join(params)) if params else ""
+    res = _capability_http("GET", f"/capabilities{qs}")
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def capability_get(capability_id: str, version: str = "") -> str:
+    """Retrieve full descriptor and metadata for a capability by its canonical ID."""
+    import urllib.parse
+    path = f"/capabilities/{urllib.parse.quote(capability_id, safe='')}"
+    if version:
+        path += f"?version={urllib.parse.quote(version)}"
+    res = _capability_http("GET", path)
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def skill_read(capability_id: str, version: str = "", path: str = "SKILL.md") -> str:
+    """Read full verified skill markdown or bundled asset from the canonical catalog."""
+    import urllib.parse
+    api_path = f"/capabilities/{urllib.parse.quote(capability_id, safe='')}/skill"
+    params = []
+    if version:
+        params.append(f"version={urllib.parse.quote(version)}")
+    if path:
+        params.append(f"path={urllib.parse.quote(path)}")
+    if params:
+        api_path += "?" + "&".join(params)
+    res = _capability_http("GET", api_path)
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def capability_recommend(session_id: str, query: str, k: int = 5, seed: int = None) -> str:
+    """Request advisory capability recommendations for a session and query.
+
+    Recommendations are advisory rankings and do not filter or restrict catalog access.
+    """
+    body = {"session_id": session_id, "query": query, "k": min(max(1, k), 50)}
+    if seed is not None:
+        body["seed"] = seed
+    res = _capability_http("POST", "/recommendations", body=body)
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def capability_invoke(capability_id: str, method: str = "", args: dict = None, session_id: str = "") -> str:
+    """Invoke a tool capability with idempotency and generation leasing."""
+    body = {
+        "capability_id": capability_id,
+        "method": method or "call",
+        "args": args or {},
+        "session_id": session_id or None,
+    }
+    res = _capability_http("POST", "/invocations", body=body)
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def capability_session_close(session_id: str, outcome: str = "correct", evidence: dict = None) -> str:
+    """Close a shared capability session and record verified outcome."""
+    import urllib.parse
+    body = {"outcome": outcome, "evidence": evidence or {}}
+    res = _capability_http("POST", f"/sessions/{urllib.parse.quote(session_id, safe='')}/close", body=body)
+    return json.dumps(res, indent=2)
 
 
 @mcp.tool()
@@ -1245,14 +1349,24 @@ def nexus_health() -> str:
     from server.kg_service import get_kg_status
     from server.process_supervisor import get_process_status
     kg = get_kg_status()
+    proc_status = get_process_status()
+
+    # Compute true fail-closed status (O-1 fix)
+    overall_status = "healthy"
+    if not proc_status.get("gate_pass"):
+        overall_status = "unhealthy" if proc_status.get("required_up", 0) == 0 else "degraded"
+    elif degraded > 0:
+        overall_status = "degraded"
+
     return json.dumps({
-        "status": "healthy",
+        "status": overall_status,
+        "gate_pass": proc_status.get("gate_pass", False),
         "resources": {r[0]: r[1] for r in resources},
         "routing_logs_total": logs,
         "degraded_skills": degraded,
         "plans": {p[0]: p[1] for p in plans},
         "knowledge_graph": kg,
-        "processes": get_process_status(),
+        "processes": proc_status,
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ')
     }, indent=2)
 

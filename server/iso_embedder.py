@@ -1,5 +1,12 @@
 """NEXUS v3 IsoEmbedder — sentence-transformers + FAISS ISO embeddings."""
-import os, sqlite3, threading, numpy as np, faiss
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+import time
+import torch
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
+import sqlite3, threading, numpy as np, faiss
 from sentence_transformers import SentenceTransformer
 from typing import Optional
 
@@ -24,6 +31,8 @@ class IsoEmbedder:
     MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
 
     _instances: dict[str, "IsoEmbedder"] = {}
+    _shared_models: dict[str, Any] = getattr(sys, "_nexus_shared_models", {})
+    setattr(sys, "_nexus_shared_models", _shared_models)
     _lock = threading.Lock()
 
     @classmethod
@@ -58,22 +67,27 @@ class IsoEmbedder:
             self.load_index(path)
 
     def load_model(self):
-        # RCA-F6(iso_embedder.py:60): first-use lazy load of all-MiniLM (~14s Torch import + ~1.4s
-        #   weights). This singleton is the live v5 embedder; warm it at boot (background) instead of
-        #   on the first request. Consider a warmup() helper: self.load(); self.model.encode(["warmup"]).
-        #   See docs/rca/F6-cold-start-latency.md
         if self.model is None:
-            print(f"[IsoEmbedder] Loading {self.model_id}...")
-            # Prefer local cache only for reliable offline usage in TUI/sandbox sessions.
-            try:
-                self.model = SentenceTransformer(self.model_id, local_files_only=True)
-            except TypeError:
-                # Compatibility with older sentence-transformers versions.
-                self.model = SentenceTransformer(self.model_id)
-            except Exception as e:
-                raise EmbedderUnavailableError(
-                    f"Unable to load embedding model '{self.model_id}' from local cache: {e}"
-                ) from e
+            if self.model_id in self._shared_models:
+                self.model = self._shared_models[self.model_id]
+                return
+            with self._lock:
+                if self.model_id in self._shared_models:
+                    self.model = self._shared_models[self.model_id]
+                    return
+                print(f"[IsoEmbedder] Loading {self.model_id}...")
+                # Prefer local cache only for reliable offline usage in TUI/sandbox sessions.
+                try:
+                    loaded = SentenceTransformer(self.model_id, local_files_only=True)
+                except TypeError:
+                    # Compatibility with older sentence-transformers versions.
+                    loaded = SentenceTransformer(self.model_id)
+                except Exception as e:
+                    raise EmbedderUnavailableError(
+                        f"Unable to load embedding model '{self.model_id}' from local cache: {e}"
+                    ) from e
+                self._shared_models[self.model_id] = loaded
+                self.model = loaded
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         self.load_model()
@@ -84,6 +98,13 @@ class IsoEmbedder:
         self.load_model()
         vec = self.model.encode([text], convert_to_numpy=True, show_progress_bar=False)
         return vec[0]
+
+    def warmup(self) -> float:
+        """Pre-warm model and encode a probe query; return elapsed seconds."""
+        t0 = time.perf_counter()
+        self.load_model()
+        _ = self.encode("warmup query")
+        return time.perf_counter() - t0
 
     def build_index(self, descriptions: list[str], resource_ids: list[int]):
         embeddings = self.embed_texts(descriptions)

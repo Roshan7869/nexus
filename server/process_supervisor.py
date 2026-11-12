@@ -47,7 +47,7 @@ TOPOLOGY: dict[str, Any] = {
         "nexus-http-daemon": {
             "primary": "systemd",
             "unit": SYSTEMD_HTTP_UNIT,
-            "port": 8080,
+            "port": 8000,
             "supervisor_autostart": False,
             "required_for_gate": True,
         },
@@ -96,7 +96,7 @@ PROCESS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "nexus-http-daemon",
-        "port": 8080,
+        "port": 8000,
         "pattern": "nexus_http_daemon",
         "managed_by": "systemd",
         "program": "nexus-http-daemon",
@@ -273,12 +273,29 @@ def get_supervisor_programs() -> list[dict[str, Any]]:
     return _parse_supervisor_status(raw["stdout"])
 
 
+def _is_user_systemd_unit_active(unit_name: str) -> bool:
+    try:
+        res = subprocess.run(
+            ["systemctl", "--user", "is-active", unit_name],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        return res.stdout.strip() == "active"
+    except Exception:
+        return False
+
+
 def probe_process(spec: dict[str, Any]) -> dict[str, Any]:
     pids = _pgrep(spec["pattern"])
     # Avoid counting supervisorctl/docs: pattern already scoped
     port = spec.get("port")
     port_up = _port_open(port) if port else None
-    running = bool(pids) or (port_up is True)
+    systemd_active = False
+    if spec.get("managed_by") == "systemd":
+        unit = spec.get("systemd_unit") or SYSTEMD_HTTP_UNIT
+        systemd_active = _is_user_systemd_unit_active(unit)
+    running = bool(pids) or (port_up is True) or systemd_active
     status = "running" if running else "stopped"
     if running and port is not None and port_up is False:
         status = "degraded"
@@ -294,6 +311,7 @@ def probe_process(spec: dict[str, Any]) -> dict[str, Any]:
         "program": spec.get("program"),
         "note": spec.get("note"),
         "systemd_unit": spec.get("systemd_unit"),
+        "systemd_active": systemd_active,
     }
 
 

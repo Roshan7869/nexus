@@ -8,6 +8,43 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+class SharedCapabilityConfig:
+    """Opt-in shared-service configuration, independent of legacy ranking flags."""
+
+    def __init__(self, data=None):
+        data = data or {}
+        self.mode = data.get("mode", os.environ.get("NEXUS_CAPABILITY_MODE", "legacy"))
+        if self.mode not in {"legacy", "shadow", "serve"}:
+            raise ValueError("invalid shared capability mode")
+        self.epsilon = float(data.get("epsilon", 0.05))
+        self.temperature = float(data.get("temperature", 0.20))
+        self.time_budget_ms = int(data.get("time_budget_ms", 250))
+        self.cursor_ttl = int(data.get("cursor_ttl", 900))
+        if not 0 < self.epsilon <= 1 or not 0 < self.temperature <= 10:
+            raise ValueError("invalid recommendation probability parameters")
+        if not 1 <= self.time_budget_ms <= 10000 or not 1 <= self.cursor_ttl <= 86400:
+            raise ValueError("invalid shared capability limits")
+        self.manifest_path = data.get("manifest_path", os.environ.get(
+            "NEXUS_CAPABILITY_MANIFEST", str(Path(__file__).resolve().parents[1] /
+                                            "config/capability_providers.yaml")))
+        # Values are secret environment variable NAMES, never bearer tokens.
+        self.identities = data.get("identities", [])
+
+    def shared_capability_mode(self):
+        return self.mode
+
+    def is_shared_capability_serving(self):
+        return self.mode == "serve"
+
+
+def get_shared_capability_config():
+    """Resolve explicit YAML > environment > default, without logging secrets."""
+    path = Path(os.environ.get("NEXUS_CONFIG", str(Path(__file__).resolve().parents[1] /
+                                                   "nexus.yaml")))
+    data = yaml.safe_load(path.read_text()) if path.is_file() else {}
+    return SharedCapabilityConfig((data or {}).get("shared_capabilities", {}))
+
+
 class ProviderModel:
     def __init__(self, name: str, role: str):
         self.name = name

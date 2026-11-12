@@ -16,6 +16,10 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
 NEXUS_ROOT = Path(__file__).resolve().parent.parent.parent
+# Repo root must come before this directory on sys.path: this file is named server.py and
+# would otherwise shadow the `server` package.
+sys.path.insert(0, str(NEXUS_ROOT))
+from server.dashboard import sites_api  # noqa: E402  (harness sites UI, plan W4)
 DB_PATH = Path(os.path.expandvars(os.environ.get("NEXUS_DB_PATH", str(NEXUS_ROOT / "db" / "nexus.db"))))
 PORT = int(os.environ.get("NEXUS_DASHBOARD_PORT", "8765"))
 
@@ -176,8 +180,35 @@ def get_ops():
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
+    def _send(self, status, body, ctype='application/json'):
+        self.send_response(status)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _write(self, method):
+        length = int(self.headers.get('Content-Length') or 0)
+        body = self.rfile.read(min(length, sites_api.MAX_BODY_BYTES + 1))
+        result = sites_api.handle_write(method, self.path, body, self.client_address[0],
+                                        self.headers.get('Origin'))
+        if result is None:
+            self._send(404, b'{"error": "not found"}')
+        else:
+            self._send(*result)
+
+    def do_POST(self):
+        self._write('POST')
+
+    def do_DELETE(self):
+        self._write('DELETE')
+
     def do_GET(self):
         parsed = urlparse(self.path)
+        api = sites_api.handle_get(self.path)
+        if api is not None:
+            self._send(*api)
+            return
         if parsed.path == '/api/metrics':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')

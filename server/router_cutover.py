@@ -250,13 +250,58 @@ def route_for_task(
     flag: str | None = None,
     open_session: bool = True,
     ide: str | None = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
-    """Dispatch routing based on ``USE_UNIFIED_ROUTER`` (or explicit flag).
+    """Dispatch routing based on ``shared_capability_mode`` or ``USE_UNIFIED_ROUTER``."""
+    from core.config import get_shared_capability_config
+    cap_cfg = get_shared_capability_config()
+    cap_mode = cap_cfg.shared_capability_mode()
 
-    When ``open_session`` is True (default for production callers), append a
-    non-terminal ``routed`` row to routing_log without belief updates (P1).
-    Offline A/B comparison should pass open_session=False.
-    """
+    if flag is None and cap_mode == "serve":
+        try:
+            from server.capability_api import get_global_service_graph
+            services = get_global_service_graph()
+            if services.recommender and services.events:
+                principal = {"id": ide or "unknown", "harness": ide or "unknown", "projects": [project]}
+                sess = services.events.open_session(principal, context={"project": project}, ttl_seconds=3600)
+                rec = services.recommender.recommend(sess["session_id"], task, k=max_results, seed=seed, principal=principal)
+                skills = []
+                for item in rec.get("recommendations", []):
+                    if item.get("kind") == "skill":
+                        skills.append({
+                            "name": item.get("name") or item.get("canonical_id"),
+                            "score": round(item.get("score", 0.0), 4),
+                            "category": "INVOKE",
+                            "success_rate": 0,
+                            "type": "skill",
+                            "_source": "capability_recommender",
+                            "canonical_id": item.get("canonical_id"),
+                            "version": item.get("version"),
+                        })
+                result = {
+                    "task": task,
+                    "project": project,
+                    "tier": 2,
+                    "tier_name": "Shared Capability Service",
+                    "model": "sonnet",
+                    "token_limit": 200000,
+                    "skills": skills[:max_results],
+                    "method": "capability_recommender",
+                    "cluster": None,
+                    "router_mode": "capability_serve",
+                    "router_flag": 3,
+                    "catalog_revision": rec.get("catalog_revision"),
+                }
+                if open_session:
+                    rowid = log_session_open(task, project, result, ide=ide)
+                    if rowid is not None:
+                        result["session_log_id"] = rowid
+                        result["session_outcome"] = "routed"
+                return result
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Shared capability serve routing failed, falling back: %s", e)
+
     active = flag if flag is not None else get_router_flag()
     if active == "2":
         result = _shape_v5(task, project, max_results)
@@ -267,6 +312,21 @@ def route_for_task(
 
     result["router_flag"] = int(active) if str(active).isdigit() else active
     result["router_mode"] = ROUTER_MODES.get(str(active), {}).get("name", "unknown")
+
+    if flag is None and cap_mode == "shadow":
+        try:
+            from server.capability_api import get_global_service_graph
+            services = get_global_service_graph()
+            if services.recommender and services.events:
+                principal = {"id": ide or "unknown", "harness": ide or "unknown", "projects": [project]}
+                sess = services.events.open_session(principal, context={"project": project}, ttl_seconds=3600)
+                rec = services.recommender.recommend(sess["session_id"], task, k=max_results, seed=seed, principal=principal)
+                result["shadow_recommendation"] = {
+                    "catalog_revision": rec.get("catalog_revision"),
+                    "count": len(rec.get("recommendations", [])),
+                }
+        except Exception:
+            pass
 
     # P3: harness plan + toolsets on all cutover paths (v5 L1 may already attach
     # via pure route_task; re-attach is idempotent and strips legacy skill rows).

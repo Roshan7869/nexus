@@ -23,6 +23,16 @@ CONTEXT_BASELINE_TOOLS: frozenset[str] = frozenset({
     "harness_smart_research",
 })
 
+# Stable Shared Capability Service discovery & invocation facade (Phase 4)
+CAPABILITY_BASELINE_TOOLS: frozenset[str] = frozenset({
+    "capability_search",
+    "capability_get",
+    "skill_read",
+    "capability_recommend",
+    "capability_invoke",
+    "capability_session_close",
+})
+
 HARNESS_PREFIX = "harness_"
 CONTEXT_PREFIX = "context_"
 
@@ -48,6 +58,9 @@ def merge_tool_surface(
     for name in sorted(CONTEXT_BASELINE_TOOLS):
         add(name)
 
+    for name in sorted(CAPABILITY_BASELINE_TOOLS):
+        add(name)
+
     for name in session_tools:
         add(name)
 
@@ -67,7 +80,7 @@ def filter_mcp_tool_names(
 ) -> list[str]:
     """Filter a full MCP tool registry to the ephemeral session surface."""
     if not session_tools:
-        allowed = BASELINE_TOOLS | CONTEXT_BASELINE_TOOLS
+        allowed = BASELINE_TOOLS | CONTEXT_BASELINE_TOOLS | CAPABILITY_BASELINE_TOOLS
         return sorted(n for n in all_tool_names if n in allowed)
 
     allowed = set(

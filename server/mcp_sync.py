@@ -9,6 +9,7 @@ CRUD Operations:
 - UPDATE: Tool schema changed → Re-index
 - DELETE: Tool removed → Remove from index
 """
+import os
 
 import json, sqlite3, threading, time, os
 from pathlib import Path

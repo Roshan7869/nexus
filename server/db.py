@@ -102,6 +102,18 @@ def set_pragma(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA synchronous=NORMAL")  # balance safety + speed
 
 
+def load_vector_extension(conn: sqlite3.Connection) -> bool:
+    """Load sqlite_vec extension if available, otherwise return False gracefully."""
+    try:
+        if hasattr(conn, "enable_load_extension"):
+            conn.enable_load_extension(True)
+        import sqlite_vec
+        sqlite_vec.load(conn)
+        return True
+    except Exception:
+        return False
+
+
 def get_connection(timeout: int = 60) -> sqlite3.Connection:
     """Open a connection to the NEXUS database.
 
@@ -112,6 +124,7 @@ def get_connection(timeout: int = 60) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), timeout=timeout)
     conn.row_factory = sqlite3.Row
     set_pragma(conn)
+    load_vector_extension(conn)
     return conn
 
 
@@ -142,14 +155,21 @@ def db_conn(timeout: int = 60) -> Generator[sqlite3.Connection, None, None]:
     always closed on exit.
     """
     conn = get_connection(timeout=timeout)
+    conn.row_factory = sqlite3.Row
     try:
         yield conn
         conn.commit()
     except BaseException:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise
     finally:
-        close_connection(conn)
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 # ── Schema helpers ───────────────────────────────────────────────────────

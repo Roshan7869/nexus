@@ -22,7 +22,16 @@ System B (LLM Gateway with Thompson Sampling) into a single process.
 """
 
 import os, sys, json, time, logging, asyncio, threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+# ── Thread pool for running sync functions off the event loop ──
+_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="unified-worker")
+
+async def _run_sync(func, *args, **kwargs):
+    """Run a synchronous function in the thread pool without blocking the event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_EXECUTOR, lambda: func(*args, **kwargs))
 
 # ── Add paths ────────────────────────────────────────────────────────────
 NEXUS_ROOT = Path.home() / 'nexus'
@@ -773,6 +782,7 @@ async def nexus_health():
         conn = sqlite3.connect(str(db_path), timeout=30)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=10000")
+        conn.row_factory = sqlite3.Row
 
         total_active = conn.execute("SELECT COUNT(*) FROM resources WHERE status='active'").fetchone()[0]
         triggered = conn.execute("SELECT COUNT(*) FROM resources WHERE status='active' AND times_triggered > 0").fetchone()[0]
@@ -878,6 +888,16 @@ async def nexus_health():
         health["harness_metrics"] = compute_global_metrics()
     except Exception as exc:
         health["harness_metrics"] = {"error": str(exc)}
+
+    # Compute compound fail-closed status (O-1 fix)
+    proc_status = health.get("processes", {})
+    gate_pass = proc_status.get("gate_pass", False)
+    if not gate_pass:
+        health["status"] = "unhealthy" if proc_status.get("required_up", 0) == 0 else "degraded"
+    elif "error" in health.get("subsystems", {}).get("database", {}):
+        health["status"] = "unhealthy"
+    else:
+        health["status"] = "healthy"
 
     return JSONResponse(health)
 
@@ -1007,7 +1027,14 @@ async def ide_unregister(session_id: str):
 
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok", "version": "4.0.0-unified"})
+    from server.process_supervisor import get_process_status
+    proc_status = get_process_status()
+    st = "ok" if proc_status.get("gate_pass") else "degraded"
+    return JSONResponse({
+        "status": st,
+        "gate_pass": proc_status.get("gate_pass", False),
+        "version": "4.0.0-unified"
+    })
 
 
 @app.get("/approaches")

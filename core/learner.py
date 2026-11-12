@@ -359,6 +359,8 @@ class NexusLearner:
             centroids = self.conn.execute(
                 "SELECT name, centroid_embedding FROM cluster_definitions WHERE centroid_embedding IS NOT NULL"
             ).fetchall()
+            if not centroids:
+                raise RuntimeError("No cluster centroids found for semantic classification")
             
             best_cluster = "general"
             best_score = -1.0
@@ -404,7 +406,7 @@ class NexusLearner:
             # Reasoning signals
             reasoning_kw = ["analyze", "explain", "why", "compare", "evaluate", "assess", "consider", "reason", "logic", "deduce"]
             # Agentic signals
-            agentic_kw = ["run", "execute", "deploy", "ship", "build", "automate", "pipeline", "workflow", "orchestrate"]
+            agentic_kw = ["agent", "swarm", "autonomous", "autopilot", "loop", "run", "execute", "deploy", "ship", "build", "automate", "pipeline", "workflow", "orchestrate"]
             # Architecture signals
             arch_kw = ["architect", "design", "system", "pattern", "ddd", "microservice", "spec", "blueprint"]
             # Devops signals
