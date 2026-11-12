@@ -1,4 +1,6 @@
 # Python
+venv
+.venv
 venv/
 .venv/
 __pycache__/
@@ -48,3 +50,6 @@ logs/
 run/
 artifacts/
 .zcode/
+
+# UI-managed harness sites (dashboard writes this)
+config/harness_sites.local.yaml

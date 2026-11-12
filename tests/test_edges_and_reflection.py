@@ -1,24 +1,37 @@
-from server.db import get_db_path as _resolve_db_path
 #!/usr/bin/env python3
+"""
+Test suite for graph edge traversal and self-reflection adjustments.
+"""
 import sys
 import os
+import random
 import sqlite3
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REPO_ROOT / "server"))
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if str(REPO_ROOT / "server") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "server"))
 
+from server.db import get_db_path as _resolve_db_path
+import server.router as _router
+import server.learning as _learning
 from server.router import find_matching_skills
 from server.learning import record_outcome
 
-DB_PATH = _resolve_db_path()
 
 class TestEdgesAndReflection(unittest.TestCase):
     
     def setUp(self):
-        self.conn = sqlite3.connect(str(DB_PATH))
+        # The router explores with random.random(); seed it so ranking assertions are repeatable.
+        random.seed(0)
+        self.db_path = _resolve_db_path()
+        _router.DB_PATH = self.db_path
+        _learning.DB_PATH = self.db_path
+
+        self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row
         
         # Clean up test rows (order matters: edges/memberships before resources)
@@ -113,20 +126,17 @@ class TestEdgesAndReflection(unittest.TestCase):
                               "Failing tool should score lower due to reflection failure penalty!")
             
     def test_fractional_updates_record_outcome(self):
-        print("\n--- Testing Fractional Reward Updates ---")
+        print("\n--- Partial outcome is telemetry-only (no counter change) ---")
+        q = "SELECT times_correct, times_wrong, times_triggered FROM resources WHERE name='test-edge-source'"
+        before = self.conn.execute(q).fetchone()
         record_outcome(
             skill_name="test-edge-source",
             outcome="partial",
             task_summary="partial execution task",
             project="test_proj"
         )
-        # Check database directly
-        res = self.conn.execute("SELECT times_correct, times_wrong, times_triggered FROM resources WHERE name='test-edge-source'").fetchone()
-        # Initial: correct=5, wrong=0, triggered=5
-        # After partial: correct=5.5, wrong=0.5, triggered=6
-        self.assertEqual(res["times_correct"], 5.5)
-        self.assertEqual(res["times_wrong"], 0.5)
-        self.assertEqual(res["times_triggered"], 6)
+        after = self.conn.execute(q).fetchone()
+        self.assertEqual(tuple(after), tuple(before))
 
     def test_multiplicative_edge_updates(self):
         print("\n--- Testing Multiplicative Edge Weight Updates ---")
@@ -156,6 +166,7 @@ class TestEdgesAndReflection(unittest.TestCase):
         res2 = self.conn.execute("SELECT weight FROM resource_edges WHERE source_id = ? AND target_id = ?", (self.source_id, self.target_id)).fetchone()
         # 0.525 * 0.85 = 0.44625
         self.assertAlmostEqual(res2["weight"], 0.44625, places=3)
+
 
 if __name__ == "__main__":
     unittest.main()
