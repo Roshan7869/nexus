@@ -1,0 +1,47 @@
+# Inert source configuration: reconciliation never launches provider processes.
+version: 1
+skill_roots:
+  - publisher: hermes
+    root: /home/roshan/.hermes/skills
+    include_patterns: ['**/SKILL.md']
+    exclude_patterns:
+      - '*/.archive/*'
+      - '*/gstack/.agents/*'
+      - '*/gstack/.cursor/*'
+      - '*/gstack/.factory/*'
+      - '*/gstack/.kiro/*'
+      - '*/gstack/.opencode/*'
+      - '*/gstack/.slate/*'
+      - '*/gstack/.gbrain/*'
+      - '*/gstack/.openclaw/*'
+providers: []
+# Preserve config/mcp_servers.json. It lists logical tool names but supplies no
+# verified transport, executable, endpoint or credential reference for import.
+existing_provider_dispositions:
+  - id: github-mcp
+    disposition: keep
+    reason: Transport and credential reference require explicit operator configuration.
+  - id: filesystem
+    disposition: keep
+    reason: Filesystem boundaries and method policies require explicit operator configuration.
+harness_profiles:
+  - id: codex
+    adapter: codex
+    permitted_native_verbs: []
+  - id: claude-code
+    adapter: claude-code
+    permitted_native_verbs: []
+  - id: opencode
+    adapter: opencode
+    permitted_native_verbs: []
+  - id: hermes
+    adapter: hermes
+    permitted_native_verbs: []
+recommendation_policy:
+  version: '1'
+  epsilon: 0.05
+  temperature: 0.20
+binding:
+  host: 127.0.0.1
+  authentication: distinct_bearer_per_harness
+  project_scopes: explicit
