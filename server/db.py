@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -170,6 +171,42 @@ def db_conn(timeout: int = 60) -> Generator[sqlite3.Connection, None, None]:
             conn.close()
         except Exception:
             pass
+
+
+# ── Shared read connection (E3: the route path opened ~19 connections/request) ──
+
+_READER = threading.local()
+
+
+def get_read_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
+    """Thread-local CACHED read connection for the routing hot path.
+
+    The E3 profile (2026-11-19) measured 96 sqlite executes plus ~19
+    connection open/close (each re-running WAL/busy_timeout PRAGMAs) per
+    routed request — ~40% of the 750 ms p50. WAL readers never block writers,
+    so one cached reader per thread is safe for the route path.
+
+    Contract:
+      * READS ONLY — a write through this handle would hold its transaction
+        open process-wide. Writes keep short-lived connections (own-connection
+        + fast commit is already the pattern at the routing_log sites).
+      * Do NOT close: the handle lives for the thread's lifetime. Keyed by db
+        path so a test swapping NEXUS_DB_PATH gets a fresh handle.
+    """
+    key = str(db_path or get_db_path())
+    con = getattr(_READER, "con", None)
+    if con is not None and getattr(_READER, "key", None) == key:
+        return con
+    con = sqlite3.connect(key, timeout=30)
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA busy_timeout=15000")
+    except Exception:
+        pass
+    con.row_factory = sqlite3.Row
+    _READER.con = con
+    _READER.key = key
+    return con
 
 
 # ── Schema helpers ───────────────────────────────────────────────────────

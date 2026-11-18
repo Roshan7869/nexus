@@ -17,6 +17,7 @@ When routing (Thompson) ON: Step 6 overrides tier model selection.
 Papers: ToolkenGPT (2310.03054), Reflexion (2303.11366), SWE-agent (2405.15793)
 """
 from server.db import get_db_path as _resolve_db_path
+from server.db import get_read_connection as _shared_reader
 import sys, json, sqlite3, os, logging, time, hashlib, math, re, random
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -206,6 +207,41 @@ def _classify_task_local(task: str) -> tuple:
 # Step 1: Auto-Trigger (cluster auto-detection)
 # ═══════════════════════════════════════════════════════════════════════
 
+# E3: request-invariant aggregates, TTL-cached. COUNT(*) routing_log and the
+# cluster-sizes GROUP BY were re-computed on EVERY find_matching_skills call
+# (twice per route) — ~90 ms/request for values that change only when routes
+# are logged. 60 s staleness feeds only the UCB1 exploration bonus and the
+# diversity weight; in a single-user system this is noise, and the E2 eval
+# gate covers any behavioral surprise.
+_AGG_TTL = 60.0
+_AGG_CACHE: Dict = {"ts": 0.0, "n_total": None, "cluster_sizes": None}
+
+
+def _routing_agg_stats(conn) -> tuple:
+    """(N_total, cluster_sizes) with a 60 s TTL; refreshed from `conn`."""
+    now = time.monotonic()
+    if _AGG_CACHE["n_total"] is None or (now - _AGG_CACHE["ts"]) > _AGG_TTL:
+        try:
+            _AGG_CACHE["n_total"] = int(
+                conn.execute("SELECT COUNT(*) FROM routing_log").fetchone()[0]) or 1
+        except Exception:
+            _AGG_CACHE["n_total"] = 1
+        sizes: Dict[str, int] = {}
+        try:
+            for r in conn.execute("""
+                SELECT cm.cluster_name, COUNT(DISTINCT cm.resource_id) as cnt
+                FROM cluster_membership cm
+                JOIN resources r ON r.id = cm.resource_id AND r.status = 'active'
+                GROUP BY cm.cluster_name
+            """).fetchall():
+                sizes[r["cluster_name"]] = r["cnt"]
+        except Exception:
+            pass
+        _AGG_CACHE["cluster_sizes"] = sizes
+        _AGG_CACHE["ts"] = now
+    return _AGG_CACHE["n_total"], _AGG_CACHE["cluster_sizes"] or {}
+
+
 def _log_cluster_activation(task: str, result: Dict, source: str) -> None:
     """Best-effort activation log; never breaks routing."""
     try:
@@ -318,9 +354,7 @@ def route_to_clusters(task: str, detected_cluster: str = None) -> Optional[Dict]
     """
     if detected_cluster:
         try:
-            conn = sqlite3.connect(str(DB_PATH), timeout=30)
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=15000")
+            conn = _shared_reader()  # E3: cached read connection (was open+PRAGMAs+close)
             # P0-2: Read from cluster_membership (authoritative) with JOIN
             rows = conn.execute("""
                 SELECT DISTINCT r.id FROM resources r
@@ -328,7 +362,6 @@ def route_to_clusters(task: str, detected_cluster: str = None) -> Optional[Dict]
                 WHERE (cm.cluster_name = ? OR cm.cluster_name = 'general')
                   AND r.status = 'active'
             """, (detected_cluster,)).fetchall()
-            conn.close()
             resource_ids = [r[0] for r in rows]
             if resource_ids:
                 return {"clusters": [detected_cluster, "general"], "resource_ids": resource_ids}
@@ -336,12 +369,11 @@ def route_to_clusters(task: str, detected_cluster: str = None) -> Optional[Dict]
             logger.warning(f"DB cluster_membership filter failed, falling back to column: {e}")
             # Fallback: legacy resources.cluster column
             try:
-                conn = sqlite3.connect(str(DB_PATH), timeout=30)
+                conn = _shared_reader()
                 rows = conn.execute(
                     "SELECT id FROM resources WHERE (cluster=? OR cluster='general') AND status='active'",
                     (detected_cluster,)
                 ).fetchall()
-                conn.close()
                 resource_ids = [r[0] for r in rows]
                 if resource_ids:
                     return {"clusters": [detected_cluster, "general"], "resource_ids": resource_ids}
@@ -569,29 +601,14 @@ def find_matching_skills(task: str, project: str = "default",
     if not DB_PATH.exists():
         return []
 
-    conn = sqlite3.connect(str(DB_PATH), timeout=30)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=10000")
-    conn.row_factory = sqlite3.Row
+    conn = _shared_reader()  # E3: cached read connection (read-only fn, verified)
 
     task_words = set(task.lower().split())
     task_lower = task.lower()
 
-    # UCB1: Fetch total routing log size for exploration bonus calculation
-    try:
-        N_total = conn.execute("SELECT COUNT(*) FROM routing_log").fetchone()[0] or 1
-    except Exception:
-        N_total = 1
-
-    # Phase P4: Pre-compute cluster sizes for diversity-weighted exploration
-    cluster_sizes = {}
-    for r in conn.execute("""
-        SELECT cm.cluster_name, COUNT(DISTINCT cm.resource_id) as cnt 
-        FROM cluster_membership cm
-        JOIN resources r ON r.id = cm.resource_id AND r.status = 'active'
-        GROUP BY cm.cluster_name
-    """).fetchall():
-        cluster_sizes[r['cluster_name']] = r['cnt']
+    # UCB1 + diversity aggregates, TTL-cached (E3): these were re-computed per
+    # call (twice per route) for ~90 ms of pure re-aggregation.
+    N_total, cluster_sizes = _routing_agg_stats(conn)
     max_cluster_size = max(cluster_sizes.values()) if cluster_sizes else 1
 
     # Fetch active/recent reflection fixes and failures
@@ -960,7 +977,7 @@ def find_matching_skills(task: str, project: str = "default",
             except Exception as e:
                 logger.warning(f"Failed to query adjacent resource edges: {e}")
 
-    conn.close()
+    # E3: conn is the shared thread-local reader — never closed here.
     return matches[:max_results]
 
 
@@ -1039,8 +1056,7 @@ def _get_cold_resources(top_k: int = 3) -> List[Dict]:
     produce useful outcomes when first explored.
     """
     try:
-        conn = sqlite3.connect(str(DB_PATH))
-        conn.row_factory = sqlite3.Row
+        conn = _shared_reader()  # E3: cached reader (adds WAL + busy_timeout the old open lacked)
         rows = conn.execute("""
             SELECT r.name, r.resource_type, COUNT(rs.id) as section_count
             FROM resources r
@@ -1050,7 +1066,6 @@ def _get_cold_resources(top_k: int = 3) -> List[Dict]:
             ORDER BY section_count DESC
             LIMIT ?
         """, (top_k,)).fetchall()
-        conn.close()
         return [{"name": r["name"], "resource_type": r["resource_type"],
                  "section_count": r["section_count"]} for r in rows]
     except Exception:
