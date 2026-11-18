@@ -312,7 +312,12 @@ def _chunk_resource_stream(query: str, db_path: str, k: int,
     """
     try:
         rc = _retrieve_chunks(query, top_k=k, clusters=clusters,
-                              db_path=db_path, vec=True,
+                              db_path=db_path,
+                              # NEXUS_CHUNK_VEC=0 disables the semantic arm so the
+                              # vector backfill's contribution can be A/B'd on a
+                              # frozen snapshot (measurement integrity, 2026-11-19).
+                              vec=(os.environ.get("NEXUS_CHUNK_VEC", "1") or "1").strip()
+                                  not in ("0", "false", "False"),
                               corpus=RETRIEVAL_CORPUS,
                               graph_lane=False)   # L1-b: router ensemble is
                               # top-1-calibrated; lane serves RAG consumers

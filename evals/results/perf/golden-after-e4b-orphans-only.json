@@ -1,0 +1,164 @@
+{
+  "tag": "after-e4b-orphans-only",
+  "generated_at": "2026-11-19T02:52:40",
+  "n_cases": 105,
+  "seeds": [
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.25,
+        0.1548,
+        0.3452
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2381,
+        0.1548,
+        0.3333
+      ],
+      "mrr": 0.1736,
+      "cluster_ok": [
+        0.4167,
+        0.3095,
+        0.5238
+      ],
+      "passed": [
+        0.2571,
+        0.1714,
+        0.3429
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1190.3,
+      "latency_p95_ms": 1836.4,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.25,
+        0.1548,
+        0.3452
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2381,
+        0.1548,
+        0.3333
+      ],
+      "mrr": 0.1736,
+      "cluster_ok": [
+        0.4167,
+        0.3095,
+        0.5238
+      ],
+      "passed": [
+        0.2571,
+        0.1714,
+        0.3429
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1190.8,
+      "latency_p95_ms": 2073.9,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.25,
+        0.1548,
+        0.3452
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2381,
+        0.1548,
+        0.3333
+      ],
+      "mrr": 0.1736,
+      "cluster_ok": [
+        0.4167,
+        0.3095,
+        0.5238
+      ],
+      "passed": [
+        0.2571,
+        0.1714,
+        0.3429
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1312.2,
+      "latency_p95_ms": 2117.0,
+      "errors": 0
+    }
+  ],
+  "cross_seed_hit_spread": "0.250-0.250 (spread 0.000)",
+  "worst_cases": [
+    {
+      "id": "coding-frontend-001",
+      "misses": 3
+    },
+    {
+      "id": "qa-security-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-dark-mode-toggle-001",
+      "misses": 3
+    },
+    {
+      "id": "coding-dashboard-responsive-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-scaffold-skill-004",
+      "misses": 3
+    },
+    {
+      "id": "coding-jwt-auth-middleware-007",
+      "misses": 3
+    },
+    {
+      "id": "coding-slow-booking-query-009",
+      "misses": 3
+    },
+    {
+      "id": "coding-invoicing-schema-010",
+      "misses": 3
+    },
+    {
+      "id": "coding-payments-coverage-012",
+      "misses": 3
+    },
+    {
+      "id": "coding-review-notification-pr-017",
+      "misses": 3
+    }
+  ]
+}

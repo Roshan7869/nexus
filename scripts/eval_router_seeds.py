@@ -125,7 +125,35 @@ def main() -> int:
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--tag", default="baseline")
     ap.add_argument("--golden", default=str(GOLDEN))
+    ap.add_argument("--hermetic", action="store_true", default=False,
+                    help="route against a throw-away COPY of the live DB so this "
+                         "eval's routing_log writes cannot change N_total/UCB for "
+                         "later runs (see the E4b measurement-integrity note)")
     args = ap.parse_args()
+
+    # ── hermetic mode ────────────────────────────────────────────────────
+    # MUST run before any server import: router.py resolves DB_PATH at import.
+    if args.hermetic:
+        import os
+        import shutil
+        import tempfile
+        src = Path(os.environ.get("NEXUS_DB_PATH") or
+                   Path.home() / "nexus" / "db" / "nexus.db")
+        if not src.exists():
+            src = Path(r"D:\nexus-data\db\nexus.db")
+        tmp = Path(tempfile.gettempdir()) / "nexus_eval_hermetic.db"
+        for suffix in ("", "-wal", "-shm"):
+            f = Path(str(tmp) + suffix)
+            if f.exists():
+                f.unlink()
+        shutil.copy2(src, tmp)
+        # copy WAL/SHM too when present so the snapshot is consistent
+        for suffix in ("-wal", "-shm"):
+            s = Path(str(src) + suffix)
+            if s.exists():
+                shutil.copy2(s, Path(str(tmp) + suffix))
+        os.environ["NEXUS_DB_PATH"] = str(tmp)
+        print(f"hermetic db  : {tmp}  (copied from {src})")
 
     cases = load_cases()
     print(f"golden set : {len(cases)} cases")

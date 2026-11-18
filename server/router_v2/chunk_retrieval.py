@@ -75,9 +75,11 @@ def _connect(db_path: str) -> sqlite3.Connection:
 
 
 def _fts_search(con: sqlite3.Connection, query: str, limit: int) -> list[dict]:
-    # OR form: see _prepare_fts_any — the AND form measured 1.2% hit@5 on the
-    # golden set with the semantic arm empty (E2 baseline, 2026-11-19).
-    match = _prepare_fts_any(query)
+    # OR form by default: the AND form measured 1.2% hit@5 on the golden set with
+    # the semantic arm empty (E2 baseline, 2026-11-19). NEXUS_FTS_MODE=and
+    # restores the pre-fix behavior for same-snapshot A/B measurement.
+    _mode = (os.environ.get("NEXUS_FTS_MODE", "or") or "or").strip().lower()
+    match = _prepare_fts(query) if _mode == "and" else _prepare_fts_any(query)
     if not match:
         return []
     try:
@@ -340,8 +342,20 @@ def retrieve_chunks(query: str, top_k: int = 10, clusters: list[str] | None = No
             except Exception:
                 sem = []
 
-    text_fused = _rrf(fts, sem)          # full text-only ranking
-    fused = text_fused[:top_k * 2]       # over-fetch for cluster filtering
+    text_fused = _rrf(fts, sem)          # full text-only ranking (chunk grain)
+    # E4b REVERTED (2026-11-19): splitting long chunks into passages measured
+    # hit@k 0.286 -> 0.250 (output dedupe) -> 0.238 (resource-grain collapse).
+    # The Dense-X passage recipe did not transfer: every resource already
+    # carries a "name — description" chunk, so its description dominates the
+    # vector and extra body passages mostly add near-duplicate candidates.
+    # Children were deleted; this window logic stays simple and the env-gated
+    # dedupe below remains (inert at one chunk per resource, correct if
+    # multi-chunk ingestion ever returns — see docs/plans/E4B-CHUNKING-RESULT.md).
+    try:
+        _span = int(os.environ.get("NEXUS_CHUNK_SPAN_FACTOR", "2"))
+    except ValueError:
+        _span = 2
+    fused = text_fused[:top_k * max(2, _span)]   # over-fetch for cluster filtering
 
     cids = [r["chunk_id"] for r in fused]
     meta = (_hydrate_sections(con, cids, snippet_len=snippet_len)
@@ -427,11 +441,22 @@ def retrieve_chunks(query: str, top_k: int = 10, clusters: list[str] | None = No
     rmeta = _hydrate_resources(con, rids)
 
     results = []
+    # E4b: one result per RESOURCE — its best-ranked chunk. Without this, a
+    # resource split into N passages could occupy N of the top_k slots and
+    # crowd out every other candidate. Unlinked chunks (resource_id NULL) are
+    # never deduped. NEXUS_CHUNK_DEDUPE=0 restores the pre-E4b behavior.
+    _dedupe = (os.environ.get("NEXUS_CHUNK_DEDUPE", "1") or "1").strip() not in ("0", "false", "False")
+    _seen_rids: set[int] = set()
     for f in fused:
         m = meta.get(f["chunk_id"])
         if m is None:
             continue
-        rm = rmeta.get(m["resource_id"], {}) if m["resource_id"] is not None else {}
+        rid = m["resource_id"]
+        if _dedupe and rid is not None:
+            if rid in _seen_rids:
+                continue
+            _seen_rids.add(rid)
+        rm = rmeta.get(rid, {}) if rid is not None else {}
         if clusters is not None:
             cl = rm.get("cluster")
             if cl not in clusters:

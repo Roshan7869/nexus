@@ -1,0 +1,164 @@
+{
+  "tag": "after-e4b-reverted",
+  "generated_at": "2026-11-19T02:59:27",
+  "n_cases": 105,
+  "seeds": [
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2738,
+        0.1786,
+        0.369
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "mrr": 0.1855,
+      "cluster_ok": [
+        0.4048,
+        0.2976,
+        0.5119
+      ],
+      "passed": [
+        0.2667,
+        0.181,
+        0.3524
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 943.1,
+      "latency_p95_ms": 1711.4,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2738,
+        0.1786,
+        0.369
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "mrr": 0.1855,
+      "cluster_ok": [
+        0.4048,
+        0.2976,
+        0.5119
+      ],
+      "passed": [
+        0.2667,
+        0.181,
+        0.3524
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1217.6,
+      "latency_p95_ms": 1987.8,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2738,
+        0.1786,
+        0.369
+      ],
+      "top1": [
+        0.119,
+        0.0595,
+        0.1905
+      ],
+      "top3": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "mrr": 0.1855,
+      "cluster_ok": [
+        0.4048,
+        0.2976,
+        0.5119
+      ],
+      "passed": [
+        0.2667,
+        0.181,
+        0.3524
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1183.8,
+      "latency_p95_ms": 1845.4,
+      "errors": 0
+    }
+  ],
+  "cross_seed_hit_spread": "0.274-0.274 (spread 0.000)",
+  "worst_cases": [
+    {
+      "id": "coding-frontend-001",
+      "misses": 3
+    },
+    {
+      "id": "qa-security-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-dark-mode-toggle-001",
+      "misses": 3
+    },
+    {
+      "id": "coding-scaffold-skill-004",
+      "misses": 3
+    },
+    {
+      "id": "coding-jwt-auth-middleware-007",
+      "misses": 3
+    },
+    {
+      "id": "coding-slow-booking-query-009",
+      "misses": 3
+    },
+    {
+      "id": "coding-invoicing-schema-010",
+      "misses": 3
+    },
+    {
+      "id": "coding-payments-coverage-012",
+      "misses": 3
+    },
+    {
+      "id": "coding-review-notification-pr-017",
+      "misses": 3
+    },
+    {
+      "id": "coding-guard-safety-pass-018",
+      "misses": 3
+    }
+  ]
+}
