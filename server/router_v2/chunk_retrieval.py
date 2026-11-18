@@ -49,14 +49,17 @@ def _prepare_fts(query: str) -> str:
 
 
 def _prepare_fts_any(query: str) -> str:
-    """OR-join variant of :func:`_prepare_fts` (sections corpus, D1).
+    """OR-join variant of :func:`_prepare_fts`.
 
-    The AND form is right for the chunk corpus (dense long chunks, plus the
-    semantic arm carries recall), but a single short section rarely contains
-    every query token — AND-matching yields 0 rows on essentially every
-    multi-token query. OR + ``bm25`` ordering lets partial matches rank by
-    relevance instead of vanishing. Only the sections arm uses this; the chunks
-    path stays byte-identical to its baseline.
+    Used by BOTH the sections arm and the chunks arm. The chunks arm originally
+    kept the AND form ("baseline fidelity") on the assumption that the semantic
+    arm carries recall for partial matches — but with chunk_embeddings empty
+    the semantic arm returns nothing, and the golden set (2026-11-19,
+    evals/results/perf/golden-baseline-e2.json) measured the AND form at
+    1.2% hit@5 on the chunk lane: a 7-token prompt requires a chunk containing
+    ALL seven tokens, which almost never happens. OR + bm25 ordering lets
+    partial matches rank by relevance instead of vanishing. The change is
+    gated by the E2 eval harness — re-run it after any revert.
     """
     cleaned = "".join(" " if ch in _FTS_SPECIAL else ch for ch in (query or ""))
     toks = [t for t in re.split(r"\s+", cleaned.lower()) if t and t not in _FTS_STOP]
@@ -72,7 +75,9 @@ def _connect(db_path: str) -> sqlite3.Connection:
 
 
 def _fts_search(con: sqlite3.Connection, query: str, limit: int) -> list[dict]:
-    match = _prepare_fts(query)
+    # OR form: see _prepare_fts_any — the AND form measured 1.2% hit@5 on the
+    # golden set with the semantic arm empty (E2 baseline, 2026-11-19).
+    match = _prepare_fts_any(query)
     if not match:
         return []
     try:
