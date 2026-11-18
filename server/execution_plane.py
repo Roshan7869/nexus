@@ -286,6 +286,41 @@ def open_session(
     return payload
 
 
+def _record_credit_pair(session, *, dispreferred: str, preferred: str) -> None:
+    """Persist one contrastive pair: rank-1 was wrong, `preferred` was right.
+
+    Written to the existing `reflection_fixes` table (no migration): `resource_id`
+    is the dispreferred skill, `alternative_resource_id` the preferred one. This is
+    the RLCD *data shape* only; nothing trains from it until the pair gate opens.
+    """
+    import sqlite3
+
+    from server.db import get_db_path
+
+    con = sqlite3.connect(str(get_db_path()), timeout=30)
+    try:
+        con.row_factory = sqlite3.Row
+        ids: dict[str, int] = {}
+        for name in (dispreferred, preferred):
+            row = con.execute("SELECT id FROM resources WHERE name=?", (name,)).fetchone()
+            if row is not None:
+                ids[name] = int(row["id"])
+        if len(ids) < 2 or ids[dispreferred] == ids[preferred]:
+            return
+        con.execute(
+            """INSERT INTO reflection_fixes
+                   (resource_id, alternative_resource_id, failure_summary,
+                    fix_description, times_applied, times_successful)
+               VALUES (?,?,?,?,0,0)""",
+            (ids[dispreferred], ids[preferred],
+             (getattr(session, "query", "") or "")[:200],
+             f"explicit credit disagreed with rank-1 ({dispreferred} -> {preferred})"),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
 def report_session(
     session_id: str,
     outcome: str,
@@ -324,11 +359,52 @@ def report_session(
 
     before = _belief_snapshot(tools)
 
-    # Primary skill learning (first tool / explicit).
-    # skip closes session without belief update (not a quality signal).
-    primary = skill_name or (tools[0] if tools else None)
+    # P4 — RLCD contrastive-pair collection (data shape only).
+    # When the caller names the skill that actually did the work and it disagrees
+    # with rank #1, that disagreement IS a preference pair: (preferred=credited,
+    # dispreferred=rank-1). Stored in the existing `reflection_fixes` table via
+    # `alternative_resource_id`, so no schema change is needed.
+    # No learning happens here — `server/router_v2/rlcd_ranker.py` enforces an
+    # explicit >=100-pair gate before any distillation may run.
+    if skill_name and tools and tools[0] != skill_name:
+        try:
+            _record_credit_pair(session, dispreferred=tools[0], preferred=skill_name)
+        except Exception as exc:  # never let pair collection break a session close
+            logger.debug("credit-pair not recorded: %s", exc)
+
+    # Primary skill learning.
+    #
+    # CREDIT POLICY. Previously this was `primary = skill_name or tools[0]`, which
+    # silently credited rank #1 whenever the caller omitted `skill_name`. Measured
+    # consequence: `gsd-doc-writer` ("Writes and updates project documentation")
+    # absorbed the reward for "write end-to-end tests", "debug a failing login
+    # session" and "review a design document", driving its Alpha from 2.0 to 3.55 —
+    # the loop was learning a bias, not discrimination.
+    #
+    # Default is now `strict`: credit only when the skill is unambiguous.
+    #   - explicit skill_name                        -> credit it
+    #   - exactly one learnable tool loaded          -> credit it
+    #   - several tools and no explicit skill_name   -> credit NOTHING, record the
+    #     outcome as `derived` telemetry so the row still exists for analysis.
+    # Set NEXUS_CREDIT_POLICY=top1 to restore the old guessing behaviour.
+    _credit_policy = (os.environ.get("NEXUS_CREDIT_POLICY") or "strict").strip().lower()
+    primary: str | None = skill_name or None
+    if primary is None:
+        if len(tools) == 1:
+            primary = tools[0]
+        elif _credit_policy == "top1" and tools:
+            primary = tools[0]
+
     learning_results = []
     learnable = frozenset({"correct", "wrong", "partial"})
+    if primary is None and o in learnable:
+        learning_results.append({
+            "status": "skipped",
+            "reason": f"ambiguous_primary_skill: {len(tools)} tools loaded, none credited",
+            "credit_policy": _credit_policy,
+            "tools": tools[:8],
+        })
+
     if primary and o in learnable:
         # Gap 3: pass full tool bundle so co_triggered edges learn multi-skill sessions
         co = [t for t in tools if t and t != primary]
@@ -341,6 +417,7 @@ def report_session(
                 ide=session.ide,
                 quality=None if quality is None else float(quality),
                 co_skills=co,
+                outcome_source="explicit" if skill_name else "derived",
             )
         )
 

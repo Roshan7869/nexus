@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Nexus Core Configuration System"""
+import functools
 import os, json, yaml, logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 
-load_dotenv()
+# Pin the .env to the repo root. A bare load_dotenv() resolves relative to the CWD, so
+# any process started from elsewhere (the MCP server, a cron job, an IDE) loaded nothing
+# and silently ran keyless — which made a configured JEV look "broken".
+_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(_ROOT / ".env")
+load_dotenv()  # keep CWD-local overrides working for interactive runs
 logger = logging.getLogger(__name__)
 
 class SharedCapabilityConfig:
@@ -38,9 +44,23 @@ class SharedCapabilityConfig:
 
 
 def get_shared_capability_config():
-    """Resolve explicit YAML > environment > default, without logging secrets."""
+    """Resolve explicit YAML > environment > default, without logging secrets.
+
+    Cached on (path, mtime): this was re-parsing nexus.yaml on every route call
+    (measured 62 ms), which is pure waste when the file has not changed.
+    """
     path = Path(os.environ.get("NEXUS_CONFIG", str(Path(__file__).resolve().parents[1] /
                                                    "nexus.yaml")))
+    try:
+        mtime = path.stat().st_mtime if path.is_file() else 0.0
+    except OSError:
+        mtime = 0.0
+    return _load_shared_capability_config(str(path), mtime)
+
+
+@functools.lru_cache(maxsize=4)
+def _load_shared_capability_config(path_str: str, _mtime: float):
+    path = Path(path_str)
     data = yaml.safe_load(path.read_text()) if path.is_file() else {}
     return SharedCapabilityConfig((data or {}).get("shared_capabilities", {}))
 

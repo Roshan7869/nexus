@@ -11,7 +11,11 @@ from contextlib import contextmanager
 from typing import Generator
 import pytest
 
-NEXUS_ROOT = Path("/home/roshan/nexus").resolve()
+# Repo root is derived from this file's location, not hardcoded: a fixed
+# "/home/roshan/nexus" made every db/engine fixture and every `server/`-relative
+# import fail on any other machine (and silently skipped the BASELINE.sql load).
+# NEXUS_HOME still overrides when the tests run outside a checkout.
+NEXUS_ROOT = Path(os.environ.get("NEXUS_HOME", Path(__file__).resolve().parent.parent)).resolve()
 if str(NEXUS_ROOT) not in sys.path:
     sys.path.insert(0, str(NEXUS_ROOT))
 if str(NEXUS_ROOT / "server") not in sys.path:

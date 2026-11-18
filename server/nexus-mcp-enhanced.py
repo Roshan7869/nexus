@@ -1978,5 +1978,240 @@ def local_harness_status() -> str:
     }, indent=2)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# Browser automation over Obscura (server/browser_tool.py)
+#
+# Empirically grounded on 2026-11-18: obscura serve + CDP, --storage-dir is a
+# persistent server-wide cookie jar, page state is per-connection (the module
+# holds ONE long-lived connection). See the module docstring for measurements.
+# ═════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+def browser_status() -> str:
+    """Obscura browser status: server running, port, profile dir, current page.
+
+    Use this first when a task involves browsing: it reports whether the
+    headless Rust browser (persistent, stealth, fixed Windows UA) is up and
+    where the single long-lived page currently points.
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.status(), indent=2)
+
+
+@mcp.tool()
+def browser_navigate(url: str) -> str:
+    """Navigate the NEXUS Obscura browser to a URL and return page summary.
+
+    Launches the browser automatically if it is not running (first call ~4-5 s).
+    The cookie jar is persistent, so logged-in sessions (e.g. imported Gmail)
+    survive server restarts. Returns final URL, title, and a text preview.
+
+    Args:
+        url: Target URL; an https:// prefix is added if missing.
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.navigate(url), indent=2)
+
+
+@mcp.tool()
+def browser_read(selector: str = "", max_chars: int = 8000) -> str:
+    """Read visible text from the current browser page, or from one element.
+
+    Args:
+        selector: Optional CSS selector to read a single element (e.g.
+            'main', 'table.results'). Empty = whole page body text.
+        max_chars: Truncation limit for returned text (default 8000).
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.read(selector, max_chars), indent=2)
+
+
+@mcp.tool()
+def browser_click(selector: str) -> str:
+    """Click an element on the current page by CSS selector.
+
+    Args:
+        selector: CSS selector of the element to click.
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.click(selector), indent=2)
+
+
+@mcp.tool()
+def browser_type(selector: str, text: str, submit: bool = False) -> str:
+    """Type text into a form field identified by CSS selector.
+
+    Args:
+        selector: CSS selector of the input/textarea.
+        text: Text to type.
+        submit: If true, press Enter after typing (submits most forms).
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.type_text(selector, text, submit), indent=2)
+
+
+@mcp.tool()
+def browser_evaluate(expression: str) -> str:
+    """Evaluate JavaScript in the current page and return the value.
+
+    Args:
+        expression: A JS expression to evaluate (e.g. 'document.title' or a
+            JSON-returning IIFE).
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.evaluate(expression), indent=2)
+
+
+@mcp.tool()
+def browser_screenshot(path: str = "") -> str:
+    """Screenshot the current page to a PNG file.
+
+    Args:
+        path: Optional absolute file path. Default:
+            D:/nexus-data/artifacts/browser/shot-<timestamp>.png
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.screenshot(path), indent=2)
+
+
+@mcp.tool()
+def browser_cookies(domain: str = "") -> str:
+    """List cookie NAMES in the browser session (values are never returned).
+
+    Args:
+        domain: Optional domain filter (e.g. 'google.com'). Empty = all.
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.cookies(domain), indent=2)
+
+
+@mcp.tool()
+def browser_import_session(cookies_file: str) -> str:
+    """Import a logged-in session from a cookie-export file (e.g. Gmail).
+
+    THE LOGIN PATH: export cookies from your own logged-in browser with a
+    cookie-editor extension (EditThisCookie JSON), then point this tool at the
+    file. Cookies land in the browser's persistent jar and survive restarts.
+    The export file is securely deleted after a successful import.
+
+    Args:
+        cookies_file: Path to the JSON cookie export (list of cookie objects).
+    """
+    from server import browser_tool
+    return json.dumps(browser_tool.import_session(cookies_file), indent=2)
+
+
+@mcp.tool()
+def browser_stop() -> str:
+    """Stop the NEXUS Obscura browser (kills the whole process tree)."""
+    from server import browser_tool
+    return json.dumps(browser_tool.stop_server(), indent=2)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# One-trigger catalogue update (scripts/update_all.py)
+#
+# Swarm-pulls every workspace source repo in parallel (8 workers), re-absorbs
+# the ones that moved, enriches, reindexes FTS, publishes to the vault and
+# commits. Progress lands in D:/nexus-data/update_status.json after every
+# stage, so nexus_update_status() can poll a live run.
+# ═════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+def nexus_update_all(mode: str = "fast") -> str:
+    """Update ALL NEXUS resources to their latest upstream versions (one trigger).
+
+    Swarm-pulls all ~109 source repos in parallel, re-absorbs changed ones,
+    enriches tool stubs, rebuilds the FTS index, publishes to Obsidian and
+    commits the vault. Returns immediately with a run id — poll progress with
+    nexus_update_status().
+
+    Args:
+        mode: "fast" = pull + absorb + enrich + fts + publish + commit
+              (default, minutes). "full" = also re-embed everything and
+              re-cluster + rebuild graph edges (heavy CPU, much longer).
+    """
+    import subprocess
+    import sys as _sys
+    from pathlib import Path as _Path
+    _root = _Path(__file__).resolve().parent.parent
+    script = _root / "scripts" / "update_all.py"
+    if not script.is_file():
+        return json.dumps({"ok": False, "error": f"not found: {script}"})
+    if mode not in ("fast", "full"):
+        mode = "fast"
+    status_file = _Path(r"D:\nexus-data\update_status.json")
+    # a previous run still alive? refuse to double-run (single writer, single vault)
+    try:
+        prev = json.loads(status_file.read_text(encoding="utf-8"))
+        if prev.get("finished_at") is None and prev.get("mode") != "check":
+            return json.dumps({"ok": False, "error": "a run is already in progress",
+                              "run_id": prev.get("run_id"),
+                              "hint": "poll nexus_update_status() until it finishes"})
+    except (OSError, ValueError):
+        pass
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(_root) + (os.pathsep + env["PYTHONPATH"]
+                                      if env.get("PYTHONPATH") else "")
+    flags = 0
+    if os.name == "nt":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+    log = _Path(r"D:\nexus-data\logs") / f"update_all-launch-{time.strftime('%Y%m%d-%H%M%S')}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("ab") as fh:
+        proc = subprocess.Popen(
+            [_sys.executable, str(script), "--mode", mode],
+            stdout=fh, stderr=fh, stdin=subprocess.DEVNULL,
+            cwd=str(_root), env=env, creationflags=flags, close_fds=True)
+    return json.dumps({
+        "ok": True, "started": True, "run_id": f"manual-{time.strftime('%Y%m%d-%H%M%S')}",
+        "mode": mode, "pid": proc.pid,
+        "note": "running detached; poll nexus_update_status() for stage progress",
+    }, indent=2)
+
+
+@mcp.tool()
+def nexus_update_status() -> str:
+    """Report status of the last/latest update_all run (stage-by-stage).
+
+    Returns the run id, mode, per-stage status (pull/absorb/enrich/fts/
+    publish/commit), repo pull results (updated/current/failed), changed
+    repos, and elapsed time. Use after nexus_update_all() to follow progress.
+    """
+    import time as _time
+    from pathlib import Path as _Path
+    status_file = _Path(r"D:\nexus-data\update_status.json")
+    try:
+        s = json.loads(status_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return json.dumps({"ok": False,
+                           "error": "no update has ever run",
+                           "hint": "start one with nexus_update_all()"}, indent=2)
+    stages = {k: {"status": v.get("status"),
+                 "ms": v.get("ms"),
+                 "progress": v.get("progress"),
+                 "tail": v.get("tail")}
+              for k, v in (s.get("stages") or {}).items()}
+    pull = s.get("stages", {}).get("pull", {})
+    out = {
+        "ok": True,
+        "run_id": s.get("run_id"), "mode": s.get("mode"),
+        "running": s.get("finished_at") is None,
+        "elapsed_s": s.get("elapsed_s") or round(
+            (_time.time() - _time.mktime(_time.strptime(
+                s.get("started_at", ""), "%Y-%m-%dT%H:%M:%SZ"))), 1)
+        if s.get("started_at") and s.get("finished_at") is None else s.get("elapsed_s"),
+        "repos_total": s.get("repos_total"),
+        "pull_counts": pull.get("counts"),
+        "pull_progress": pull.get("progress"),
+        "changed_repos": (s.get("changed_repos") or [])[:20],
+        "stages": stages,
+        "summary": s.get("summary"),
+        "vault_commit": (s.get("summary") or {}).get("vault_commit"),
+        "finished_at": s.get("finished_at"),
+    }
+    return json.dumps(out, indent=2)
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

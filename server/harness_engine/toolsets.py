@@ -55,7 +55,11 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
 _RESEARCH_RE = re.compile(
     r"\b(?:research|paper|papers|arxiv|ssrn|study|survey|literature|academic|"
     r"journal|citation|cite|doi|semantic.?scholar|papers.?with.?code|"
-    r"state.of.the.art|bibliography|peer.review)\b",
+    r"state.of.the.art|bibliography|peer.review|"
+    # added: common scholarly phrasings that missed the original list
+    # (e.g. "retrieval augmented generation" scored as general)
+    r"retrieval|benchmark|dataset|preprint|proceedings|manuscript|"
+    r"publication|corpus|methodology)\b",
     re.I,
 )
 _BROWSE_RE = re.compile(

@@ -21,7 +21,10 @@ from typing import Optional
 from collections import OrderedDict
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:  # torch-free install (ONNX backend only) — resolved lazily in load()
+    SentenceTransformer = None  # type: ignore[assignment]
 
 # ── Reuse existing Nexus infrastructure ──────────────────────────
 _SELF_DIR = str(Path(__file__).parent)
@@ -84,9 +87,22 @@ class IntentRouter:
             shared = getattr(sys, "_nexus_shared_models", None)
             if shared is not None and MODEL_ID in shared:
                 self.model = shared[MODEL_ID]
-            else:
+            elif SentenceTransformer is not None:
                 allow_download = os.environ.get("NEXUS_ALLOW_MODEL_DOWNLOAD", "false").lower() == "true"
                 self.model = SentenceTransformer(MODEL_ID, local_files_only=not allow_download)
+                if shared is not None:
+                    shared[MODEL_ID] = self.model
+            else:
+                # torch is not installed. Reuse the ONNX encoder from IsoEmbedder —
+                # same 384-dim MiniLM, same .encode() shape, and it shares this very
+                # `sys._nexus_shared_models` cache. Without this the whole ISO lane
+                # logged "ISO scoring skipped: sentence_transformers not installed"
+                # and v4 routing silently degraded to keyword-only.
+                from server.db import get_db_path
+                from server.iso_embedder import IsoEmbedder
+                iso = IsoEmbedder.get(str(get_db_path()), MODEL_ID)
+                iso.load_model()
+                self.model = iso.model
                 if shared is not None:
                     shared[MODEL_ID] = self.model
         if self._numpy_router is None:

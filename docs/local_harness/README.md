@@ -28,6 +28,8 @@ Micro-level pseudocode plans, one file per change. Parent design: `docs/assistan
 | A06c | `A06c-migration-021.md` | `db/migrations/021_experiments.sql` | OpenResearch `store.rs` + Cordis Thm80 |
 | A07 | `A07-artifacts.md` | `server/execution_plane.py` (+manifest keys) | OpenResearch orx-reports/evidence |
 | A09 | `A09-skill-packs.md` | `skills/nexus-*/SKILL.md` | OpenResearch `orx skills add` + skill-builder |
+| A10 | `A10-agentic-engine.md` | `server/local_harness/engine.py`, `toolbox.py` | Bounded agentic loop over the local harness session (fills the `run_turn` stub) |
+| A11 | `A11-fibers.md` | `server/local_harness/fibers.py` (+ engine `parallel` decision) | Cordis-style fiber layer: isolated parallel tool/skill calls with quiescent merge |
 | B01 | `B01-runtime-map.md` | `docs/nexus-maps/nexus-runtime.architecture.json/.html` | Archify SKILL.md authoring path |
 | B03 | `B03-flow-irs.md` | `docs/nexus-maps/*.workflow|sequence|lifecycle.json` | Archify type router + Cordis Alg5 |
 

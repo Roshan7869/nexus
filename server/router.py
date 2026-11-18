@@ -36,7 +36,10 @@ except Exception:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = _resolve_db_path()
 
-from traffic_class import classify_traffic  # noqa: E402
+try:  # `server/` on sys.path (script/legacy launch)
+    from traffic_class import classify_traffic  # noqa: E402
+except ImportError:  # imported as a package (uvicorn server.unified:app)
+    from server.traffic_class import classify_traffic  # noqa: E402
 
 # ── Feature Flags — imported from centralized config ──
 # Resolution: YAML > env var > code default (false).
@@ -134,8 +137,37 @@ SPECIALTY = {
 # Step 0: Task Classification (TaskClassifier from learner.py)
 # ═══════════════════════════════════════════════════════════════════════
 
+#: Task types JEV is allowed to choose between. Kept in sync with the keyword map below.
+TASK_TYPE_OPTIONS = ("coding", "reasoning", "agentic", "architecture", "devops",
+                     "frontend", "research", "general")
+
+
 def classify_task(task: str) -> tuple:
-    """Classify task type. Returns (task_type, confidence, cluster)."""
+    """Classify task type. Returns (task_type, confidence, cluster).
+
+    The local classifier runs first and always produces an answer. JEV is then given
+    the chance to second-opinion it through `server.jev_gate`, which enforces the daily
+    call budget, caches by task hash, and writes every label into `jev_labels` for the
+    bake-in. In `shadow` mode that call is off the caller's path, so routing latency is
+    unchanged; in `off` (the default) this is byte-identical to the local-only path.
+    """
+    task_type, confidence = _classify_task_local(task)
+    try:
+        from server.jev_gate import consult
+        label = consult(
+            "task_type", task, TASK_TYPE_OPTIONS,
+            local_label=task_type, local_conf=confidence,
+            instructions=("Classify the request into exactly one task type. "
+                          f"Allowed: {', '.join(TASK_TYPE_OPTIONS)}"))
+        if label:
+            return label, max(confidence, 0.8), None
+    except Exception as exc:  # a gate failure must never break classification
+        logger.debug("jev task_type gate unavailable: %s", exc)
+    return task_type, confidence, None
+
+
+def _classify_task_local(task: str) -> tuple:
+    """Local-only task-type classification. Returns (task_type, confidence)."""
     # Use NexusLearner if Thompson routing enabled
     if THOMPSON_ROUTING:
         try:
@@ -144,7 +176,7 @@ def classify_task(task: str) -> tuple:
             learner = NexusLearner()
             task_type, confidence = learner.classify_task(task)
             learner.close()
-            return task_type, confidence, None
+            return task_type, confidence
         except Exception as e:
             logger.warning(f"Thompson classifier failed: {e}")
 
@@ -166,19 +198,88 @@ def classify_task(task: str) -> tuple:
                 scores[t] += 1
     best = max(scores, key=scores.get)
     if scores[best] == 0:
-        return "general", 0.3, None
-    return best, min(scores[best] / 3.0, 1.0), None
+        return "general", 0.3
+    return best, min(scores[best] / 3.0, 1.0)
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Step 1: Auto-Trigger (cluster auto-detection)
 # ═══════════════════════════════════════════════════════════════════════
 
+def _log_cluster_activation(task: str, result: Dict, source: str) -> None:
+    """Best-effort activation log; never breaks routing."""
+    try:
+        conn2 = sqlite3.connect(str(DB_PATH), timeout=30)
+        conn2.execute("PRAGMA journal_mode=WAL")
+        conn2.execute("PRAGMA busy_timeout=15000")
+        conn2.execute(
+            "INSERT INTO cluster_activation_log(query,project,activated_clusters,affinity_scores,total_resources_scanned,latency_ms) VALUES (?,?,?,?,?,?)",
+            (task[:200], "nexus",
+             json.dumps([result.get("cluster", "unknown")]),
+             json.dumps({"affinity": result.get("affinity", 0), "source": source}),
+             100, 0.0)
+        )
+        conn2.commit()
+        conn2.close()
+    except Exception:
+        pass
+
+
 def detect_cluster(task: str) -> Optional[Dict]:
     """Auto-trigger: detect which cluster(s) should activate.
-    Returns: {cluster_name, affinity, default_skill, default_agents} or None."""
+
+    Returns {cluster, affinity, default_skill, default_agents, matched_signals} or None.
+
+    Order of authority:
+      1. `cluster_decider` — embedding-centroid match against the seeded
+         `cluster_definitions.centroid_embedding`, or JEV when a TypeSafe key exists.
+         It applies a MARGIN rule and *declines* when the top two clusters are close,
+         which is what stops every task collapsing onto one small cluster.
+      2. keyword signals (`auto_trigger`) — the previous sole mechanism, kept as the
+         fallback for when the decider declines or centroids are unavailable.
+    """
     if not CLUSTER_ROUTING:
         return None
+
+    # 1) decider first
+    try:
+        from server.cluster_decider import get_decider
+        decision = get_decider().decide(task)
+        if decision.ok:
+            spec = {}
+            try:
+                from server.cluster_config import CLUSTER_DEFINITIONS
+                spec = CLUSTER_DEFINITIONS.get(decision.cluster, {}) or {}
+            except Exception:
+                pass
+            result = {
+                "cluster": decision.cluster,
+                "affinity": decision.confidence,
+                "default_skill": spec.get("default_skill"),
+                "default_agents": spec.get("default_agents", []),
+                "matched_signals": [],
+                "source": decision.source,
+                "margin": decision.margin,
+            }
+            _log_cluster_activation(task, result, decision.source)
+            return result
+        if decision.reason:
+            logger.debug("cluster decider declined: %s", decision.reason)
+    except Exception as exc:
+        logger.debug("cluster decider unavailable: %s", exc)
+
+    # 2) Keyword-signal fallback is OPT-IN.
+    #
+    # This is the second half of the starvation fix. Keyword signals were the sole
+    # previous mechanism and they collapsed heterogeneous tasks onto one small
+    # cluster (measured 5/5 -> knowledge_wiki, 13 resources), narrowing the
+    # candidate pool before scoring. When the decider declines, the correct
+    # behaviour is NO cluster filter (full active pool), not a confident-looking
+    # keyword guess. Set NEXUS_CLUSTER_SIGNAL_FALLBACK=1 to restore the old path.
+    if (os.environ.get("NEXUS_CLUSTER_SIGNAL_FALLBACK") or "0").strip().lower() not in (
+            "1", "true", "yes"):
+        return None
+
     try:
         sys.path.insert(0, str(Path.home() / 'nexus/server'))
         from auto_trigger import AutoTrigger
@@ -193,23 +294,9 @@ def detect_cluster(task: str) -> Optional[Dict]:
                 "default_skill": top.get("default_skill"),
                 "default_agents": top.get("default_agents", []),
                 "matched_signals": top.get("matched_signals", []),
+                "source": "signals",
             }
-            # Log activation
-            try:
-                conn2 = sqlite3.connect(str(DB_PATH), timeout=30)
-                conn2.execute("PRAGMA journal_mode=WAL")
-                conn2.execute("PRAGMA busy_timeout=15000")
-                conn2.execute(
-                    "INSERT INTO cluster_activation_log(query,project,activated_clusters,affinity_scores,total_resources_scanned,latency_ms) VALUES (?,?,?,?,?,?)",
-                    (task[:200], "nexus",
-                     json.dumps([result.get("cluster", "unknown")]),
-                     json.dumps({"affinity": result.get("affinity", 0)}),
-                     100, 0.0)
-                )
-                conn2.commit()
-                conn2.close()
-            except Exception:
-                pass
+            _log_cluster_activation(task, result, "signals")
             return result
         return None
     except Exception as e:
@@ -414,6 +501,66 @@ def _evaluate_outcome_ab_only(task: str, returned_skills: list) -> str:
     # 56-entry eval dataset.
     return 'routed'
 
+def _fts_candidates(conn, words: list[str], limit: int = 400) -> list[int]:
+    """Bounded candidate ids for a keyword query, instead of N x LIKE-over-body_text.
+
+    The previous Pass 1 built one `UNION ALL` arm per token, each with
+    `name LIKE ? OR description LIKE ? OR body_text LIKE ?` and **no LIMIT**.
+    Measured on the live corpus: 1083 ms, 3215 rows, 40.9 MB of `body_text`
+    dragged into Python, for a query that then throws most of it away.
+
+    Two sources are unioned, because neither alone reproduces the old semantics:
+
+    * FTS5 prefix terms (``"word"*``) give body breadth off an index (6-7 ms), but
+      miss mid-word substrings — token ``rate`` scores only 32% recall against LIKE
+      because LIKE also hits "generate"/"separate".
+    * name/description LIKE recovers those substrings without scanning the 37 MB
+      body column (40-80 ms for 5 tokens).
+
+    Returns ids ordered FTS5-relevance first, so the downstream scorer sees the
+    most promising candidates even after `limit`.
+    """
+    words = [w for w in (words or []) if w]
+    if not words:
+        return []
+
+    ids: list[int] = []
+    seen: set[int] = set()
+    fts_query = " OR ".join(f'"{w.replace(chr(34), "")}"*' for w in words)
+
+    try:
+        for (rid,) in conn.execute(
+            "SELECT rowid FROM resources_fts WHERE resources_fts MATCH ? "
+            "ORDER BY bm25(resources_fts) LIMIT ?", (fts_query, limit)):
+            if rid not in seen:
+                seen.add(rid)
+                ids.append(rid)
+    except sqlite3.Error as exc:
+        # Index missing/stale must degrade to the substring path, never break routing.
+        logger.warning("resources_fts unavailable (%s); using name/description LIKE", exc)
+
+    # Only short tokens need the substring pass. Measured LIKE-vs-prefix recall on the
+    # live corpus: rate(4 chars) 32%, secure(6) 89%, debug(5) 99%, papers(6) 96%,
+    # documentation(13) 100%. Short tokens are the substring-prone ones, so this keeps
+    # the recall where it is actually lost and skips the scan otherwise.
+    substr_words = [w for w in words if len(w) <= 5]
+    if substr_words:
+        parts, params = [], []
+        for w in substr_words:
+            parts.append("SELECT id FROM resources WHERE status='active' "
+                         "AND (name LIKE ? OR coalesce(description,'') LIKE ?)")
+            params.extend([f"%{w}%", f"%{w}%"])
+        try:
+            for (rid,) in conn.execute(" UNION ".join(parts), params):
+                if rid not in seen:
+                    seen.add(rid)
+                    ids.append(rid)
+        except sqlite3.Error as exc:
+            logger.warning("name/description candidate query failed: %s", exc)
+
+    return ids[:limit]
+
+
 def find_matching_skills(task: str, project: str = "default",
                           filtered_ids: List[int] = None,
                           preferred_names: List[str] = None,
@@ -495,28 +642,27 @@ def find_matching_skills(task: str, project: str = "default",
         id_filter = ""
         id_params = []
 
-    # Pass 1: Keyword search — single UNION ALL query instead of N per-word queries
+    # Pass 1: bounded candidate set via FTS5 + name/description substring, then ONE
+    # hydrate query. Replaces a per-token `UNION ALL` of body_text LIKE scans that
+    # measured 1083 ms and pulled 40.9 MB into Python for the same task.
     keyword_skills = []
     if significant_words:
-        union_parts = []
-        params = []
-        for word in significant_words:
-            base_like = f'%{word}%'
-            union_parts.append(f"""
+        cand_ids = _fts_candidates(conn, significant_words)
+        if filtered_ids:
+            allowed = set(filtered_ids)
+            cand_ids = [i for i in cand_ids if i in allowed]
+        if cand_ids:
+            ph = ",".join("?" * len(cand_ids))
+            keyword_skills = conn.execute(
+                f"""
                 SELECT name, description, body_text, resource_type,
                        times_triggered, times_correct, times_wrong, id,
                        cluster
                 FROM resources
-                WHERE status='active'
-                  AND (name LIKE ? OR description LIKE ? OR body_text LIKE ?)
-                  {id_filter}
-            """)
-            params.extend([base_like, base_like, base_like] + list(id_params))
-
-        query = " UNION ALL ".join(union_parts)
-        rows = conn.execute(query, params).fetchall()
-        for row in rows:
-            keyword_skills.append(row)
+                WHERE status='active' AND id IN ({ph})
+                """,
+                cand_ids,
+            ).fetchall()
 
     # Deduplicate by name
     seen_names = set()
@@ -719,11 +865,16 @@ def find_matching_skills(task: str, project: str = "default",
             pass
 
     # ── Epsilon-Greedy Cold-Start Exploration ──────────────────
-    import random
+    # Deterministic per task (see _explore_rng) and honest about its own scores:
+    # injected rows are tagged `_explore`, carry no claimed success rate, and are
+    # never scored above a genuine match — the previous code hardcoded score 0.95
+    # / success_rate 100.0 and pre-pended them, so synthetic rows outranked real
+    # results on ~25% of calls.
     try:
-        # Constant 25% exploration rate (temporarily high to cover 827 cold resources;
-        # decay back to 15% after coverage improves — Thompson Sampling handles exploitation)
-        if random.random() < 0.25:
+        explore_rate = _explore_rate(0.25)
+        if explore_rate > 0 and _explore_rng(task).random() < explore_rate:
+            genuine = [m["score"] for m in matches if not m.get("_explore")]
+            explore_score = round(min(genuine), 4) if genuine else 0.0
             cluster_param = None
             if filtered_ids:
                 # P0-2 fix: Use cluster_membership (authoritative) not resources.cluster
@@ -738,32 +889,33 @@ def find_matching_skills(task: str, project: str = "default",
                 ).fetchone()
                 if row_c:
                     cluster_param = row_c["cluster_name"]
-                    
+
             if cluster_param:
                 # P0-2 fix: JOIN cluster_membership for authoritative cluster lookup
+                # ORDER BY id (not RANDOM) keeps selection reproducible per task.
                 cold_rows = conn.execute("""
                     SELECT r.id, r.name, r.resource_type FROM resources r
                     JOIN cluster_membership cm ON cm.resource_id = r.id
                     WHERE r.status = 'active' AND r.times_triggered = 0 AND cm.cluster_name = ?
-                    ORDER BY RANDOM() LIMIT 5
+                    ORDER BY r.id LIMIT 5
                 """, (cluster_param,)).fetchall()
             else:
                 cold_rows = conn.execute("""
-                    SELECT id, name, resource_type FROM resources 
-                    WHERE status = 'active' AND times_triggered = 0 
-                    ORDER BY RANDOM() LIMIT 5
+                    SELECT id, name, resource_type FROM resources
+                    WHERE status = 'active' AND times_triggered = 0
+                    ORDER BY id LIMIT 5
                 """).fetchall()
-                
+
             for cr in cold_rows:
-                # Inject with high score and review category
-                matches.insert(0, {
+                matches.append({
                     "name": cr["name"],
-                    "score": 0.95,
+                    "score": explore_score,
                     "category": "REVIEW",
-                    "success_rate": 100.0,
+                    "success_rate": 0.0,   # unknown, not a fabricated 100.0
                     "type": cr["resource_type"],
                     "resource_id": cr["id"],
-                    "_explore": True
+                    "_explore": True,
+                    "_cold_start": True,
                 })
     except Exception as e:
         logger.warning(f"Epsilon-greedy exploration injection failed: {e}")
@@ -909,8 +1061,42 @@ def _get_cold_resources(top_k: int = 3) -> List[Dict]:
 # UNIFIED ROUTING PIPELINE
 # ═══════════════════════════════════════════════════════════════════════
 
+def _explore_rng(task: str) -> random.Random:
+    """Deterministic RNG for cold-start exploration, seeded by the task text.
+
+    Exploration was previously driven by the module-level `random`, so the same
+    query could return a different skill set on every call (measured: 4 identical
+    requests -> 3 different top results and 2 different clusters). That makes A/B
+    runs, golden-set evals and user expectations all unreliable. Seeding from the
+    task keeps exploration (a task it has never seen still explores) while making
+    any single task reproducible.
+    """
+    digest = hashlib.sha256((task or "").encode("utf-8", "replace")).hexdigest()
+    return random.Random(int(digest[:16], 16))
+
+
+def _explore_rate(default: float) -> float:
+    """Exploration rate, overridable via NEXUS_COLD_START_RATE (0 disables it)."""
+    try:
+        return float(os.environ.get("NEXUS_COLD_START_RATE", default))
+    except (TypeError, ValueError):
+        return default
+
+
 def route_task(task: str, project: str = "default", use_embedding: bool = False,
                ide: str = None, write_feedback: bool = True) -> dict:
+    # Reproducibility gate: every stochastic draw on this path (cold-start
+    # exploration, Thompson's betavariate in learning.py) is seeded from the task
+    # text, so an identical task yields an identical routing decision. Without
+    # this the same query returned different skill sets across calls, which makes
+    # A/B receipts, golden-set evals and user expectations untrustworthy.
+    # Opt out with NEXUS_DETERMINISTIC_ROUTING=0.
+    if os.environ.get("NEXUS_DETERMINISTIC_ROUTING", "1").lower() in ("1", "true", "yes"):
+        try:
+            _digest = hashlib.sha256((task or "").encode("utf-8", "replace")).hexdigest()
+            random.seed(int(_digest[:16], 16))
+        except Exception:  # seeding must never break routing
+            pass
     """Unified v4 routing pipeline.
 
     Pipeline flow:
@@ -1016,13 +1202,15 @@ def route_task(task: str, project: str = "default", use_embedding: bool = False,
             pipeline_steps.append("thompson_sampling")
 
     # Step 6.5: Cold-start exploration — inject never-triggered resources
-    COLD_START_RATE = 0.15
-    if random.random() < COLD_START_RATE:
+    COLD_START_RATE = _explore_rate(0.15)
+    if COLD_START_RATE > 0 and _explore_rng(task).random() < COLD_START_RATE:
         try:
             cold_resources = _get_cold_resources(top_k=3)
             if cold_resources:
                 for cr in cold_resources:
-                    iso_candidates.insert(0, {
+                    # Appended, not pre-pended: a cold neighbour must not displace a
+                    # genuine ISO match (iso_candidates is ordered by iso_score).
+                    iso_candidates.append({
                         "name": cr["name"],
                         "iso_score": 0.3,
                         "resource_type": cr["resource_type"],

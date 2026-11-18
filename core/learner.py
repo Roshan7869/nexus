@@ -249,6 +249,67 @@ class NexusLearner:
         total = row["total"] if row and row["total"] else 0
         return total >= MIN_SAMPLES_FOR_ROUTING
 
+    def get_route(self, task_type: str, available) -> Dict | None:
+        """Pick the best (provider, model) for a task, or None to fall through.
+
+        `available` accepts either ``[(provider, model), ...]`` or
+        ``[{"provider": ..., "model": ...}, ...]``, matching the shape
+        ``core/server.py::resolve_model`` builds from ``config.providers``.
+
+        Returns None — never raises — when there is nothing to route yet, so the
+        caller keeps its static resolution order. This method was missing while
+        ``resolve_model`` already called it, so every ``/v1/chat/completions``
+        request raised ``AttributeError`` whenever ``routing.enabled`` was true
+        (the shipped ``nexus.yaml`` sets it true).
+        """
+        candidates: List[Dict] = []
+        for item in available or []:
+            if isinstance(item, dict):
+                provider, model = item.get("provider"), item.get("model")
+            elif isinstance(item, (tuple, list)) and len(item) >= 2:
+                provider, model = item[0], item[1]
+            else:
+                continue
+            if provider and model:
+                candidates.append({"provider": provider, "model": model})
+        if not candidates:
+            return None
+        # Confidence gate: below the sample threshold, decline rather than guess.
+        if not self.can_route(task_type):
+            return None
+        best = self.thompson_sample(candidates, task_type)
+        if not best or "provider" not in best or "model" not in best:
+            return None
+        return {
+            "provider": best["provider"],
+            "model": best["model"],
+            "score": float(best.get("sampled_score", 0.0)),
+            "confidence": float(best.get("belief_confidence", 0.0)),
+        }
+
+    def get_learning_stats(self) -> Dict:
+        """Belief snapshot for ``GET /nexus/beliefs``.
+
+        Same belief projection as :meth:`get_stats` plus the derived task types
+        and per-task top model, which is what a "beliefs" view is for. Added
+        because ``core/server.py`` called it while only ``get_stats`` existed, so
+        the endpoint returned 500 unconditionally.
+        """
+        base = self.get_stats()
+        beliefs = base.get("beliefs", [])
+        by_task: Dict[str, List[Dict]] = {}
+        for b in beliefs:
+            by_task.setdefault(b["task_type"], []).append(b)
+        return {
+            **base,
+            "total_beliefs": len(beliefs),
+            "task_types": sorted(by_task),
+            "top_model_by_task": {
+                task: max(rows, key=lambda r: (r.get("mean") or 0.0))["model"]
+                for task, rows in by_task.items() if rows
+            },
+        }
+
     # ── Event Recording ──────────────────────────────────────────────────
 
     def record_ide_event(self, event: IDEEvent):

@@ -64,16 +64,27 @@ def preload_embeddings():
     #   See docs/rca/F6-cold-start-latency.md
     global EMBEDDING_LOADED, EMBEDDING_LOAD_TIME
     start = time.time()
+    # RCA-F6: warm the embedder the live v5 path actually uses. IsoEmbedder now
+    # selects its backend at runtime (ONNX fastembed by default, torch optional),
+    # so this works without sentence_transformers installed.
     try:
-        from server.tool_attention_v4 import TA_V4
-        _ = TA_V4.intent_router
+        from server.db import get_db_path
+        from server.iso_embedder import IsoEmbedder
+        IsoEmbedder.get(get_db_path()).warmup()
         EMBEDDING_LOADED = True
         EMBEDDING_LOAD_TIME = time.time() - start
         logger.info(f"Embedding model loaded in {EMBEDDING_LOAD_TIME:.1f}s")
+        return
     except Exception as e:
         EMBEDDING_LOAD_TIME = time.time() - start
         logger.warning(f"Embedding model pre-warm failed: {e}")
         EMBEDDING_LOADED = False
+    try:
+        from server.tool_attention_v4 import TA_V4
+        _ = TA_V4.intent_router
+        EMBEDDING_LOADED = True
+    except Exception as e:
+        logger.debug(f"TA_V4 warm-up skipped: {e}")
 
 # ── Load Config ──────────────────────────────────────────────────────────
 from core.config import NexusConfig
@@ -1164,8 +1175,12 @@ async def startup():
     except Exception as e:
         logger.warning(f"Broker runtime init failed: {e}")
 
-    # Pre-warm MCP module in background so first request isn't slow
-    async def warm_mcp():
+    # Pre-warm MCP module in background so first request isn't slow.
+    # NOTE: was `asyncio.to_thread(warm_mcp)` on an `async def` — that passes the
+    # coroutine *function* to a thread, which returns an un-awaited coroutine and
+    # never warms anything (RuntimeWarning: coroutine was never awaited). The
+    # import is synchronous, so keep it a plain function and offload that.
+    def _warm_mcp_impl():
         global _mcp_module
         try:
             import importlib.util as _ilu, pathlib as _pl
@@ -1177,7 +1192,7 @@ async def startup():
         except Exception as e:
             logger.warning(f"MCP module pre-warm failed (will load on first request): {e}")
 
-    asyncio.create_task(asyncio.to_thread(warm_mcp))
+    asyncio.create_task(asyncio.to_thread(_warm_mcp_impl))
 
     # Pre-load embedding model in background so first route request isn't slow
     t = threading.Thread(target=preload_embeddings, daemon=True)

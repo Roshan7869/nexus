@@ -273,6 +273,26 @@ def ensure_routing_log_schema(conn: sqlite3.Connection) -> None:
         # outcome_source ∈ {'explicit','derived','timeout'}; quality ∈ [0,1].
         "ALTER TABLE routing_log ADD COLUMN outcome_source TEXT",
         "ALTER TABLE routing_log ADD COLUMN quality REAL",
+        # EFC (explainable feedback coverage) + auto-close columns on outcome_log.
+        # No migration in db/migrations/ or migrations/ ever created these, yet
+        # scripts/auto_close_routes.py writes them and router_v2/scoring.py reads
+        # outcome_log.efc_score — so v5 routing died with
+        # "no such column: efc_score" on a freshly bootstrapped DB.
+        "ALTER TABLE outcome_log ADD COLUMN action_type TEXT",
+        "ALTER TABLE outcome_log ADD COLUMN repeat_count_1h INTEGER DEFAULT 0",
+        "ALTER TABLE outcome_log ADD COLUMN efc_informativeness REAL",
+        "ALTER TABLE outcome_log ADD COLUMN efc_validity REAL",
+        "ALTER TABLE outcome_log ADD COLUMN efc_redundancy REAL",
+        "ALTER TABLE outcome_log ADD COLUMN efc_memory REAL",
+        "ALTER TABLE outcome_log ADD COLUMN efc_score REAL",
+        "ALTER TABLE outcome_log ADD COLUMN outcome_source TEXT",
+        # Graph lane (server/kg/graph_lane.py) boosts co-triggered neighbours via
+        # resource_edges.co_trigger_count. 022_systemic_repair.sql SELECTs that
+        # column from resource_edges_backup, but no migration ever adds it to
+        # resource_edges — so the lane logged
+        # "edge graph boost query failed: no such column: co_trigger_count"
+        # on every route and silently contributed nothing.
+        "ALTER TABLE resource_edges ADD COLUMN co_trigger_count INTEGER DEFAULT 0",
     ):
         try:
             conn.execute(_ddl)

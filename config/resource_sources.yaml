@@ -1,0 +1,146 @@
+# NEXUS resource source registry.
+#
+# Every `resources.repo_name` in the DB must map to a fetchable upstream for
+# "update to latest" to mean anything. Without this file NEXUS can only hold
+# snapshots: nothing records where a resource came from, so nothing can refresh.
+#
+# status:
+#   tracked   - local clone exists; `scripts/update_resources.py` pulls + re-absorbs
+#   clonable  - upstream verified; `--clone <name>` fetches and absorbs it
+#   untracked - no verified upstream; needs a URL from the user
+#   protected - local tree with uncommitted work; fetched only, never pulled
+#
+# `resources` counts are informational (recorded 2026-11-18).
+version: 1
+updated: "2026-11-18"
+sources:
+  get-shit-done:
+    upstream: https://github.com/gsd-build/get-shit-done
+    local_path: ../get-shit-done
+    status: tracked
+    resources: 100
+  elephant-goldfish-model:
+    upstream: https://github.com/google/elephant-goldfish-model
+    local_path: ../elephant-goldfish-model
+    status: tracked
+    resources: 18
+  nexus:
+    upstream: https://github.com/Roshan7869/nexus
+    local_path: .
+    status: protected
+    resources: 9
+  agent-skills:
+    upstream: https://github.com/vercel-labs/agent-skills
+    local_path: ../agent-skills
+    status: tracked
+    resources: 26
+  awesome-claude-code:
+    upstream: https://github.com/hesreallyhim/awesome-claude-code
+    local_path: ../awesome-claude-code
+    status: tracked
+    resources: 23
+  browserbase-skills:
+    upstream: https://github.com/browserbase/skills
+    local_path: ../browserbase-skills
+    status: tracked
+    resources: 8
+  ruflo:
+    upstream: https://github.com/ruvnet/ruflo
+    local_path: ../ruflo
+    status: tracked
+    resources: 231
+  open-design/skills:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 122
+  everything-claude-code:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 105
+  gstack:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 70
+  llm-wiki:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 61
+  claude-agents:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 43
+  Aashiyaana:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 41
+  claude-helpers:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 37
+  algotrading:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 31
+  kaari-weaves:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 30
+  my-brain-is-full-crew:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 23
+  claude-skills:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 16
+  nvk-wiki:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 14
+  plugin-resources:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 7
+  mempalace:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 7
+  code-review-graph:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 7
+  InsForge:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 3
+  codeskeleton:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 1
+  agent-orchestrator:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 1
+  custom:
+    upstream: null
+    local_path: null
+    status: untracked
+    resources: 1

@@ -75,6 +75,18 @@ def get_router_status() -> dict[str, Any]:
     }
 
 
+def _cluster_decision_payload(task: str) -> dict | None:
+    """The cluster the router actually decided to search, with confidence + margin.
+
+    Additive observability only: failure here must never affect routing.
+    """
+    try:
+        from server.cluster_decider import get_decider
+        return get_decider().decide(task).to_dict()
+    except Exception:
+        return None
+
+
 def _shape_v4(task: str, project: str, max_results: int) -> dict[str, Any]:
     from server.router import route_task
 
@@ -114,7 +126,12 @@ def _shape_v2(task: str, project: str, max_results: int) -> dict[str, Any]:
         "token_limit": 200000,
         "skills": skills[:max_results],
         "method": "unified_router_v2",
+        # NOTE: this is the cluster of the top-ranked resource, NOT the cluster the
+        # router chose to search. The two are different concepts and used to share
+        # one key, which reads as a contradiction whenever the filter was widened.
+        # `cluster_decision` below carries the actual decision.
         "cluster": skills[0]["cluster"] if skills else None,
+        "cluster_decision": _cluster_decision_payload(task),
         "pipeline": ["unified_route", "rrf_resource", "blend_4term", "two_tier"],
         "used_dense": ur.get("used_dense", False),
         "vec_reason": ur.get("vec_reason", "disabled"),
@@ -153,7 +170,12 @@ def _shape_v5(task: str, project: str, max_results: int) -> dict[str, Any]:
         "token_limit": 200000,
         "skills": skills[:max_results],
         "method": "unified_router_v5",
+        # `cluster` is the top-ranked resource's own cluster; `cluster_decision` is
+        # the cluster the router chose to search (with confidence/margin). Two
+        # different concepts — keeping them in one key read as a contradiction
+        # whenever the decider widened the pool instead of narrowing it.
         "cluster": skills[0]["cluster"] if skills else None,
+        "cluster_decision": _cluster_decision_payload(task),
         "pipeline": ["intent_route", "cluster_route", "topic_retrieve", "l3_rerank", "l4_autocut"],
         "weights": v5.get("weights"),
         "l1_short_circuit": v5.get("l1_short_circuit", False),

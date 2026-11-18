@@ -73,6 +73,54 @@ def _tokens(query: str, keep_stopwords: bool = False) -> list[str]:
     return [t for t in toks if t and t not in _STOPWORDS]
 
 
+def _lexical_candidates(conn, toks: list[str], limit: int = 400) -> list[int]:
+    """Candidate resource ids for a lexical query, off the FTS5 index.
+
+    Replaces an OR-of-LIKE chain over `body_text` that scanned 37 MB per call
+    (measured 1030-1264 ms even with `LIMIT 50`). ``"tok"*`` prefix terms give the
+    same breadth from an index; an additional name/description LIKE pass recovers
+    mid-word substrings that prefix matching misses, without touching the body column.
+    """
+    toks = [t for t in (toks or []) if t]
+    if not toks:
+        return []
+    ids: list[int] = []
+    seen: set[int] = set()
+    fts_query = " OR ".join(f'"{t.replace(chr(34), "")}"*' for t in toks)
+    try:
+        for (rid,) in conn.execute(
+            "SELECT rowid FROM resources_fts WHERE resources_fts MATCH ? "
+            "ORDER BY bm25(resources_fts) LIMIT ?", (fts_query, limit)):
+            if rid not in seen:
+                seen.add(rid)
+                ids.append(rid)
+    except sqlite3.Error:
+        pass  # missing index must degrade, not fail
+
+    # Only short tokens need the substring pass — the same rule as
+    # `router._fts_candidates`. Measured LIKE-vs-prefix recall: rate(4) 32%,
+    # debug(5) 99%, secure(6) 89%, documentation(13) 100%. Scanning for long tokens
+    # buys nothing and was costing ~425 ms on a 7-token query.
+    substr_toks = [t for t in toks if len(t) <= 5]
+    parts, params = [], []
+    for t in substr_toks:
+        parts.append(
+            "SELECT id FROM resources "
+            "WHERE status NOT IN ('disabled','deprecated','archived') "
+            "AND (name LIKE ? OR coalesce(description,'') LIKE ?)")
+        params.extend([f"%{t}%", f"%{t}%"])
+    if not parts:
+        return ids[:limit]
+    try:
+        for (rid,) in conn.execute(" UNION ".join(parts), params):
+            if rid not in seen:
+                seen.add(rid)
+                ids.append(rid)
+    except sqlite3.Error:
+        pass
+    return ids[:limit]
+
+
 def _resource_search(query: str, db_path: str, limit: int = 50,
                      clusters: list[str] | None = None,
                      use_sections: bool = True) -> list[dict]:
@@ -105,21 +153,14 @@ def _resource_search(query: str, db_path: str, limit: int = 50,
     conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     try:
-        # OR-of-LIKE filter, then rank by weighted match score
-        like_clauses = []
+        # Candidate prefilter. Previously an OR-of-LIKE over `body_text`
+        # (37 MB scanned per call). FTS5 index + name/description substring now.
         params: list = []
-        for t in toks:
-            if use_sections:
-                like_clauses.append(
-                    "name LIKE ? OR description LIKE ? OR body_text LIKE ? "
-                    "OR resource_sections.heading LIKE ? "
-                    "OR resource_sections.content LIKE ?"
-                )
-                params.extend([f"%{t}%"] * 5)
-            else:
-                like_clauses.append("name LIKE ? OR description LIKE ? OR body_text LIKE ?")
-                params.extend([f"%{t}%"] * 3)
-        where = " OR ".join(f"({c})" for c in like_clauses)
+        cand_ids = _lexical_candidates(conn, toks, limit=max(limit * 8, 200))
+        if not cand_ids:
+            return []
+        where = f"resources.id IN ({','.join('?' for _ in cand_ids)})"
+        params.extend(cand_ids)
         cluster_clause = ""
         cluster_join = ""
         if clusters:
@@ -127,38 +168,27 @@ def _resource_search(query: str, db_path: str, limit: int = 50,
             ph = ",".join("?" for _ in clusters)
             cluster_join = " JOIN cluster_membership cm ON cm.resource_id = resources.id "
             cluster_clause = f" AND cm.cluster_name IN ({ph}) "
+        # Scoring now runs only over the candidate set, so per-token LIKE is cheap.
+        # `body_text LIKE` and the resource_sections terms are gone: the first
+        # scanned 37 MB per token, the second joined a table with 0 rows.
         score_terms = ["(CASE WHEN name = ? THEN 50 ELSE 0 END)"]
         params_score: list = [query.strip().lower()]
         for t in toks:
             score_terms.append("(CASE WHEN name LIKE ? THEN 10 ELSE 0 END)")
             params_score.append(f"%{t}%")
-            score_terms.append("(CASE WHEN description LIKE ? THEN 3 ELSE 0 END)")
+            score_terms.append("(CASE WHEN coalesce(description,'') LIKE ? THEN 3 ELSE 0 END)")
             params_score.append(f"%{t}%")
-            score_terms.append("(CASE WHEN body_text LIKE ? THEN 1 ELSE 0 END)")
-            params_score.append(f"%{t}%")
-            if use_sections:
-                score_terms.append(
-                    "COALESCE(SUM(CASE WHEN resource_sections.heading LIKE ? "
-                    "THEN 4 ELSE 0 END), 0)"
-                )
-                params_score.append(f"%{t}%")
-                score_terms.append(
-                    "COALESCE(SUM(CASE WHEN resource_sections.content LIKE ? "
-                    "THEN 2 ELSE 0 END), 0)"
-                )
-                params_score.append(f"%{t}%")
         if use_sections:
+            # Single DISTINCT query: the resource_sections LEFT JOIN + GROUP BY is gone
+            # (that table has 0 rows, and the join measured no faster either way).
             sql = (
-                "SELECT resources.id AS id, resources.name AS name, "
+                "SELECT DISTINCT resources.id AS id, resources.name AS name, "
                 "resources.cluster AS cluster, "
                 + " + ".join(score_terms)
                 + " AS match_score "
                 f"FROM resources {cluster_join} "
-                "LEFT JOIN resource_sections "
-                "ON resource_sections.resource_id = resources.id "
                 f"WHERE resources.status NOT IN ('disabled','deprecated','archived') "
                 f"{cluster_clause} AND ({where}) "
-                "GROUP BY resources.id "
                 "ORDER BY match_score DESC, resources.times_triggered DESC LIMIT ?"
             )
         else:
