@@ -98,6 +98,61 @@ def invalidate_resource(con: sqlite3.Connection, resource_id: int,
     )
 
 
+# ── S4 provenance stamps ────────────────────────────────────────────────
+
+def provenance_stamp(repo_name: str | None, commit: str | None,
+                     absorbed_date: str | None) -> str | None:
+    """Honest per-passage stamp: 'repo @shortSHA · absorbed YYYY-MM-DD'.
+
+    Never invents a signal: NULL commit -> no SHA shown; NULL date -> no stamp
+    (a stamp we cannot date is worse than none). No 'verified' claim — no
+    stage verifies body correctness (design §3 S4, goldfish finding 5).
+    """
+    repo = (repo_name or "").strip()
+    sha = (commit or "").strip()[:8]
+    date = (absorbed_date or "").strip()[:10]
+    if not date:
+        return None
+    bits = []
+    if repo:
+        bits.append(f"{repo} @{sha}" if sha else repo)
+    elif sha:
+        bits.append(f"@{sha}")
+    return " · ".join(bits + [f"absorbed {date}"])
+
+
+def attach_provenance(con: sqlite3.Connection, entries: list[dict],
+                      name_key: str = "name") -> None:
+    """Attach an honest 'provenance' stamp to each entry, in place.
+
+    One batched name lookup (resources.name is UNIQUE-indexed); entries keep
+    any existing provenance. Missing names get no field (fail-open).
+    ~1-3 ms for 10 names — inside the S4 pack budget.
+    """
+    if not entries:
+        return
+    try:
+        names = [e.get(name_key) for e in entries if e.get(name_key)]
+        if not names:
+            return
+        ph = ",".join("?" * len(names))
+        rows = con.execute(
+            f"SELECT name, repo_name, absorbed_at_commit, absorbed_at_date "
+            f"FROM resources WHERE name IN ({ph})", names,
+        ).fetchall()
+        stamps = {
+            r[0]: provenance_stamp(r[1], r[2], r[3]) for r in rows
+        }
+        for e in entries:
+            n = e.get(name_key)
+            if n and n in stamps and "provenance" not in e:
+                stamp = stamps[n]
+                if stamp:
+                    e["provenance"] = stamp
+    except Exception:
+        logger.warning("context_hygiene: attach_provenance failed; unstamped")
+
+
 def reopen_orphaned_invalidations(db_path: str | Path) -> dict:
     """Post-pull consistency check (design §3 S1 Recovery).
 

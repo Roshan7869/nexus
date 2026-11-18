@@ -343,6 +343,58 @@ class SupersessionTests(unittest.TestCase):
         self.assertEqual([k[0] for k in kept], [n1])
         con.close()
 
+    # ── S4 provenance stamps ──────────────────────────────────────────────
+
+    def test_stamp_formats(self) -> None:
+        from server.context_hygiene import provenance_stamp
+        full = provenance_stamp("elephant-goldfish-model",
+                                "70406c4d22cc7ea8299637c2c5b44625c48b3f08",
+                                "2026-11-17")
+        self.assertEqual(full, "elephant-goldfish-model @70406c4d · absorbed 2026-11-17")
+        no_sha = provenance_stamp("llm-wiki", None, "2026-11-18")
+        self.assertEqual(no_sha, "llm-wiki · absorbed 2026-11-18")
+        # a stamp we cannot date is worse than none
+        self.assertIsNone(provenance_stamp("repo", "deadbeef", None))
+        self.assertIsNone(provenance_stamp(None, None, ""))
+        self.assertIsNone(provenance_stamp(None, None, None))
+
+    def test_attach_provenance_batches_and_fail_open(self) -> None:
+        from server.context_hygiene import attach_provenance
+        absorb(self.repo, self.db)
+        con = sqlite3.connect(str(self.db))
+        con.row_factory = sqlite3.Row
+        entries = [
+            {"name": "alpha-one"},
+            {"name": "alpha-two"},
+            {"name": "never-heard-of"},
+            {"name": "alpha-one", "provenance": "keep-me"},  # never overwritten
+        ]
+        attach_provenance(con, entries)
+        self.assertTrue(entries[0]["provenance"].startswith("repo-alpha @"))
+        self.assertIn("absorbed", entries[0]["provenance"])
+        self.assertIn("absorbed", entries[1]["provenance"])
+        self.assertNotIn("provenance", entries[2])  # unknown name: no field
+        self.assertEqual(entries[3]["provenance"], "keep-me")
+        # fail-open on garbage
+        attach_provenance(con, [{"name": None}, "junk", 42])
+        con.close()
+
+    # ── pack surfaces carry stamps (SQL-level, as wired) ──────────────────
+
+    def test_search_resources_returns_stamp_fields(self) -> None:
+        absorb(self.repo, self.db)
+        con = sqlite3.connect(str(self.db))
+        con.row_factory = sqlite3.Row
+        row = con.execute(
+            "SELECT r.repo_name, r.absorbed_at_commit, r.absorbed_at_date "
+            "FROM resources r WHERE r.name='alpha-one'"
+        ).fetchone()
+        stamp = __import__("server.context_hygiene", fromlist=["x"]).provenance_stamp(
+            row["repo_name"], row["absorbed_at_commit"], row["absorbed_at_date"])
+        self.assertIn("repo-alpha @", stamp)
+        self.assertIn("absorbed", stamp)
+        con.close()
+
 
 if __name__ == "__main__":
     unittest.main()

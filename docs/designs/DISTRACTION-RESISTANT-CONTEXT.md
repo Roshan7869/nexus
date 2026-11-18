@@ -255,3 +255,26 @@ task_type 20/20); pack-filter added cost measured −5 ms (noise) against the
 un-filtered query on an isolated DB copy; migration `023_supersession_ledger`
 idempotent, registered in `schema_migrations`.
 
+## 10. S4 shipped (2026-11-19, same day)
+
+`provenance_stamp` / `attach_provenance` in `server/context_hygiene.py` (fail-open,
+one batched name lookup) wired into four pack surfaces:
+
+| Surface | Stamp |
+|---|---|
+| routed `skills` entries (`route_for_task`, all router modes + capability path) | `provenance` field per entry |
+| broker context block (`tool_session_broker._build_context_block`) | ``- Resource `X` (repo @sha8 · absorbed date): desc`` |
+| harness results (`context_harness/engine.py`) | `(repo @sha8 · absorbed date)` suffix |
+| learning notes in the block | `[noted YYYY-MM-DD]` prefix (the note's own created_at) |
+
+Verified: 146/146 routed skill entries stamped (43 live routes); broker block
+3/3 resource lines stamped; 31/31 unit tests (3 new: stamp formats incl. the
+no-date→no-stamp rule, batched attach + never-overwrite + fail-open, bridge
+fields); parity identical (top-5 96.0%, cluster 20/20, task_type 20/20) at
+451 ms mean on the isolated copy (attach cost invisible in noise, budgeted
+~1–3 ms). The 30-probe judged acceptance (`evals/conflict_probes.py`, frozen
+set, Wilson CI) runs its deterministic presence half green; the LLM-judged
+half is PENDING until a judge key is set (`NEXUS_JUDGE_KEY`/`OPENAI_API_KEY`)
+— no numbers fabricated without it.
+
+

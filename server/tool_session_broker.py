@@ -369,15 +369,24 @@ class ToolSessionBroker:
                 # Exact project match only — 'default'/blank notes leaked into
                 # every project (functional audit 2026-08-17).
                 if row.get("project") == project:
-                    parts.append(f"- Learning: {row.get('note', '')[:300]}")
+                    noted = (row.get("created_at") or "")[:10]
+                    datebit = f" [noted {noted}]" if noted else ""
+                    parts.append(f"- Learning{datebit}: {row.get('note', '')[:300]}")
         except Exception:
             pass
 
         try:
             from server.context_harness.nexus_bridge import search_resources
+            from server.context_hygiene import provenance_stamp
             for row in search_resources(query, max_results=3):
                 desc = (row.get("description") or "")[:200]
-                parts.append(f"- Resource `{row.get('name')}`: {desc}")
+                stamp = provenance_stamp(
+                    row.get("repo_name"), row.get("absorbed_at_commit"),
+                    row.get("absorbed_at_date"))
+                if stamp:
+                    parts.append(f"- Resource `{row.get('name')}` ({stamp}): {desc}")
+                else:
+                    parts.append(f"- Resource `{row.get('name')}`: {desc}")
         except Exception:
             pass
 

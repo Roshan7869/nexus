@@ -39,6 +39,7 @@ def search_resources(query: str, max_results: int = 10) -> list[dict]:
             SELECT r.id, r.name, r.resource_type, r.description, r.cluster,
                    r.token_count, r.times_triggered, r.times_correct,
                    r.times_wrong, r.status, r.file_path,
+                   r.repo_name, r.absorbed_at_commit, r.absorbed_at_date,
                    COUNT(rs.id) AS section_count
             FROM resources r
             LEFT JOIN resource_sections rs ON rs.resource_id = r.id

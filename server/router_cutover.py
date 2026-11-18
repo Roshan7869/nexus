@@ -319,6 +319,13 @@ def route_for_task(
                     if rowid is not None:
                         result["session_log_id"] = rowid
                         result["session_outcome"] = "routed"
+                try:
+                    from server.context_hygiene import attach_provenance
+                    from server.db import db_conn
+                    with db_conn() as conn:
+                        attach_provenance(conn, skills)
+                except Exception:
+                    pass
                 return result
         except Exception as e:
             import logging
@@ -362,6 +369,16 @@ def route_for_task(
         result = attach_harness_to_result(
             result, task, execute_research=eager,
         )
+    except Exception:
+        pass
+
+    # S4: honest provenance stamp on every routed skill entry — 'repo @sha ·
+    # absorbed <date>' (fail-open; one batched name lookup, ~1-3 ms).
+    try:
+        from server.context_hygiene import attach_provenance
+        from server.db import db_conn
+        with db_conn() as conn:
+            attach_provenance(conn, result.get("skills") or [])
     except Exception:
         pass
 

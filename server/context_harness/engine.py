@@ -12,6 +12,7 @@ from typing import Any
 
 from server.context_harness.models import HarnessQuery, HarnessResult, HarnessResponse
 from server.context_harness.nexus_bridge import search_resources, search_learnings
+from server.context_hygiene import provenance_stamp
 from server.context_harness.agent_reach import doctor, route_to_channel
 from server.context_harness.gcode_backend import search as memory_search, store as memory_store
 from server.context_harness.fusion import fuse
@@ -210,7 +211,11 @@ class ContextHarnessEngine:
         if "all" in sources or "nexus" in sources:
             resources = search_resources(q, max_results)
             for r in resources:
-                content = f"[{r['resource_type']}] {r['name']}: {r['description']}"
+                stamp = provenance_stamp(
+                    r.get("repo_name"), r.get("absorbed_at_commit"),
+                    r.get("absorbed_at_date"))
+                base = f"[{r['resource_type']}] {r['name']}: {r['description']}"
+                content = f"{base} ({stamp})" if stamp else base
                 nexus_results.append(HarnessResult(
                     source="nexus", content=content,
                     score=r["times_correct"] / max(r["times_triggered"], 1),
