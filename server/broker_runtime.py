@@ -264,7 +264,8 @@ def sync_bundle_membership() -> None:
     conn = _get_conn()
     try:
         rows = conn.execute(
-            "SELECT id, name, resource_type, cluster, description FROM resources WHERE status='active'"
+            "SELECT id, name, resource_type, cluster, description FROM resources "
+            "WHERE status='active' AND invalidated_at IS NULL"
         ).fetchall()
         for row in rows:
             domain_bundle = canonical_cluster_for_resource(row["name"], row["cluster"] or "general") or "general"

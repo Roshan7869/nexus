@@ -42,7 +42,11 @@ def search_resources(query: str, max_results: int = 10) -> list[dict]:
                    COUNT(rs.id) AS section_count
             FROM resources r
             LEFT JOIN resource_sections rs ON rs.resource_id = r.id
-            WHERE r.status='active' AND ({where})
+            WHERE r.status='active' AND r.invalidated_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM hygiene_flags hf
+                              WHERE hf.resource_id = r.id
+                                AND hf.resolved_at IS NULL)
+              AND ({where})
             GROUP BY r.id
             ORDER BY section_count DESC, r.times_correct DESC, r.times_triggered DESC
             LIMIT ?
@@ -67,8 +71,11 @@ def search_learnings(query: str, limit: int = 10) -> list[dict]:
         where = " AND ".join(clauses) if clauses else "1=1"
         rows = conn.execute(
             f"""SELECT id, note, scope, project, task_type, created_at
-                FROM user_learnings
+                FROM user_learnings u
                 WHERE {where}
+                  AND NOT EXISTS (SELECT 1 FROM note_ledger nl
+                                  WHERE nl.note_id = u.id
+                                    AND nl.invalidated_at IS NOT NULL)
                 ORDER BY id DESC
                 LIMIT ?""",
             params + [limit],

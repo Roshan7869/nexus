@@ -217,3 +217,41 @@ before advice.
 - Watchdog FP risk — neutralized in v1 by shadow mode (no belief writes).
 - Multi-intent slot inflation on mis-detected intents — bounded by the hard
   12-statement cap regardless of detected intent count.
+
+## 9. Implementation notes (2026-11-19 — S1 shipped)
+
+What changed between design v2 and the shipped code, with reasons:
+
+1. **Resources keep in-place updates** (`resources.name` is UNIQUE; insert-new
+   rows would break every `WHERE name=?` consumer). The validity-interval ledger
+   lives in a new `resource_versions` table: on content change, `_upsert` closes
+   the prior version row and opens the new one, while the live row keeps its id,
+   name and beliefs. Supersession semantics preserved; referential surface
+   untouched.
+2. **Tombstone guard is per layout group, not count-based.** The designed guard
+   ("skip when discovered < active") fires on any single upstream deletion —
+   exactly the case tombstones exist for. Shipped guard: a missing file is
+   tombstoned only when its layout group (`skills/`, `agents/`, … first path
+   component) still has discovered survivors; a group that vanished wholesale
+   (sparse checkout / broken pull) is skipped and logged. Conservative bias:
+   wholesale-erased groups are not tombstoned (fail-open, measured quarterly).
+3. **Microsecond version stamps.** Second-resolution `valid_from` collided on
+   `UNIQUE(resource_id, valid_from)` when two absorbs ran in the same wall-clock
+   second (caught by tests, fixed).
+4. **Provenance backfill, honestly split:** 4,718 rows stamped from their repo's
+   HEAD (`absorbed_at_commit` + date) + 350 rows from API-absorbed repos (no
+   local clone exists) stamped from vault git history — `absorbed_at_date` =
+   last-publish date, `absorbed_at_commit` NULL = provenance unknown. NULL commit
+   is a soft signal (never a drop).
+5. **Absorb no longer early-returns on zero discovery** — the tombstone pass
+   must run so a broken pull can never mass-archive and legit deletions still
+   close intervals.
+
+Shipped verification: `tests/test_supersession.py` 8/8 (stamps, version closure,
+tombstone, group guard, flag/resolve, consistency reopen, note-ledger filter,
+fail-open) + `test_repo_absorption` 20/20 (fixture extended to the new schema
+contract); parity on the 20-task golden set identical (top-5 96.0%, cluster 20/20,
+task_type 20/20); pack-filter added cost measured −5 ms (noise) against the
+un-filtered query on an isolated DB copy; migration `023_supersession_ledger`
+idempotent, registered in `schema_migrations`.
+

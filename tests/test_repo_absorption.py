@@ -61,7 +61,35 @@ CREATE TABLE resources (
     times_correct INTEGER NOT NULL DEFAULT 0,
     times_wrong INTEGER NOT NULL DEFAULT 0,
     cluster TEXT,
-    updated_at TEXT
+    updated_at TEXT,
+    absorbed_at_commit TEXT,
+    absorbed_at_date TEXT,
+    invalidated_at TEXT
+);
+CREATE TABLE resource_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id INTEGER NOT NULL,
+    body_hash TEXT NOT NULL,
+    absorbed_at_commit TEXT,
+    absorbed_at_date TEXT,
+    valid_from TEXT NOT NULL,
+    invalidated_at TEXT,
+    UNIQUE(resource_id, valid_from)
+);
+CREATE TABLE invalidation_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    invalidated_at TEXT NOT NULL,
+    reopened_at TEXT
+);
+CREATE TABLE hygiene_flags (
+    resource_id INTEGER NOT NULL,
+    flag TEXT NOT NULL,
+    detail TEXT,
+    found_at TEXT NOT NULL,
+    resolved_at TEXT,
+    PRIMARY KEY (resource_id, flag)
 );
 CREATE TABLE ingestion_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

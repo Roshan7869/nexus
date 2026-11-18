@@ -33,7 +33,9 @@ import json
 import logging
 import re
 import sqlite3
+import subprocess
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -202,6 +204,22 @@ def _repo_name(repo_root: Path) -> str:
     return repo_root.resolve().name
 
 
+def _git_head(repo_root: Path) -> tuple[str, str] | None:
+    """(full_sha, iso_date) of a repo's HEAD, or None when not a git checkout."""
+    try:
+        sha = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=20,
+        ).stdout.strip()
+        date = subprocess.run(
+            ["git", "-C", str(repo_root), "log", "-1", "--format=%cI", "HEAD"],
+            capture_output=True, text=True, timeout=20,
+        ).stdout.strip()[:10]
+        return (sha, date) if sha else None
+    except Exception:
+        return None
+
+
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     con = sqlite3.connect(str(db_path), timeout=60)
     con.execute("PRAGMA journal_mode=WAL")
@@ -258,17 +276,19 @@ def absorb(
     if dry_run:
         summary["names"] = [f"{r.resource_type}:{r.name}" for r in resources]
         return summary
-    if not resources:
-        return summary
+    # NOTE: no early return when `resources` is empty — the S1 tombstone pass
+    # must still run (with its group guard) so a zero-discovery pass can never
+    # silently mass-archive, and legit upstream deletions still close intervals.
 
     con = _connect(db_path)
     try:
         source_id = _ensure_source(con, str(repo_root.resolve()),
                                    {"repo": repo, "resources": len(resources)})
+        head = _git_head(repo_root)
         for r in resources:
             try:
                 action = _upsert(con, r, repo=repo, source_id=source_id,
-                                 cluster=cluster, tier=tier)
+                                 cluster=cluster, tier=tier, head=head)
             except _Conflict as exc:
                 summary["conflicts"].append({"name": r.name, "owner": exc.owner})
                 logger.warning("absorb: %s", exc)
@@ -279,6 +299,60 @@ def absorb(
                 continue
             summary[action] += 1
             summary["names"].append(f"{r.resource_type}:{r.name}")
+
+        # S1 tombstone pass: rows of this repo whose file_path was NOT rediscovered
+        # are gone upstream -> close their validity interval + audit (atomic with the
+        # upserts: same transaction, one commit below).
+        # Guard is per layout group (the first path component, e.g. 'skills/'):
+        # a missing file is tombstoned only when its layout group still has
+        # discovered survivors; a group that vanished wholesale means a partial
+        # checkout / broken pull -> skip that group (fail-open, logged).
+        summary["tombstoned"] = summary.get("tombstoned", 0)
+        active = con.execute(
+            "SELECT id, file_path FROM resources "
+            "WHERE repo_name=? AND status='active' AND invalidated_at IS NULL",
+            (repo,),
+        ).fetchall()
+        if active and resources:
+            seen_paths = {r.file_path for r in resources}
+            seen_groups = {
+                p.replace("\\", "/").split("/")[0]
+                for p in seen_paths if p.replace("\\", "/").count("/") > 0
+            }
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            skipped_groups: set[str] = set()
+            for row in active:
+                fp = row["file_path"]
+                if fp in seen_paths:
+                    continue
+                group = fp.replace("\\", "/").split("/")[0] \
+                    if fp.replace("\\", "/").count("/") > 0 else ""
+                if group and group not in seen_groups:
+                    skipped_groups.add(group)
+                    continue
+                con.execute(
+                    "UPDATE resources SET status='archived', invalidated_at=? "
+                    "WHERE id=?",
+                    (now, row["id"]),
+                )
+                con.execute(
+                    "INSERT INTO invalidation_audit(resource_id, reason, invalidated_at) "
+                    "VALUES(?, 'upstream_delete', ?)",
+                    (row["id"], now),
+                )
+                summary["tombstoned"] += 1
+            if skipped_groups:
+                summary["errors"].append(
+                    "tombstone skipped (possible partial checkout) for groups: "
+                    + ", ".join(sorted(skipped_groups))
+                )
+                logger.warning("absorb %s: %s", repo, summary["errors"][-1])
+        elif active:
+            summary["errors"].append(
+                "tombstone skipped: no resources discovered this pass "
+                "(possible partial checkout)"
+            )
+            logger.warning("absorb %s: %s", repo, summary["errors"][-1])
         con.commit()
     finally:
         con.close()
@@ -286,10 +360,14 @@ def absorb(
 
 
 def _upsert(con: sqlite3.Connection, r: DiscoveredResource, *, repo: str,
-            source_id: int, cluster: str | None, tier: int) -> str:
+            source_id: int, cluster: str | None, tier: int,
+            head: tuple[str, str] | None = None) -> str:
     """Insert/update one resource + chunks. Returns 'inserted'|'updated'|'unchanged'.
 
     Raises _Conflict (a sqlite3.Error subclass) when the name is owned elsewhere.
+
+    S1: every write stamps absorbed_at_commit/date from the repo HEAD and mirrors
+    the content version into resource_versions (validity interval ledger).
     """
     existing = con.execute(
         "SELECT id, repo_name, resource_type, file_path, description, body_text "
@@ -299,6 +377,25 @@ def _upsert(con: sqlite3.Connection, r: DiscoveredResource, *, repo: str,
         raise _Conflict(r.name, existing["repo_name"], repo)
 
     tokens = r.token_count
+    sha, stamp_date = head if head else (None, None)
+    # microsecond resolution: two absorbs in the same wall-clock second must not
+    # collide on resource_versions' UNIQUE(resource_id, valid_from)
+    version_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+    def _open_version(rid: int, body_hash: str) -> None:
+        con.execute(
+            "UPDATE resource_versions SET invalidated_at=? "
+            "WHERE resource_id=? AND invalidated_at IS NULL",
+            (version_stamp, rid),
+        )
+        con.execute(
+            "INSERT INTO resource_versions(resource_id, body_hash, "
+            "absorbed_at_commit, absorbed_at_date, valid_from) VALUES(?,?,?,?,?)",
+            (rid, body_hash, sha, stamp_date, version_stamp),
+        )
+
+    content_hash = hashlib.sha256(r.body.encode("utf-8", "replace")).hexdigest()[:16]
+
     if existing:
         rid = int(existing["id"])
         unchanged = (
@@ -313,26 +410,33 @@ def _upsert(con: sqlite3.Connection, r: DiscoveredResource, *, repo: str,
             """UPDATE resources SET resource_type=?, repo_name=?, file_path=?,
                    description=?, body_text=?, status='active', tier=?,
                    token_count=?, cluster=COALESCE(?, cluster),
+                   absorbed_at_commit=?, absorbed_at_date=?,
                    updated_at=datetime('now')
                WHERE id=?""",
             (r.resource_type, repo, r.file_path, r.description, r.body,
-             tier, tokens, cluster, rid),
+             tier, tokens, cluster, sha, stamp_date, rid),
         )
+        # supersession ledger: close the previous version's interval, open this one
+        con.execute(
+            "UPDATE resources SET invalidated_at=NULL WHERE id=?", (rid,),
+        )
+        _open_version(rid, content_hash)
         action = "updated"
     else:
         cur = con.execute(
             """INSERT INTO resources(name, resource_type, repo_name, file_path,
                    description, body_text, status, tier, token_count,
-                   times_triggered, times_correct, times_wrong, cluster)
-               VALUES(?,?,?,?,?,?,'active',?,?,0,0,0,?)""",
+                   times_triggered, times_correct, times_wrong, cluster,
+                   absorbed_at_commit, absorbed_at_date)
+               VALUES(?,?,?,?,?,?,'active',?,?,0,0,0,?,?,?)""",
             (r.name, r.resource_type, repo, r.file_path, r.description,
-             r.body, tier, tokens, cluster),
+             r.body, tier, tokens, cluster, sha, stamp_date),
         )
         rid = int(cur.lastrowid)
+        _open_version(rid, content_hash)
         action = "inserted"
 
     # retrieval: one section chunk per resource, mirrored into FTS5
-    content_hash = hashlib.sha256(r.body.encode("utf-8", "replace")).hexdigest()[:16]
     con.execute("DELETE FROM ingestion_chunks WHERE source_id=? AND resource_id=?",
                 (source_id, rid))
     cur = con.execute(

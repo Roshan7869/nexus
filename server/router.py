@@ -580,6 +580,7 @@ def _fts_candidates(conn, words: list[str], limit: int = 400) -> list[int]:
         parts, params = [], []
         for w in substr_words:
             parts.append("SELECT id FROM resources WHERE status='active' "
+                         "AND invalidated_at IS NULL "
                          "AND (name LIKE ? OR coalesce(description,'') LIKE ?)")
             params.extend([f"%{w}%", f"%{w}%"])
         try:
@@ -676,7 +677,7 @@ def find_matching_skills(task: str, project: str = "default",
                        times_triggered, times_correct, times_wrong, id,
                        cluster
                 FROM resources
-                WHERE status='active' AND id IN ({ph})
+                WHERE status='active' AND invalidated_at IS NULL AND id IN ({ph})
                 """,
                 cand_ids,
             ).fetchall()
