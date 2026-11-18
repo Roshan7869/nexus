@@ -102,6 +102,7 @@ unthresholded. Wire in the researched admission gates:
 |---|---|
 | Weekly evidence-gated curation: ADD/UPDATE/MERGE/DELETE/NOOP ops citing run_id; CPU novelty gate (cosine ≥0.9/vMF) before any hosted call; neighbor-note evolution on update | Mem0 2504.19413; A-MEM 2502.12110; SAGE 2605.30711 |
 | Bi-temporal stamps `{source_commit, verified_at, valid_from, invalidated_at}`; supersession; nightly pass invalidates lessons whose repo moved | Zep 2501.13956; 2606.26511; APEX-MEM 2604.14362 |
+| **Stale-reference lint pass — cost-of-inaction is measured:** Google "Agent Distraction" (developers.googleblog.com, 2026-11-06; 913k coding-agent sessions, multi-way fixed-effects, all p<0.0001): agents acting unprompted on stale inline references (83% of such actions unrequested) cost **+70% steps, +77% tokens, +105% wait time** per session; 41% chase already-closed tickets; **higher-capability models distract more**. Countermeasure pattern: trace-verify-then-delete cleanup agents (>95% human acceptance) — apply to vault lessons at weekly curation | Agent Distraction (Google, 2026); pairs with 2606.26511 (cosine cannot separate stale from current) |
 | Graph lane (15k edges + PPR) for multi-hop/associative queries only; flat FTS+vector for direct lookups | HippoRAG 2405.14831; 2601.01280 |
 | Sleep-time digests: nightly per-resource lesson digests the router reads instead of raw notes | 2504.13171 (~5× test-time compute cut) |
 

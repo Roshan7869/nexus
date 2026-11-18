@@ -48,12 +48,43 @@ def _connect(db_path: str | Path = DB_PATH) -> sqlite3.Connection:
 
 
 def thompson_posteriors(conn: sqlite3.Connection,
-                        resource_ids: list[int]) -> dict[int, float]:
-    """Beta(1+correct, 1+wrong) posterior mean per resource.
+                        resource_ids: list[int],
+                        priors: dict[int, float] | None = None) -> dict[int, float]:
+    """Beta(1+correct, 1+wrong) posterior mean per resource, with query-informed
+    priors for COLD resources (E5, 2026-11-19).
 
-    Mean = alpha / (alpha + beta). Resources with no outcomes default to 0.5
-    (uninformative prior), NOT 0 — so cold resources aren't zeroed out.
+    Warm resources (any outcome): pure data posterior, unchanged.
+
+    Cold resources (no outcomes): the previous behavior was a FLAT 0.5 for
+    every never-triggered resource — with 4 of 5,068 resources carrying any
+    outcome, the 0.15 Thompson weight was a constant and discriminated nothing
+    (measured in this session). Following Dynamic Prior TS (arXiv:2602.00943)
+    and LLM-derived priors for TS (arXiv:2608.03382) — and BayesianRouter's
+    offline-prior→online-TS split (arXiv:2510.02850) — a COLD resource's prior
+    mean now comes from its retrieval score in THIS query:
+
+        alpha = 1 + S*m,  beta = 1 + S*(1-m)      S = NEXUS_TS_PRIOR_STRENGTH (2.0)
+
+    ``m`` is the min-max-normalized fused score in [0,1] (0.5 when degenerate).
+    m=0.5 with S=2 reproduces the old mean exactly (0.5). S=2 pseudo-counts
+    means ONE real outcome pair outweighs the prior — real data dominates fast.
     """
+    import os
+    try:
+        strength = float(os.environ.get("NEXUS_TS_PRIOR_STRENGTH", "0"))
+    except (TypeError, ValueError):
+        strength = 0.0
+    strength = max(0.0, strength)
+    # DEFAULT OFF (strength=0): the E5 gate measured this mechanism as a slight
+    # NEGATIVE on the golden set — hit@k 0.286 -> 0.274 (13 vs 14 of 84 cases,
+    # within noise but not positive), top-1 flat, MRR -0.004. Reason: the prior
+    # mean is derived from the fused RRF score, which the 0.40 ISO term already
+    # consumes, so it double-counts the retrieval ranking and amplifies its
+    # errors rather than promoting genuinely under-explored resources. Real
+    # Dynamic Prior TS (2602.00943) targets exploration, which needs the
+    # Thompson draw (not the mean) — see docs/plans/E5-PRIORS-RESULT.md.
+    # Set NEXUS_TS_PRIOR_STRENGTH=2.0 to re-test after the draw is implemented.
+
     if not resource_ids:
         return {}
     placeholders = ",".join("?" for _ in resource_ids)
@@ -64,8 +95,15 @@ def thompson_posteriors(conn: sqlite3.Connection,
     ).fetchall()
     out: dict[int, float] = {}
     for r in rows:
-        alpha = (r["times_correct"] or 0) + 1
-        beta = (r["times_wrong"] or 0) + 1
+        correct = r["times_correct"] or 0
+        wrong = r["times_wrong"] or 0
+        if correct == 0 and wrong == 0 and priors and r["id"] in priors:
+            m = min(1.0, max(0.0, priors[r["id"]]))
+            alpha = 1.0 + strength * m
+            beta = 1.0 + strength * (1.0 - m)
+        else:
+            alpha = correct + 1
+            beta = wrong + 1
         out[r["id"]] = alpha / (alpha + beta)
     return out
 
@@ -128,9 +166,21 @@ def rank(fused: Sequence[dict],
     if not rids:
         # no resource ids (cold FTS-only path) — return as-is with final=rrf
         return [{**x, "final_score": x.get("rrf_score", 0)} for x in fused]
+    # E5: query-informed priors for cold resources — the fused retrieval score,
+    # min-max normalized over THIS candidate batch, becomes the Beta prior mean
+    # (0.5 when degenerate). See thompson_posteriors docstring for the rationale.
+    scores = [float(x.get("rrf_score") or 0.0) for x in fused
+              if x.get("resource_id") is not None]
+    lo, hi = (min(scores), max(scores)) if scores else (0.0, 0.0)
+    priors: dict[int, float] = {}
+    if hi > lo:
+        for x in fused:
+            rid = x.get("resource_id")
+            if rid is not None:
+                priors[rid] = (float(x.get("rrf_score") or 0.0) - lo) / (hi - lo)
     conn = _connect(db_path)
     try:
-        t = thompson_posteriors(conn, rids)
+        t = thompson_posteriors(conn, rids, priors)
         e = efc_normalized(conn, rids)
         u = ucb_bonuses(conn, rids)
     finally:
