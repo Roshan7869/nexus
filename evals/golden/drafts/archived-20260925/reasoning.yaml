@@ -1,0 +1,178 @@
+# DRAFT — pending human curation (Week1 card 4.1, drafted by agent swarm 2026-08-17)
+# Review rule: reject/fix anything you wouldn't defend in a demo. After curation,
+# merge into ../routing_cases.yaml and delete this file. Do NOT merge uncured.
+
+- id: reasoning-rca-latency-spike-001
+  prompt: "Checkout API p99 latency jumped from 180ms to 940ms after Tuesday's deploy and EU users are hit hardest. Walk me through a root-cause investigation."
+  expect_skills: [investigate, careful]
+  accept_clusters: [analyzer_planner, backend_api]
+  top_k: 5
+  tags: [reasoning, root-cause]
+
+- id: reasoning-rca-memory-leak-002
+  prompt: "Our Node.js worker RSS grows about 40MB per hour and gets OOMKilled after roughly three days. Figure out where this leak comes from and how to confirm it."
+  expect_skills: [investigate, careful]
+  accept_clusters: [analyzer_planner, backend_api, devops_infra]
+  top_k: 5
+  tags: [reasoning, root-cause]
+
+- id: reasoning-rca-flaky-tests-003
+  prompt: "About 12% of our integration suite fails intermittently in CI but always passes locally. Diagnose why the tests are flaky and what to fix first."
+  expect_skills: [investigate, review, careful]
+  accept_clusters: [analyzer_planner, quality_security]
+  top_k: 5
+  tags: [reasoning, root-cause]
+
+- id: reasoning-rca-error-doubling-004
+  prompt: "Error rate started at 0.5% at 14:00 and has been doubling roughly every 30 minutes; it is 16:00 now. Estimate when we cross 25% and tell me whether rolling back now beats waiting for a hotfix."
+  expect_skills: [investigate, careful]
+  accept_clusters: [analyzer_planner, devops_infra]
+  top_k: 5
+  tags: [reasoning, root-cause, logic]
+
+- id: reasoning-triage-migration-plan-005
+  prompt: "We need to move 400k users off the legacy MySQL 5.7 schema onto the new platform next quarter without downtime. Build the migration plan and flag the riskiest steps."
+  expect_skills: [autoplan, plan-eng-review, careful]
+  accept_clusters: [analyzer_planner, backend_api]
+  top_k: 5
+  tags: [reasoning, planning]
+
+- id: reasoning-triage-backlog-006
+  prompt: "Here is our Q4 backlog with 40 items across payments, search, and mobile. Triage it into must/should/could and surface the dependencies I have missed."
+  expect_skills: [autoplan, plan-eng-review, careful]
+  accept_clusters: [analyzer_planner, general]
+  top_k: 5
+  tags: [reasoning, planning]
+
+- id: reasoning-arch-monolith-split-007
+  prompt: "Review our plan to split the Rails monolith into four services covering orders, catalog, billing, and notifications. I want a proper design review before we commit."
+  expect_skills: [plan-design-review, design-consultation, plan-eng-review]
+  accept_clusters: [architect, analyzer_planner]
+  top_k: 5
+  tags: [reasoning, architecture]
+
+- id: reasoning-arch-event-driven-008
+  prompt: "Should we replace the synchronous REST calls between our services with an event-driven bus? Evaluate the tradeoffs for a 30-service platform and recommend one direction."
+  expect_skills: [design-consultation, plan-eng-review, careful]
+  accept_clusters: [architect, backend_api]
+  top_k: 5
+  tags: [reasoning, architecture, tradeoff]
+
+- id: reasoning-bench-serializer-009
+  prompt: "Benchmark our hand-rolled JSON serializer against simdjson on real production payloads and tell us which one to standardize on."
+  expect_skills: [benchmark, investigate, careful]
+  accept_clusters: [analyzer_planner]
+  top_k: 5
+  tags: [reasoning, benchmark]
+
+- id: reasoning-bench-p99-choice-010
+  prompt: "Parser A averages 45ms with p99 210ms; parser B averages 60ms with p99 95ms. Our SLO is p99 under 150ms. Which one should we ship and why?"
+  expect_skills: [benchmark, careful]
+  accept_clusters: [analyzer_planner]
+  top_k: 5
+  tags: [reasoning, benchmark, logic]
+
+- id: reasoning-retro-sprint-011
+  prompt: "Sprint 23 wrapped: we committed to 64 points, finished 41, and three of five carryover stories were blocked on the same partner API. Run a retrospective."
+  expect_skills: [retro, careful]
+  accept_clusters: [analyzer_planner, general]
+  top_k: 5
+  tags: [reasoning, retro]
+
+- id: reasoning-retro-postmortem-012
+  prompt: "Last Friday a bad config push caused a 4-hour outage. Do a blameless postmortem with a timeline and the top three action items."
+  expect_skills: [retro, investigate, careful]
+  accept_clusters: [analyzer_planner, devops_infra]
+  top_k: 5
+  tags: [reasoning, retro, root-cause]
+
+- id: reasoning-sec-auth-attack-paths-013
+  prompt: "Review our new session-token setup: JWTs in localStorage, 30-day expiry, no rotation. What attack paths should we actually be worried about?"
+  expect_skills: [security-review, review, investigate]
+  accept_clusters: [quality_security, analyzer_planner]
+  top_k: 5
+  tags: [reasoning, security]
+
+- id: reasoning-sec-cve-blast-radius-014
+  prompt: "A critical RCE CVE just dropped in a logging library we use in 14 services. Assess the blast radius and give me a patching order."
+  expect_skills: [security-review, investigate, careful]
+  accept_clusters: [quality_security, devops_infra]
+  top_k: 5
+  tags: [reasoning, security]
+
+- id: reasoning-tradeoff-datastore-015
+  prompt: "Our analytics workload is 95% reads over 2TB of pre-aggregated data. Postgres vs Cassandra vs staying on MySQL: walk through the tradeoffs and recommend one."
+  expect_skills: [design-consultation, plan-eng-review, careful]
+  accept_clusters: [architect, backend_api]
+  top_k: 5
+  tags: [reasoning, tradeoff, architecture]
+
+- id: reasoning-tradeoff-build-vs-buy-016
+  prompt: "Self-hosting search costs $18k/month plus $4k per extra region; managed search bills $0.08 per 1k queries and we do 90M queries a month across 3 regions. Which is cheaper today and where is the break-even?"
+  expect_skills: [careful, design-consultation]
+  accept_clusters: [architect, analyzer_planner]
+  top_k: 5
+  tags: [reasoning, tradeoff, logic]
+
+- id: reasoning-research-order-lifecycle-017
+  prompt: "Trace what actually happens between checkout and fulfillment: which services, queues, and retries are involved, and where an order can get silently stuck."
+  expect_skills: [investigate, careful, swarm-orchestration]
+  accept_clusters: [analyzer_planner, backend_api, knowledge_wiki]
+  top_k: 5
+  tags: [reasoning, research]
+
+- id: reasoning-research-pii-audit-018
+  prompt: "Map every place PII enters, is stored, and leaves our system so legal can verify retention rules. It spans six repos."
+  expect_skills: [investigate, careful, security-review, swarm-orchestration]
+  accept_clusters: [analyzer_planner, quality_security, knowledge_wiki]
+  top_k: 5
+  tags: [reasoning, research, security]
+
+- id: reasoning-logic-capacity-headroom-019
+  prompt: "Peak traffic is 12,000 requests per second and each request holds a worker for 250ms, one at a time. We currently run 3,500 workers. Compute the headroom and tell me whether we survive a 2x Black Friday surge."
+  expect_skills: [careful, plan-eng-review]
+  accept_clusters: [analyzer_planner, devops_infra]
+  top_k: 5
+  tags: [reasoning, logic, planning]
+
+- id: reasoning-logic-storage-budget-020
+  prompt: "We ingest 2.4M events a day at 1.8KB each. Compute the 90-day storage growth and tell me whether a 500GB budget covers it with 3x replication."
+  expect_skills: [careful, benchmark]
+  accept_clusters: [analyzer_planner, devops_infra]
+  top_k: 5
+  tags: [reasoning, logic]
+
+- id: reasoning-review-billing-rewrite-021
+  prompt: "Review this 2,300-line PR that rewrites the billing calculation engine. I care most about correctness and rollback safety."
+  expect_skills: [review, plan-eng-review, careful]
+  accept_clusters: [analyzer_planner, quality_security, backend_api]
+  top_k: 5
+  tags: [reasoning, review]
+
+- id: reasoning-devex-onboarding-friction-022
+  prompt: "New engineers take nine days on average to ship their first change. Audit the friction in our CLI, docs, and repo setup, then propose fixes ranked by impact."
+  expect_skills: [devex-review, review, careful]
+  accept_clusters: [analyzer_planner, general]
+  top_k: 5
+  tags: [reasoning, devex]
+
+- id: reasoning-orchestration-monorepo-split-023
+  prompt: "We are splitting the monorepo into 12 packages and need API usage traced, migration stubs drafted, and docs updated in parallel. Plan how to fan this work out across agents."
+  expect_skills: [swarm-orchestration, autoplan, plan-eng-review]
+  accept_clusters: [analyzer_planner, devops_infra]
+  top_k: 5
+  tags: [reasoning, orchestration, planning]
+
+- id: reasoning-arch-frontend-state-024
+  prompt: "Our React app keeps 40+ Redux stores that drift out of sync after route changes. Would moving server state to React Query fix this or just relocate the problem?"
+  expect_skills: [design-consultation, plan-design-review, careful]
+  accept_clusters: [architect, frontend_ui]
+  top_k: 5
+  tags: [reasoning, architecture, frontend]
+
+- id: reasoning-logic-rollout-order-025
+  prompt: "Service A depends on B and C, C depends on D, and D depends on B. All four ship new API versions that must not break old callers. Derive a safe rollout order and justify it."
+  expect_skills: [careful, plan-eng-review, autoplan]
+  accept_clusters: [analyzer_planner, architect]
+  top_k: 5
+  tags: [reasoning, logic, planning]

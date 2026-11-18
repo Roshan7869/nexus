@@ -185,12 +185,15 @@ class CapabilityEvents:
                           "invocation_id": invocation_id, "type": "outcome_verified", "payload": receipt})
             return receipt
 
-    def close_session(self, session_id, task_verdict=None, principal=None):
+    def close_session(self, session_id, task_verdict=None, principal=None, *, notes=""):
         with connect_db(self.db_path) as conn:
             conn.execute("BEGIN IMMEDIATE")
             _session(conn, session_id, principal, active=False)
+            payload = {"task_verdict": task_verdict}
+            if notes:
+                payload["notes"] = notes
             event_id = _append(conn, {"event_id": "closed:" + session_id,
-                "session_id": session_id, "type": "session_closed", "payload": {"task_verdict": task_verdict}})
+                "session_id": session_id, "type": "session_closed", "payload": payload})
             conn.execute("UPDATE capability_sessions SET status='closed' WHERE session_id=?", (session_id,))
             return {"session_id": session_id, "status": "closed", "event_id": event_id}
 

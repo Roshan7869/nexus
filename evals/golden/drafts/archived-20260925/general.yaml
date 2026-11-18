@@ -1,0 +1,178 @@
+# DRAFT — pending human curation (Week1 card 4.1, drafted by agent swarm 2026-08-17)
+# Review rule: reject/fix anything you wouldn't defend in a demo. After curation,
+# merge into ../routing_cases.yaml and delete this file. Do NOT merge uncured.
+
+- id: general-release-notes-001
+  prompt: "We just cut the v2.3 branch with about 40 merged PRs. Go through the commit history and draft release notes grouped into features, fixes, and breaking changes."
+  expect_skills: [document-release, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, release-notes]
+
+- id: general-changelog-002
+  prompt: "Update CHANGELOG.md for the 1.8.0 release, keep the existing keep-a-changelog formatting, and double-check the breaking changes section before I tag."
+  expect_skills: [document-release, careful]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, changelog]
+
+- id: general-api-docs-003
+  prompt: "The REST API reference is three minor versions behind the code. Refresh the endpoint docs and add deprecation notes for the routes we removed."
+  expect_skills: [document-release, autopilot]
+  accept_clusters: [knowledge_wiki, backend_api]
+  top_k: 5
+  tags: [general, api-docs]
+
+- id: general-migration-guide-004
+  prompt: "Write a migration guide for customers moving from SDK v1 to v2, with before/after code snippets for the ten most common calls."
+  expect_skills: [document-release, article-writing]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, migration-guide]
+
+- id: general-readme-refresh-005
+  prompt: "Our README still describes the project as an alpha prototype. Rewrite it to cover current features, installation, and a short FAQ."
+  expect_skills: [document-release, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, readme]
+
+- id: general-blog-announce-006
+  prompt: "Draft a ~1200-word blog post announcing our new caching layer, aimed at backend engineers who might adopt it."
+  expect_skills: [article-writing, document-release]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, blog]
+
+- id: general-deep-dive-007
+  prompt: "I want to write an in-depth piece on how we cut p99 latency by 40%. Help me outline the structure and sharpen the narrative before I start drafting."
+  expect_skills: [article-writing, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, article]
+
+- id: general-newsletter-008
+  prompt: "Write this month's engineering newsletter: three project updates, a hack-week callout, and a short farewell to a teammate. Keep it light."
+  expect_skills: [article-writing, document-release]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, newsletter]
+
+- id: general-tighten-draft-009
+  prompt: "Here's my draft post about our incident postmortem culture. It reads dry and rambles in the middle — tighten it up and make it flow."
+  expect_skills: [article-writing, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, editing]
+
+- id: general-onboarding-tutorial-010
+  prompt: "Turn our scattered internal onboarding notes into a step-by-step tutorial that takes new hires from repo setup to their first deploy."
+  expect_skills: [article-writing, document-release]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, tutorial]
+
+- id: general-wiki-stale-011
+  prompt: "The team wiki has hundreds of pages and half of them reference dead projects. Sweep through it, update what's salvageable, and flag the rest for deletion."
+  expect_skills: [autopilot, document-release]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, wiki-upkeep]
+
+- id: general-kb-reorg-012
+  prompt: "Our knowledge base grew into a pile of duplicated and misfiled pages. Propose a cleaner structure and merge the obvious duplicates."
+  expect_skills: [autopilot, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, kb-reorg]
+
+- id: general-doc-summary-013
+  prompt: "Condense this 30-page design doc into a one-pager the exec team can absorb in two minutes before Thursday's review."
+  expect_skills: [autopilot, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, summarization]
+
+- id: general-runbook-sync-014
+  prompt: "Every release the runbook wiki drifts out of date and on-call pays for it. Set up a way to keep those pages in sync with the repo automatically."
+  expect_skills: [autopilot, document-release]
+  accept_clusters: [knowledge_wiki, devops_infra]
+  top_k: 5
+  tags: [general, docs-sync]
+
+- id: general-skill-audit-015
+  prompt: "Audit every skill we have installed — what it claims to do, whether the description matches reality, and which ones overlap with each other."
+  expect_skills: [skill-stocktake, review]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, skill-audit]
+
+- id: general-dead-skills-016
+  prompt: "I suspect half of our agent skills never trigger. Go through the inventory and list the ones that look like dead weight so we can prune them."
+  expect_skills: [skill-stocktake, careful]
+  accept_clusters: [knowledge_wiki, general]
+  top_k: 5
+  tags: [general, skill-pruning]
+
+- id: general-skill-gaps-017
+  prompt: "Before next quarter's planning, do a stocktake of our skills and tell me what's missing from our documentation and writing workflows."
+  expect_skills: [skill-stocktake, document-release]
+  accept_clusters: [knowledge_wiki]
+  top_k: 5
+  tags: [general, gap-analysis]
+
+- id: general-monolith-consult-018
+  prompt: "We're a five-person team deciding between staying on a monolith or splitting into services. Can you talk us through the trade-offs honestly?"
+  expect_skills: [design-consultation, careful]
+  accept_clusters: [architect, general]
+  top_k: 5
+  tags: [general, advisory]
+
+- id: general-design-sanity-019
+  prompt: "Here's a sketch of our new event-driven architecture. Sanity-check it before we commit — especially the failure modes and retry behavior."
+  expect_skills: [design-consultation, review]
+  accept_clusters: [architect, analyzer_planner]
+  top_k: 5
+  tags: [general, design-review]
+
+- id: general-second-opinion-020
+  prompt: "An outside consultant insists we need a service mesh. I'd like a second opinion before I sign the contract."
+  expect_skills: [design-consultation, review]
+  accept_clusters: [architect, general]
+  top_k: 5
+  tags: [general, second-opinion]
+
+- id: general-benchmark-plan-021
+  prompt: "The team is arguing about two caching libraries. Design a fair benchmark we can all agree on to settle it, including what to measure and what to ignore."
+  expect_skills: [benchmark, design-consultation]
+  accept_clusters: [analyzer_planner, architect]
+  top_k: 5
+  tags: [general, benchmarking]
+
+- id: general-gbrain-setup-022
+  prompt: "Set up gbrain for this repository so I can start indexing notes and running queries against the knowledge base."
+  expect_skills: [setup-gbrain, careful]
+  accept_clusters: [general]
+  top_k: 5
+  tags: [general, tooling-setup]
+
+- id: general-clickhouse-export-023
+  prompt: "Pull last quarter's usage stats out of ClickHouse into a tidy CSV — I need real numbers for the blog post I'm writing."
+  expect_skills: [clickhouse-io, article-writing]
+  accept_clusters: [general, backend_api]
+  top_k: 5
+  tags: [general, data-export]
+
+- id: general-fuzzy-idea-024
+  prompt: "I've got a fuzzy idea about restructuring how our team handles on-call rotations, but nothing concrete yet. Help me think it through."
+  expect_skills: [careful, cso]
+  accept_clusters: [general, devops_infra]
+  top_k: 5
+  tags: [general, open-ended]
+
+- id: general-vague-gut-025
+  prompt: "something feels off about how we ship but i can't put my finger on it — where would we even start?"
+  expect_skills: [careful, cso]
+  accept_clusters: [general]
+  top_k: 5
+  tags: [general, vague]

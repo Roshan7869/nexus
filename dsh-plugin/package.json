@@ -1,0 +1,21 @@
+{
+  "name": "@nexus/local-dsh",
+  "version": "0.1.0",
+  "description": "Local DeepSeek Harness Skill-only bundle for NEXUS router/harness skills. Workspace-native: skills resolve to /home/roshan/nexus/skills via symlink, no copy drift.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-skill",
+    "nexus"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./nexus.patch.yml"
+    }
+  }
+}

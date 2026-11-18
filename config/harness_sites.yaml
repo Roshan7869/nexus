@@ -1,0 +1,101 @@
+# NEXUS harness sites — per use case
+#
+# Loader: server/harness_sites.py (validates and returns the SiteCatalog from this file).
+# config/harness_sites.local.yaml is UI-managed (written by the dashboard); do not hand-edit it.
+#
+# Spec + how-to:  docs/design/05-SITES-REGISTRY.md
+# Execution steps: docs/design/exec/05-EXEC-SITES.md
+#
+# Weight anchors are LIVE values (fusion.py:158-160): scrapling_fetch = 1.2, nexus/internet/memory = 1.0
+# RRF_K = 60.0, so weights scale RANK contributions, not raw scores. Do not over-tune.
+#
+# NEVER inline a credential here. Use auth_env and keep the value in the environment.
+
+defaults:
+  weight: 1.0
+  cache_ttl: 300
+  timeout_seconds: 20
+  max_results: 10
+
+sites:
+
+  # ─────────────────────────── WEB / FRONTEND (frontend_ui cluster, 576 resources) ───────
+  # YOUR SITES GO HERE. Bound to `web-dev` only.
+  web-dev:
+
+    - name: getdesign
+      channel: channels/getdesign.py
+      weight: 1.4            # design-specific => trusted above generic fetch (1.2)
+      cache_ttl: 3600        # static design references => cache hard
+      timeout_seconds: 25
+      use_cases: [web-dev]   # NARROW. Do NOT add general-dev.
+      notes: >
+        PLACEHOLDER — replace this block with your real site.
+        Intended role: design references and layout patterns for frontend tasks.
+        NOT for backend/API queries; that is why the binding is web-dev only.
+      # --- FILL IN ---
+      # base_url:          <your site>
+      # auth:              none | header:<NAME> | query:<NAME>
+      # auth_env:          NEXUS_GETDESIGN_KEY
+      # result_selector:   CSS selector, or `json:` + dotted path
+      # content_field:     text | html | json
+      # max_results:       10
+
+    # - name: <your-site-2>
+    #   channel: channels/<file>.py
+    #   weight: 1.0
+    #   cache_ttl: 300
+    #   use_cases: [web-dev]
+    #   notes: >
+    #     What it is good for, and what it is NOT good for.
+
+  # ─────────────────────────── AI / ML ────────────────────────────────────────────────────
+  ai-ml:
+    - { name: arxiv,            weight: 1.1, use_cases: [ai-ml, research] }
+    - { name: paperswithcode,   weight: 1.1, use_cases: [ai-ml] }
+    - { name: semantic_scholar, weight: 1.0, use_cases: [ai-ml, research] }
+    # - name: <your-ml-site>
+    #   channel: channels/<file>.py
+    #   weight: 1.2
+    #   use_cases: [ai-ml]
+
+  # ─────────────────────────── RESEARCH ───────────────────────────────────────────────────
+  research:
+    - { name: arxiv,          weight: 1.1, use_cases: [research] }
+    - { name: openalex,       weight: 1.0, use_cases: [research] }
+    - { name: crossref,       weight: 1.0, use_cases: [research] }
+    - { name: pubmed,         weight: 1.0, use_cases: [research] }
+    - { name: google_scholar, weight: 0.9, use_cases: [research] }   # rate-limit prone => < 1.0
+    # - name: <your-paper-site>
+    #   channel: channels/<file>.py
+    #   weight: 1.2
+    #   use_cases: [research]
+
+  # ─────────────────────────── DEVOPS ─────────────────────────────────────────────────────
+  devops:
+    - { name: github, weight: 1.1, use_cases: [devops, general-dev] }
+    # - name: <your-devops-site>
+    #   channel: channels/<file>.py
+    #   weight: 1.2
+    #   use_cases: [devops]
+
+  # ─────────────────────────── TRADING ────────────────────────────────────────────────────
+  trading:
+    # NOTE: the strategy-kb MCP already covers part of this surface. Check before adding a site.
+    - name: <your-trading-site>
+      channel: channels/<file>.py
+      weight: 1.4
+      use_cases: [trading]
+
+  # ─────────────────────────── GENERAL DEV (fallback) ─────────────────────────────────────
+  general-dev:
+    - { name: github,          weight: 1.1, use_cases: [general-dev] }
+    - { name: scrapling_fetch, weight: 1.2, use_cases: [general-dev] }
+    - { name: target_site,     weight: 1.0, use_cases: [general-dev] }
+
+# ─────────────────────────────── ALREADY REGISTERED (13) — DO NOT RE-ADD ──────────────────
+# Live in code at server/context_harness/server.py:918-1188 (13 `fuser.register(BackendDef(` calls).
+#   scrapling_fetch · scrapling_spider · scrapecraft_pattern · sherlock_probe · target_site ·
+#   arxiv · semantic_scholar · github · paperswithcode · google_scholar · openalex · crossref · pubmed
+# Entries above duplicate some of these intentionally: this file expresses INTENT per use case,
+# the code is the live registration until I5-1/I5-2 unify them.

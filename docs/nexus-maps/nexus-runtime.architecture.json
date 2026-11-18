@@ -1,0 +1,240 @@
+{
+ "boundaries": [
+  {
+   "kind": "region",
+   "label": "IDE-local (stdio, OpenCode-owned)",
+   "wraps": [
+    "opencode",
+    "mcp",
+    "broker"
+   ]
+  },
+  {
+   "kind": "security-group",
+   "label": "NEXUS runtime (split ownership)",
+   "wraps": [
+    "v5",
+    "learner",
+    "cache",
+    "sqlite",
+    "harness",
+    "http",
+    "dashboard"
+   ]
+  }
+ ],
+ "components": [
+  {
+   "id": "opencode",
+   "label": "OpenCode",
+   "pos": [
+    40,
+    250
+   ],
+   "size": [
+    120,
+    60
+   ],
+   "sublabel": "owns stdio pipe",
+   "type": "external"
+  },
+  {
+   "id": "mcp",
+   "label": "nexus-mcp",
+   "pos": [
+    200,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "enhanced.py per-session",
+   "type": "backend"
+  },
+  {
+   "id": "broker",
+   "label": "broker",
+   "pos": [
+    370,
+    250
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sublabel": "tool sessions \u22648",
+   "type": "backend"
+  },
+  {
+   "id": "v5",
+   "label": "router v5",
+   "pos": [
+    550,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "intent\u2192rerank",
+   "type": "backend"
+  },
+  {
+   "id": "learner",
+   "label": "Thompson",
+   "pos": [
+    720,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "report_outcome",
+   "type": "backend"
+  },
+  {
+   "id": "harness",
+   "label": "harness \u00d727",
+   "pos": [
+    370,
+    380
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sublabel": "in-process bridge",
+   "type": "backend"
+  },
+  {
+   "id": "cache",
+   "label": "L0\u2013L3",
+   "pos": [
+    550,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "TTL+LRU",
+   "type": "database"
+  },
+  {
+   "id": "sqlite",
+   "label": "nexus.db",
+   "pos": [
+    720,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "SQLite SoT",
+   "type": "database"
+  },
+  {
+   "id": "http",
+   "label": ":8080 plane",
+   "pos": [
+    200,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "systemd-owned",
+   "type": "backend"
+  },
+  {
+   "id": "dashboard",
+   "label": ":8765 ops",
+   "pos": [
+    40,
+    380
+   ],
+   "size": [
+    120,
+    60
+   ],
+   "sublabel": "supervisord",
+   "type": "frontend"
+  }
+ ],
+ "connections": [
+  {
+   "from": "opencode",
+   "id": "c-stdio",
+   "label": "stdio",
+   "to": "mcp",
+   "variant": "emphasis"
+  },
+  {
+   "from": "mcp",
+   "id": "c-open",
+   "label": "open",
+   "to": "broker",
+   "variant": "emphasis"
+  },
+  {
+   "from": "broker",
+   "id": "c-route",
+   "label": "route",
+   "to": "v5",
+   "variant": "emphasis"
+  },
+  {
+   "from": "v5",
+   "id": "c-learn",
+   "label": "outcomes",
+   "to": "learner",
+   "variant": "emphasis",
+   "labelAt": [
+    700,
+    324
+   ]
+  },
+  {
+   "from": "broker",
+   "id": "c-tools",
+   "label": "tools",
+   "to": "harness",
+   "labelAt": [
+    440,
+    324
+   ]
+  },
+  {
+   "from": "broker",
+   "id": "c-cache",
+   "label": "lookup",
+   "to": "cache"
+  },
+  {
+   "from": "cache",
+   "id": "c-persist",
+   "label": "persist",
+   "to": "sqlite"
+  },
+  {
+   "from": "mcp",
+   "id": "c-plane",
+   "label": "proxy?",
+   "to": "http",
+   "labelAt": [
+    265,
+    324
+   ]
+  }
+ ],
+ "diagram_type": "architecture",
+ "meta": {
+  "quality_profile": "showcase",
+  "title": "NEXUS runtime \u2014 local harness path"
+ },
+ "schema_version": 1
+}

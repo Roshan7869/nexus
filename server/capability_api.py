@@ -265,12 +265,20 @@ def create_capability_router(graph: Optional[CapabilityServiceGraph] = None) -> 
         if not services.events:
             raise HTTPException(503, "Events service unavailable")
         try:
-            res = await _run_sync(services.events.close_session, session_id, body.outcome, body.notes)
+            res = await _run_sync(
+                services.events.close_session,
+                session_id,
+                body.outcome,
+                principal=principal,
+                notes=body.notes,
+            )
             return {
                 "request_id": str(uuid.uuid4()),
                 "api_version": "v1",
                 "closed": res,
             }
+        except PermissionError as e:
+            raise HTTPException(403, str(e))
         except Exception as e:
             raise map_error(e)
 

@@ -1,0 +1,136 @@
+{
+ "activations": [
+  {
+   "from": 180,
+   "participant": "mcp",
+   "to": 620,
+   "type": "backend"
+  },
+  {
+   "from": 230,
+   "participant": "broker",
+   "to": 570,
+   "type": "backend"
+  },
+  {
+   "from": 280,
+   "participant": "v5",
+   "to": 420,
+   "type": "backend"
+  },
+  {
+   "from": 520,
+   "participant": "learner",
+   "to": 580,
+   "type": "backend"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "cyan",
+   "title": "Contract",
+   "items": [
+    "Budget <=8 tools; terminal outcomes correct|wrong|partial|skip; belief deltas on report."
+   ]
+  }
+ ],
+ "diagram_type": "sequence",
+ "messages": [
+  {
+   "from": "ide",
+   "label": "task + budget",
+   "to": "mcp",
+   "variant": "emphasis",
+   "y": 180
+  },
+  {
+   "from": "mcp",
+   "label": "start_session",
+   "to": "broker",
+   "variant": "emphasis",
+   "y": 230
+  },
+  {
+   "from": "broker",
+   "label": "unified_route_v5",
+   "to": "v5",
+   "variant": "emphasis",
+   "y": 280
+  },
+  {
+   "from": "v5",
+   "label": "tools \u22648",
+   "to": "broker",
+   "y": 420
+  },
+  {
+   "from": "broker",
+   "label": "visible_tools",
+   "to": "ide",
+   "y": 470
+  },
+  {
+   "from": "ide",
+   "label": "report(outcome)",
+   "to": "mcp",
+   "variant": "emphasis",
+   "y": 520
+  },
+  {
+   "from": "mcp",
+   "label": "record_outcome",
+   "to": "learner",
+   "y": 550
+  },
+  {
+   "from": "learner",
+   "label": "belief_delta",
+   "to": "mcp",
+   "y": 580
+  }
+ ],
+ "meta": {
+  "quality_profile": "showcase",
+  "title": "NEXUS task \u2014 open to belief delta"
+ },
+ "participants": [
+  {
+   "id": "ide",
+   "label": "OpenCode",
+   "sublabel": "IDE session",
+   "type": "external"
+  },
+  {
+   "id": "mcp",
+   "label": "nexus-mcp",
+   "sublabel": "stdio server",
+   "type": "backend"
+  },
+  {
+   "id": "broker",
+   "label": "broker",
+   "sublabel": "sessions",
+   "type": "backend"
+  },
+  {
+   "id": "v5",
+   "label": "router v5",
+   "sublabel": "ranker",
+   "type": "backend"
+  },
+  {
+   "id": "learner",
+   "label": "Thompson",
+   "sublabel": "beliefs",
+   "type": "database"
+  }
+ ],
+ "schema_version": 1,
+ "segments": [
+  {
+   "from": 160,
+   "label": "Session",
+   "to": 620
+  }
+ ]
+}

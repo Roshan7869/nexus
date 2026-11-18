@@ -784,12 +784,28 @@ def nexus_session_report(
 
 
 # ── Shared Capability Service Client Bridge (Phase 4) ───────────────────
+def _capability_identity(harness_id: str = "") -> tuple[str, str]:
+    """Return one consistent transport identity for this MCP client."""
+    configured = os.environ.get("NEXUS_IDE", "codex").strip().lower() or "codex"
+    harness = (harness_id or configured).strip().lower()
+    if harness != configured:
+        raise ValueError(f"harness_id {harness!r} does not match MCP identity {configured!r}")
+    return f"nexus-{configured}", configured
+
+
+def _capability_error(status: str, detail: str) -> dict:
+    return {"error": True, "status": status, "detail": detail}
+
+
 def _capability_http(method: str, path: str, body: dict = None, timeout: float = 5.0) -> dict:
     import urllib.request, urllib.error
     daemon_url = os.environ.get("NEXUS_DAEMON_URL", "http://127.0.0.1:8000")
     url = f"{daemon_url}/capabilities/v1{path}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    headers = {"Content-Type": "application/json"} if body is not None else {}
+    principal_id, harness_id = _capability_identity()
+    headers = {"X-Principal-Id": principal_id, "X-Harness-Id": harness_id}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -819,7 +835,7 @@ def capability_search(query: str = "", limit: int = 20, cursor: str = "") -> str
     if cursor:
         params.append(f"cursor={urllib.parse.quote(cursor)}")
     qs = ("?" + "&".join(params)) if params else ""
-    res = _capability_http("GET", f"/capabilities{qs}")
+    res = _capability_http("GET", f"/catalog{qs}")
     return json.dumps(res, indent=2)
 
 
@@ -827,7 +843,7 @@ def capability_search(query: str = "", limit: int = 20, cursor: str = "") -> str
 def capability_get(capability_id: str, version: str = "") -> str:
     """Retrieve full descriptor and metadata for a capability by its canonical ID."""
     import urllib.parse
-    path = f"/capabilities/{urllib.parse.quote(capability_id, safe='')}"
+    path = f"/catalog/{urllib.parse.quote(capability_id, safe='')}"
     if version:
         path += f"?version={urllib.parse.quote(version)}"
     res = _capability_http("GET", path)
@@ -838,12 +854,20 @@ def capability_get(capability_id: str, version: str = "") -> str:
 def skill_read(capability_id: str, version: str = "", path: str = "SKILL.md") -> str:
     """Read full verified skill markdown or bundled asset from the canonical catalog."""
     import urllib.parse
-    api_path = f"/capabilities/{urllib.parse.quote(capability_id, safe='')}/skill"
+    encoded_id = urllib.parse.quote(capability_id, safe='')
+    selected_version = version
+    if not selected_version:
+        descriptor_result = _capability_http("GET", f"/catalog/{encoded_id}")
+        descriptor = descriptor_result.get("descriptor") if isinstance(descriptor_result, dict) else None
+        if not descriptor or descriptor_result.get("error"):
+            return json.dumps(descriptor_result, indent=2)
+        selected_version = descriptor.get("version", "")
+        if not selected_version:
+            return json.dumps(_capability_error("INVALID_DESCRIPTOR", "Capability descriptor has no version"), indent=2)
+    api_path = f"/skills/{encoded_id}/content"
     params = []
-    if version:
-        params.append(f"version={urllib.parse.quote(version)}")
-    if path:
-        params.append(f"path={urllib.parse.quote(path)}")
+    params.append(f"version={urllib.parse.quote(selected_version)}")
+    params.append(f"path={urllib.parse.quote(path or 'SKILL.md')}")
     if params:
         api_path += "?" + "&".join(params)
     res = _capability_http("GET", api_path)
@@ -859,28 +883,94 @@ def capability_recommend(session_id: str, query: str, k: int = 5, seed: int = No
     body = {"session_id": session_id, "query": query, "k": min(max(1, k), 50)}
     if seed is not None:
         body["seed"] = seed
-    res = _capability_http("POST", "/recommendations", body=body)
+    res = _capability_http("POST", "/recommend", body=body)
     return json.dumps(res, indent=2)
 
 
 @mcp.tool()
-def capability_invoke(capability_id: str, method: str = "", args: dict = None, session_id: str = "") -> str:
-    """Invoke a tool capability with idempotency and generation leasing."""
+def capability_session_open(
+    project: str = "default",
+    harness_id: str = "",
+    session_id: str = "",
+    context: dict = None,
+    ttl_seconds: int = 3600,
+) -> str:
+    """Open a capability-service session bound to this MCP client's identity."""
+    try:
+        _, resolved_harness = _capability_identity(harness_id)
+    except ValueError as e:
+        return json.dumps(_capability_error("INVALID_ARGUMENT", str(e)), indent=2)
+    body = {
+        "harness_id": resolved_harness,
+        "project": project,
+        "context": context or {},
+        "ttl_seconds": ttl_seconds,
+    }
+    if session_id:
+        body["session_id"] = session_id
+    res = _capability_http("POST", "/sessions", body=body)
+    return json.dumps(res, indent=2)
+
+
+@mcp.tool()
+def capability_invoke(
+    capability_id: str,
+    method: str = "",
+    args: dict = None,
+    session_id: str = "",
+    version: str = "",
+    idempotency_key: str = "",
+) -> str:
+    """Invoke a tool capability using a required session and stable idempotency key."""
+    if not session_id:
+        return json.dumps(_capability_error("INVALID_ARGUMENT", "session_id is required"), indent=2)
+    if not idempotency_key:
+        return json.dumps(_capability_error("INVALID_ARGUMENT", "idempotency_key is required"), indent=2)
+    import urllib.parse
+    encoded_id = urllib.parse.quote(capability_id, safe='')
+    selected_version = version
+    if not selected_version:
+        descriptor_result = _capability_http("GET", f"/catalog/{encoded_id}")
+        descriptor = descriptor_result.get("descriptor") if isinstance(descriptor_result, dict) else None
+        if not descriptor or descriptor_result.get("error"):
+            return json.dumps(descriptor_result, indent=2)
+        selected_version = descriptor.get("version", "")
+        if not selected_version:
+            return json.dumps(_capability_error("INVALID_DESCRIPTOR", "Capability descriptor has no version"), indent=2)
+    if method:
+        descriptor_result = _capability_http(
+            "GET", f"/catalog/{encoded_id}?version={urllib.parse.quote(selected_version)}")
+        descriptor = descriptor_result.get("descriptor") if isinstance(descriptor_result, dict) else None
+        if not descriptor or descriptor_result.get("error"):
+            return json.dumps(descriptor_result, indent=2)
+        descriptor_method = descriptor.get("method")
+        if not descriptor_method or method != descriptor_method:
+            return json.dumps(_capability_error(
+                "INVALID_ARGUMENT", "method does not match the selected capability descriptor"), indent=2)
     body = {
         "capability_id": capability_id,
-        "method": method or "call",
-        "args": args or {},
-        "session_id": session_id or None,
+        "version": selected_version,
+        "session_id": session_id,
+        "arguments": args or {},
+        "idempotency_key": idempotency_key,
     }
-    res = _capability_http("POST", "/invocations", body=body)
+    res = _capability_http("POST", "/invoke", body=body)
     return json.dumps(res, indent=2)
 
 
 @mcp.tool()
-def capability_session_close(session_id: str, outcome: str = "correct", evidence: dict = None) -> str:
-    """Close a shared capability session and record verified outcome."""
+def capability_session_close(
+    session_id: str,
+    outcome: str = "correct",
+    evidence: dict = None,
+    notes: str = "",
+) -> str:
+    """Close a shared capability session and record its outcome and notes."""
     import urllib.parse
-    body = {"outcome": outcome, "evidence": evidence or {}}
+    if evidence:
+        evidence_note = "Legacy evidence payload (not independently verified): " + json.dumps(evidence, sort_keys=True)
+        notes = f"{notes}\n{evidence_note}".strip()
+    body = {"outcome": outcome, "notes": notes}
     res = _capability_http("POST", f"/sessions/{urllib.parse.quote(session_id, safe='')}/close", body=body)
     return json.dumps(res, indent=2)
 

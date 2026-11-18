@@ -1,0 +1,208 @@
+{
+ "cards": [
+  {
+   "dot": "cyan",
+   "title": "Gate law",
+   "items": [
+    "Short-circuit only when confident AND pool deep AND task simple (TurboS adaptive rule)."
+   ]
+  }
+ ],
+ "diagram_type": "workflow",
+ "edges": [
+  {
+   "from": "task",
+   "id": "e-t-l1",
+   "to": "l1"
+  },
+  {
+   "from": "l1",
+   "id": "e-l1-g",
+   "to": "gate"
+  },
+  {
+   "from": "gate",
+   "id": "e-g-fast",
+   "label": "confident",
+   "to": "tools",
+   "variant": "emphasis"
+  },
+  {
+   "from": "gate",
+   "id": "e-g-deep",
+   "label": "think",
+   "to": "l2"
+  },
+  {
+   "from": "l2",
+   "id": "e-l2-l3",
+   "to": "l3"
+  },
+  {
+   "from": "l3",
+   "id": "e-l3-l4",
+   "to": "l4"
+  },
+  {
+   "from": "l4",
+   "id": "e-l4-t",
+   "to": "tools",
+   "variant": "emphasis"
+  },
+  {
+   "from": "tools",
+   "id": "e-t-r",
+   "to": "report"
+  },
+  {
+   "from": "report",
+   "id": "e-r-th",
+   "to": "thompson",
+   "fromSide": "right",
+   "toSide": "right",
+   "route": "outside-right"
+  },
+  {
+   "from": "l3",
+   "id": "e-l3-sh",
+   "label": "compare",
+   "to": "shadow"
+  }
+ ],
+ "groups": [
+  {
+   "id": "deep",
+   "label": "Deep path",
+   "lane": "router",
+   "fromCol": 3,
+   "toCol": 5
+  }
+ ],
+ "lanes": [
+  {
+   "id": "ide",
+   "label": "IDE session"
+  },
+  {
+   "id": "harness",
+   "label": "Local harness"
+  },
+  {
+   "id": "router",
+   "label": "Router v5"
+  },
+  {
+   "id": "learn",
+   "label": "Learning"
+  }
+ ],
+ "mainPath": [
+  "task",
+  "l1",
+  "gate",
+  "l2",
+  "l3",
+  "l4"
+ ],
+ "meta": {
+  "quality_profile": "showcase",
+  "title": "NEXUS router v5 \u2014 L1 to report"
+ },
+ "nodes": [
+  {
+   "col": 0,
+   "id": "task",
+   "label": "task",
+   "lane": "ide",
+   "sublabel": "natural language",
+   "type": "external"
+  },
+  {
+   "col": 1,
+   "id": "l1",
+   "label": "L1 intent",
+   "lane": "router",
+   "sublabel": "cluster+confidence",
+   "type": "backend"
+  },
+  {
+   "col": 2,
+   "id": "gate",
+   "label": "short-circuit?",
+   "lane": "router",
+   "sublabel": "adaptive gate",
+   "type": "security"
+  },
+  {
+   "col": 3,
+   "id": "l2",
+   "label": "L2 topics",
+   "lane": "router",
+   "sublabel": "top-2 clusters",
+   "type": "backend"
+  },
+  {
+   "col": 4,
+   "id": "l3",
+   "label": "L3 fusion",
+   "lane": "router",
+   "sublabel": "convex + prior",
+   "type": "backend"
+  },
+  {
+   "col": 5,
+   "id": "l4",
+   "label": "L4 autocut",
+   "lane": "router",
+   "sublabel": "0.5\u00b7max",
+   "type": "backend"
+  },
+  {
+   "col": 3,
+   "id": "tools",
+   "label": "tools \u22648",
+   "lane": "harness",
+   "sublabel": "effect-tracked",
+   "type": "backend"
+  },
+  {
+   "col": 4,
+   "id": "report",
+   "label": "report",
+   "lane": "harness",
+   "sublabel": "outcome+manifest",
+   "type": "backend"
+  },
+  {
+   "col": 5,
+   "id": "thompson",
+   "label": "Thompson",
+   "lane": "learn",
+   "sublabel": "belief_delta",
+   "type": "database"
+  },
+  {
+   "col": 4,
+   "id": "shadow",
+   "label": "shadow",
+   "lane": "learn",
+   "sublabel": "wrrf compare",
+   "type": "cloud"
+  }
+ ],
+ "phases": [
+  {
+   "id": "retrieve",
+   "label": "Retrieve",
+   "fromCol": 0,
+   "toCol": 4
+  },
+  {
+   "id": "close",
+   "label": "Close+learn",
+   "fromCol": 5,
+   "toCol": 5
+  }
+ ],
+ "schema_version": 2
+}

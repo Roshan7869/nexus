@@ -1,0 +1,335 @@
+{
+ "$schema": "/home/roshan/.config/opencode/skills/open-design-landing-deck/schema.ts",
+ "_doc": "NEXUS local harness pitch deck. Built with the open-design-landing-deck skill. Compose: npx tsx scripts/compose.ts inputs.json out/index.html (from the skill dir).",
+ "brand": {
+  "contact_email": "",
+  "coordinates": "",
+  "description": "NEXUS local harness pitch \u2014 Vol. 01.",
+  "edition": "Vol. 01 / Issue N\u00ba 01",
+  "filed_under": "Agents \u00b7 Infrastructure",
+  "founded": "",
+  "languages": [
+   "EN"
+  ],
+  "license": "",
+  "locale": "en",
+  "location": "Local-first \u00b7 stdio",
+  "mark": "N",
+  "meta": {
+   "subtitle": "IDE-local \u00b7 OpenCode-first",
+   "title": "Harness N\u00ba 01"
+  },
+  "name": "NEXUS",
+  "primary_url": "",
+  "primary_url_label": "",
+  "rails": {
+   "left": "",
+   "right": ""
+  },
+  "status": "Waves 0\u20132 shipped",
+  "tagline": "Every IDE gets a routed, reversible, learning tool session.",
+  "version": "v1",
+  "year": "2026",
+  "year_roman": "MMXXVI"
+ },
+ "deck_title": "NEXUS \u00b7 Local harness, proven loops",
+ "imagery": {
+  "assets_path": "./",
+  "provider": "fal",
+  "strategy": "bring-your-own"
+ },
+ "slides": [
+  {
+   "eyebrow": "IDE-local harness \u00b7 N\u00ba 01",
+   "image_slot": "hero",
+   "kind": "cover",
+   "lead": "Three waves, 32 doc\u2194code loops, 34 green tests \u2014 routed, reversible sessions with receipts, not promises.",
+   "meta": "Local-first \u00b7 MMXXVI",
+   "subtitle": "The OpenCode-first execution layer for NEXUS.",
+   "title": [
+    {
+     "text": "Give every agent a "
+    },
+    {
+     "text": "harness",
+     "em": true
+    },
+    {
+     "text": ", not a "
+    },
+    {
+     "text": "tool dump",
+     "em": true
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "kind": "section",
+   "lead": "Each CLI re-discovers tools, sessions leak handles, and routing never learns. Scale multiplies every failure.",
+   "roman": "I.",
+   "title": [
+    {
+     "text": "Why agents "
+    },
+    {
+     "text": "fumble",
+     "em": true
+    },
+    {
+     "text": " their tools "
+    },
+    {
+     "text": "?",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "body": "One mediated context for every tool\u2194environment interaction: effects carry inverses, dependencies are declared coeffects, and unloading always reverts.",
+   "bullets": [
+    "Revertible effects \u2014 every session resource registers its inverse.",
+    "Reactive coeffects \u2014 dependents deactivate before providers withdraw.",
+    "One NexusContext \u2014 interleaved sessions never disturb each other."
+   ],
+   "eyebrow": "Context paradigm \u00b7 N\u00ba 02",
+   "image_slot": "about",
+   "kind": "content",
+   "layout": "right",
+   "title": [
+    {
+     "text": "A "
+    },
+    {
+     "text": "context",
+     "em": true
+    },
+    {
+     "text": " that cleans up "
+    },
+    {
+     "text": "after itself",
+     "em": true
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "body": "Router v5 stays production while shared priors, adaptive gates, and weak-to-strong fusion land behind flags \u2014 each with an A/B receipt.",
+   "bullets": [
+    "Shared-expert prior + recycle routing, default-off and byte-identical.",
+    "Adaptive short-circuit \u2014 deep thought only when warranted.",
+    "Chimera fusion \u2014 fuse cheap candidates instead of single-pick."
+   ],
+   "eyebrow": "Routing heredity \u00b7 N\u00ba 03",
+   "image_slot": "capabilities",
+   "kind": "content",
+   "layout": "left",
+   "title": [
+    {
+     "text": "Routing that "
+    },
+    {
+     "text": "inherits",
+     "em": true
+    },
+    {
+     "text": " wisdom"
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "caption": "Verifier 27 cases \u00b7 MMXXVI",
+   "eyebrow": "By the numbers \u00b7 N\u00ba 04",
+   "kind": "stats",
+   "stats": [
+    {
+     "label": "Loops",
+     "sub": "doc\u2194code, all on disk",
+     "value": "32"
+    },
+    {
+     "label": "Tests",
+     "sub": "green, strict-xfail retired",
+     "value": "32"
+    },
+    {
+     "label": "Maps",
+     "sub": "validated 0/0, frozen",
+     "value": "4"
+    },
+    {
+     "label": "Fails",
+     "sub": "grounding verifier",
+     "value": "0"
+    }
+   ],
+   "title": [
+    {
+     "text": "Counted, "
+    },
+    {
+     "text": "not claimed",
+     "em": true
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "kind": "section",
+   "lead": "Retrieve, authorize, execute, observe, validate, freeze, learn, reconcile \u2014 then run it again.",
+   "roman": "II.",
+   "title": [
+    {
+     "text": "How the "
+    },
+    {
+     "text": "loop",
+     "em": true
+    },
+    {
+     "text": " turns"
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "body": "Each loop opens its doc, follows pseudocode, runs verification, and flips its graph edge from INFERRED to EXTRACTED. Frozen work is never mutated.",
+   "bullets": [
+    "01 \u00b7 Retrieve \u2014 v5 routes, max 8 tools, realm-scoped.",
+    "02 \u00b7 Authorize \u2014 gates green, subscriptions declared.",
+    "03 \u00b7 Execute \u2014 effects tracked, disposers armed.",
+    "04 \u00b7 Validate + freeze \u2014 receipts, then immutable. Learn, reconcile, repeat."
+   ],
+   "eyebrow": "Method \u00b7 N\u00ba 05",
+   "image_slot": "method-1",
+   "kind": "content",
+   "layout": "right",
+   "title": [
+    {
+     "text": "Eight states, "
+    },
+    {
+     "text": "zero",
+     "em": true
+    },
+    {
+     "text": " hand-waving"
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "body": "Broker round-trips with LIFO dispose proven live, fusion tunability demonstrated, four validated architecture maps delivered as frozen HTML.",
+   "eyebrow": "Selected work \u00b7 N\u00ba 06",
+   "image_slot": "work-1",
+   "kind": "content",
+   "layout": "left",
+   "title": [
+    {
+     "text": "Waves that "
+    },
+    {
+     "text": "shipped",
+     "em": true
+    },
+    {
+     "text": " receipts"
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "author": {
+    "initial": "n",
+    "name": "NEXUS System Design Plan v1",
+    "title": "Root law \u00b7 RC1\u2013RC7"
+   },
+   "image_slot": "testimonial",
+   "kind": "quote",
+   "quote": [
+    {
+     "text": "Fix root causes as "
+    },
+    {
+     "text": "architectural contracts",
+     "em": true
+    },
+    {
+     "text": ". Do not add more routing algorithms until RC1\u2013RC4 are closed."
+    }
+   ]
+  },
+  {
+   "body": "Run the verifier, read the audit, coordinate on M11 \u2014 or wire the next IDE harness in one file plus one registry line.",
+   "eyebrow": "Next moves \u00b7 N\u00ba 07",
+   "kind": "cta",
+   "primary": {
+    "href": "docs/waves_audit.md",
+    "label": "Read the audit"
+   },
+   "secondary": {
+    "href": "docs/local_harness/README.md",
+    "label": "Enter the loops"
+   },
+   "title": [
+    {
+     "text": "Pick a "
+    },
+    {
+     "text": "loop",
+     "em": true
+    },
+    {
+     "text": " and close "
+    },
+    {
+     "text": "it",
+     "em": true
+    },
+    {
+     "text": ".",
+     "dot": true
+    }
+   ]
+  },
+  {
+   "footer": "NEXUS \u00b7 Local-first \u00b7 MMXXVI",
+   "kind": "end",
+   "mega": [
+    {
+     "text": "Proven "
+    },
+    {
+     "text": "loops",
+     "em": true
+    },
+    {
+     "text": "."
+    }
+   ]
+  }
+ ]
+}

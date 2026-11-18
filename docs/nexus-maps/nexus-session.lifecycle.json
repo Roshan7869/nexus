@@ -1,0 +1,120 @@
+{
+ "cards": [
+  {
+   "dot": "cyan",
+   "title": "Inertia",
+   "items": [
+    "Finish the in-flight transition first; chain on target mismatch (Cordis Alg5)."
+   ]
+  }
+ ],
+ "diagram_type": "lifecycle",
+ "lanes": [
+  {
+   "id": "main",
+   "label": "Session"
+  }
+ ],
+ "meta": {
+  "quality_profile": "showcase",
+  "title": "NEXUS local session \u2014 inertial lifecycle"
+ },
+ "states": [
+  {
+   "col": 0,
+   "id": "inactive",
+   "label": "Inactive",
+   "lane": "main",
+   "step": "01",
+   "sublabel": "no session",
+   "tag": "entry",
+   "type": "start"
+  },
+  {
+   "col": 1,
+   "id": "loading",
+   "label": "Loading",
+   "lane": "main",
+   "step": "02",
+   "sublabel": "route + track",
+   "tag": "model",
+   "type": "active"
+  },
+  {
+   "col": 2,
+   "id": "active",
+   "label": "Active",
+   "lane": "main",
+   "step": "03",
+   "sublabel": "tools live",
+   "tag": "model",
+   "type": "active"
+  },
+  {
+   "col": 3,
+   "id": "unloading",
+   "label": "Unloading",
+   "lane": "main",
+   "step": "04",
+   "sublabel": "dependents first",
+   "tag": "model",
+   "type": "failure"
+  },
+  {
+   "col": 4,
+   "id": "dumped",
+   "label": "Dumped",
+   "lane": "main",
+   "step": "05",
+   "sublabel": "frozen receipt",
+   "tag": "exit",
+   "type": "success"
+  }
+ ],
+ "transitions": [
+  {
+   "from": "inactive",
+   "fromSide": "right",
+   "id": "t-open",
+   "to": "loading",
+   "toSide": "left",
+   "variant": "emphasis"
+  },
+  {
+   "from": "loading",
+   "fromSide": "right",
+   "id": "t-ready",
+   "to": "active",
+   "toSide": "left",
+   "variant": "emphasis"
+  },
+  {
+   "from": "active",
+   "fromSide": "right",
+   "id": "t-report",
+   "to": "unloading",
+   "toSide": "left"
+  },
+  {
+   "from": "unloading",
+   "fromSide": "left",
+   "id": "t-chain",
+   "label": "target changed",
+   "to": "active",
+   "toSide": "right",
+   "labelAt": [
+    479,
+    202
+   ]
+  },
+  {
+   "from": "unloading",
+   "fromSide": "right",
+   "id": "t-done",
+   "to": "dumped",
+   "toSide": "left",
+   "variant": "emphasis"
+  }
+ ],
+ "schema_version": 1
+}

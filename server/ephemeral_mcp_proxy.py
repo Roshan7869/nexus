@@ -29,6 +29,7 @@ CAPABILITY_BASELINE_TOOLS: frozenset[str] = frozenset({
     "capability_get",
     "skill_read",
     "capability_recommend",
+    "capability_session_open",
     "capability_invoke",
     "capability_session_close",
 })

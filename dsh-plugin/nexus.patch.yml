@@ -1,0 +1,11 @@
+# Local NEXUS filesystem Skill provider for DeepSeek Harness.
+# Mirrors @tt-a1i/archify-dsh: one filesystem provider, NEXUS skill packs only.
+# Skills resolve from this package's skills/ symlink (-> ../../skills), anchored
+# at the installed npm identity, never concatenated onto baseUrl.
+- insert:
+    - id: nexus-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: nexus-plugin
+        includeDefaultRoots: false
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@nexus/local-dsh/package.json')), 'skills')

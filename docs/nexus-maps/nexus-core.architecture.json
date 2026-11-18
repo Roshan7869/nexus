@@ -1,0 +1,259 @@
+{
+ "boundaries": [
+  {
+   "kind": "region",
+   "label": "Request path",
+   "wraps": [
+    "ide",
+    "mcp",
+    "v5",
+    "sessions"
+   ]
+  },
+  {
+   "kind": "security-group",
+   "label": "Learning loop",
+   "wraps": [
+    "v5",
+    "outcomes",
+    "learner"
+   ]
+  }
+ ],
+ "components": [
+  {
+   "id": "ide",
+   "label": "IDEs",
+   "pos": [
+    40,
+    250
+   ],
+   "size": [
+    120,
+    60
+   ],
+   "sublabel": "OpenCode \u00b7 Claude",
+   "type": "external"
+  },
+  {
+   "id": "mcp",
+   "label": "MCP server",
+   "pos": [
+    200,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "stdio per-session",
+   "type": "backend"
+  },
+  {
+   "id": "v5",
+   "label": "router v5",
+   "pos": [
+    370,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "unified_route_v5",
+   "type": "backend"
+  },
+  {
+   "id": "sessions",
+   "label": "sessions",
+   "pos": [
+    540,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "exec plane :8080",
+   "type": "backend"
+  },
+  {
+   "id": "learner",
+   "label": "Thompson",
+   "pos": [
+    710,
+    250
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "beliefs + affinity",
+   "type": "backend"
+  },
+  {
+   "id": "dash",
+   "label": ":8765 ops",
+   "pos": [
+    710,
+    380
+   ],
+   "size": [
+    120,
+    60
+   ],
+   "sublabel": "supervisord",
+   "type": "frontend"
+  },
+  {
+   "id": "harness",
+   "label": "harness \u00d727",
+   "pos": [
+    200,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "in-process bridge",
+   "type": "backend"
+  },
+  {
+   "id": "graph",
+   "label": "resource graph",
+   "pos": [
+    370,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "SQLite + FAISS",
+   "type": "database"
+  },
+  {
+   "id": "outcomes",
+   "label": "outcome logs",
+   "pos": [
+    540,
+    380
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "routings + EFC",
+   "type": "database"
+  },
+  {
+   "id": "gateway",
+   "label": "LLM gateway",
+   "pos": [
+    710,
+    120
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sublabel": "proxy :8000",
+   "type": "cloud"
+  }
+ ],
+ "connections": [
+  {
+   "from": "ide",
+   "id": "c-stdio",
+   "label": "stdio",
+   "to": "mcp",
+   "variant": "emphasis"
+  },
+  {
+   "from": "mcp",
+   "id": "c-route",
+   "label": "route",
+   "to": "v5",
+   "variant": "emphasis"
+  },
+  {
+   "from": "v5",
+   "id": "c-retrieve",
+   "label": "retrieve",
+   "to": "graph",
+   "labelAt": [
+    435,
+    324
+   ]
+  },
+  {
+   "from": "v5",
+   "id": "c-tools",
+   "label": "tools \u22648",
+   "to": "sessions",
+   "variant": "emphasis",
+   "labelAt": [
+    520,
+    324
+   ]
+  },
+  {
+   "from": "sessions",
+   "id": "c-report",
+   "label": "report",
+   "to": "outcomes",
+   "labelAt": [
+    605,
+    324
+   ]
+  },
+  {
+   "from": "outcomes",
+   "id": "c-learn",
+   "label": "learn",
+   "to": "learner",
+   "variant": "emphasis"
+  },
+  {
+   "from": "mcp",
+   "id": "c-llm",
+   "label": "proxy",
+   "to": "gateway",
+   "fromSide": "top",
+   "toSide": "left"
+  },
+  {
+   "from": "mcp",
+   "id": "c-bridge",
+   "label": "bridge",
+   "to": "harness",
+   "labelAt": [
+    265,
+    324
+   ]
+  },
+  {
+   "from": "harness",
+   "id": "c-lookup",
+   "label": "lookup",
+   "to": "graph"
+  },
+  {
+   "from": "outcomes",
+   "id": "c-watch",
+   "label": "observe",
+   "to": "dash",
+   "labelAt": [
+    745,
+    454
+   ]
+  }
+ ],
+ "diagram_type": "architecture",
+ "meta": {
+  "quality_profile": "showcase",
+  "title": "NEXUS core \u2014 route, execute, learn"
+ },
+ "schema_version": 1
+}

@@ -1,0 +1,5497 @@
+{
+  "nodes": [
+    {
+      "id": "docs/EXECUTION_ROADMAP.md",
+      "label": "EXECUTION_ROADMAP",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/FILE_EXECUTION_MAP.md",
+      "label": "FILE_EXECUTION_MAP",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/NEXUS_ACADEMIC_GAP_ANALYSIS_v2.md",
+      "label": "NEXUS_ACADEMIC_GAP_ANALYSIS_v2",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "label": "NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "label": "NEXUS_EXECUTION_PLAN_v2",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/REALITY_CHECK_AND_PATH.md",
+      "label": "REALITY_CHECK_AND_PATH",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/UNIFIED_MCP_DESIGN.md",
+      "label": "UNIFIED_MCP_DESIGN",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/WEEK1_EXECUTION_PLAN.md",
+      "label": "WEEK1_EXECUTION_PLAN",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/archify_adaptation.md",
+      "label": "archify_adaptation",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/assistant_local_harness_design.md",
+      "label": "assistant_local_harness_design",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/db_factory_migration.md",
+      "label": "db_factory_migration",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/decisions/0001-turboquant.md",
+      "label": "0001-turboquant",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/decisions/0002-okf-retrieval.md",
+      "label": "0002-okf-retrieval",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/00-HLD.md",
+      "label": "00-HLD",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/01-LLD.md",
+      "label": "01-LLD",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/02-PLAN-MACRO.md",
+      "label": "02-PLAN-MACRO",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/03-PLAN-MICRO.md",
+      "label": "03-PLAN-MICRO",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/04-FEASIBILITY.md",
+      "label": "04-FEASIBILITY",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/05-SITES-REGISTRY.md",
+      "label": "05-SITES-REGISTRY",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/README.md",
+      "label": "README",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/00-EXEC-HLD.md",
+      "label": "00-EXEC-HLD",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/01-EXEC-LLD.md",
+      "label": "01-EXEC-LLD",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/02-EXEC-MACRO.md",
+      "label": "02-EXEC-MACRO",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/03-EXEC-TICKETS.md",
+      "label": "03-EXEC-TICKETS",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "label": "04-EXEC-FEASIBILITY",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/05-EXEC-SITES.md",
+      "label": "05-EXEC-SITES",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/06-CORRECTIONS.md",
+      "label": "06-CORRECTIONS",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/07-PLAN-GRAPH.md",
+      "label": "07-PLAN-GRAPH",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/design/exec/README.md",
+      "label": "README",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/dual_thompson_design.md",
+      "label": "dual_thompson_design",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/edge_learning.md",
+      "label": "edge_learning",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/execution_plane_contract.md",
+      "label": "execution_plane_contract",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/gaps_4_5_6.md",
+      "label": "gaps_4_5_6",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/integration_simulation_archify_openresearch.md",
+      "label": "integration_simulation_archify_openresearch",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A01-harness-registry.md",
+      "label": "A01-harness-registry",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A03-playbook.md",
+      "label": "A03-playbook",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A06b-nexus-exp.md",
+      "label": "A06b-nexus-exp",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A06c-migration-021.md",
+      "label": "A06c-migration-021",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A07-artifacts.md",
+      "label": "A07-artifacts",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/A09-skill-packs.md",
+      "label": "A09-skill-packs",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/B01-runtime-map.md",
+      "label": "B01-runtime-map",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/B03-flow-irs.md",
+      "label": "B03-flow-irs",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M01-package-init.md",
+      "label": "M01-package-init",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M02-context-types.md",
+      "label": "M02-context-types",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M03-session.md",
+      "label": "M03-session",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M04-loader.md",
+      "label": "M04-loader",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M05-mcp-tools.md",
+      "label": "M05-mcp-tools",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M06-execution-plane.md",
+      "label": "M06-execution-plane",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M07-broker.md",
+      "label": "M07-broker",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M08-opencode-adapter.md",
+      "label": "M08-opencode-adapter",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M09-preconditions.md",
+      "label": "M09-preconditions",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M10-fusion.md",
+      "label": "M10-fusion",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M11-router-v5.md",
+      "label": "M11-router-v5",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M12-redis-cache.md",
+      "label": "M12-redis-cache",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M13-context-cache.md",
+      "label": "M13-context-cache",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M14-rate-proxy.md",
+      "label": "M14-rate-proxy",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M15-circuit-breaker.md",
+      "label": "M15-circuit-breaker",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M16-mcp-config.md",
+      "label": "M16-mcp-config",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M17-opencode-shell.md",
+      "label": "M17-opencode-shell",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M18-migration.md",
+      "label": "M18-migration",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/M19-tests.md",
+      "label": "M19-tests",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/local_harness/README.md",
+      "label": "README",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus-schema.md",
+      "label": "nexus-schema",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_audit_execution_plan.md",
+      "label": "nexus_audit_execution_plan",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_citation_research_report.md",
+      "label": "nexus_citation_research_report",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_complete_optimisation_999.md",
+      "label": "nexus_complete_optimisation_999",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_cordis_tencent_evaluation.md",
+      "label": "nexus_cordis_tencent_evaluation",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_dag_manifest_v2.md",
+      "label": "nexus_dag_manifest_v2",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_docs_code_graph.md",
+      "label": "nexus_docs_code_graph",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_gap16_state_analysis.md",
+      "label": "nexus_gap16_state_analysis",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_multidimensional_audit.md",
+      "label": "nexus_multidimensional_audit",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/nexus_reconciled_plan_summary.md",
+      "label": "nexus_reconciled_plan_summary",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/openresearch_adaptation.md",
+      "label": "openresearch_adaptation",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/ops_eval.md",
+      "label": "ops_eval",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/orphan_module_triage.md",
+      "label": "orphan_module_triage",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/paper2code/MISSING_Bubeck_Liu_Prior_Independent_Dynamic_Auctions.md",
+      "label": "MISSING_Bubeck_Liu_Prior_Independent_Dynamic_Auctions",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/paper2code/MISSING_Liu_Zhu_Li_Yao_Thompson_Sampling_Independent_Beliefs.md",
+      "label": "MISSING_Liu_Zhu_Li_Yao_Thompson_Sampling_Independent_Beliefs",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/plans/2026-05-17-nexus-fix-all-issues-DAG.md",
+      "label": "2026-05-17-nexus-fix-all-issues-DAG",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "label": "2026-05-17-nexus-fix-all-issues",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/process_topology.md",
+      "label": "process_topology",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/rag-plan.md",
+      "label": "rag-plan",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/research/ADR-002-research-authority-second-brain-v2.md",
+      "label": "ADR-002-research-authority-second-brain-v2",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "label": "PRODUCTION_EXECUTION_PLAN",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "docs/second-brain-execution-plan.md",
+      "label": "second-brain-execution-plan",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/NEXUS_SYSTEM_DESIGN_PLAN_v1.md",
+      "label": "NEXUS_SYSTEM_DESIGN_PLAN_v1",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/context-harness-execution-plan-v2.md",
+      "label": "context-harness-execution-plan-v2",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/context-harness-execution-plan.md",
+      "label": "context-harness-execution-plan",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/nexus-gaps-analysis-and-production-team.md",
+      "label": "nexus-gaps-analysis-and-production-team",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/nexus-remediation-plan-v1.md",
+      "label": "nexus-remediation-plan-v1",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/research-channel-ADR-001.md",
+      "label": "research-channel-ADR-001",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "designs/research-channel-DESIGN.md",
+      "label": "research-channel-DESIGN",
+      "kind": "doc",
+      "exists": true
+    },
+    {
+      "id": "server/local_harness/__init__.py",
+      "label": "__init__.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/local_harness/context.py",
+      "label": "context.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/local_harness/session.py",
+      "label": "session.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/local_harness/loader.py",
+      "label": "loader.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/nexus-mcp-enhanced.py",
+      "label": "nexus-mcp-enhanced.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/execution_plane.py",
+      "label": "execution_plane.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/tool_session_broker.py",
+      "label": "tool_session_broker.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/opencode_adapter.py",
+      "label": "opencode_adapter.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/precondition.py",
+      "label": "precondition.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/router_v2/fusion.py",
+      "label": "fusion.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/router_v2/v5.py",
+      "label": "v5.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/cache/redis_cache.py",
+      "label": "redis_cache.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/context_harness/cache.py",
+      "label": "cache.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/integrations/rate_limited_proxy.py",
+      "label": "rate_limited_proxy.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "server/resilience/circuit_breaker.py",
+      "label": "circuit_breaker.py",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": ".mcp.json",
+      "label": ".mcp.json",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "opencode-with-nexus.sh",
+      "label": "opencode-with-nexus.sh",
+      "kind": "code",
+      "exists": true,
+      "planned": false
+    },
+    {
+      "id": "db/migrations/020_local_harness.sql",
+      "label": "020_local_harness.sql",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "tests/test_local_harness.py",
+      "label": "test_local_harness.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/local_harness/harness.py",
+      "label": "harness.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "server/local_harness/playbook.py",
+      "label": "playbook.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "scripts/nexus_exp.py",
+      "label": "nexus_exp.py",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "db/migrations/021_experiments.sql",
+      "label": "021_experiments.sql",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "skills/nexus-router/SKILL.md",
+      "label": "SKILL.md",
+      "kind": "doc",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "docs/nexus-maps/nexus-runtime.architecture.json",
+      "label": "nexus-runtime.architecture.json",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "docs/nexus-maps/nexus-router-v5.workflow.json",
+      "label": "nexus-router-v5.workflow.json",
+      "kind": "code",
+      "exists": false,
+      "planned": true
+    },
+    {
+      "id": "tests/test_unified.py",
+      "label": "test_unified.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/nexus_http_daemon.py",
+      "label": "nexus_http_daemon.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/router_cutover.py",
+      "label": "router_cutover.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/unified.py",
+      "label": "unified.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/engine.py",
+      "label": "engine.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/learning.py",
+      "label": "learning.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/maintenance/sleep_time.py",
+      "label": "sleep_time.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/forge.py",
+      "label": "forge.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "tests/test_eval_scorer.py",
+      "label": "test_eval_scorer.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/db.py",
+      "label": "db.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "docs/demo/dsh-demo.md",
+      "label": "dsh-demo.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/project_continuity.py",
+      "label": "project_continuity.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "docs/demo/dsh-demo-2026-08-23.md",
+      "label": "dsh-demo-2026-08-23.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "scripts/cold_warm.py",
+      "label": "cold_warm.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/benchmark_nexus.py",
+      "label": "benchmark_nexus.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/kg_densify.py",
+      "label": "kg_densify.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/server.py",
+      "label": "server.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/autonomous_pipeline.py",
+      "label": "autonomous_pipeline.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/ide_manager.py",
+      "label": "ide_manager.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/broker_runtime.py",
+      "label": "broker_runtime.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/dashboard/server.py",
+      "label": "server.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/event_bridge.py",
+      "label": "event_bridge.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/feedback.py",
+      "label": "feedback.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/router.py",
+      "label": "router.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/iso_embedder.py",
+      "label": "iso_embedder.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/router_v2/lazy_embedder.py",
+      "label": "lazy_embedder.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/kg_service.py",
+      "label": "kg_service.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/ops_metrics.py",
+      "label": "ops_metrics.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "core/learner.py",
+      "label": "learner.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "core/config.py",
+      "label": "config.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/harness_mcp_bridge.py",
+      "label": "harness_mcp_bridge.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/init_db.py",
+      "label": "init_db.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/reflection.py",
+      "label": "reflection.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/cluster_faiss.py",
+      "label": "cluster_faiss.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/hallucination.py",
+      "label": "hallucination.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/maintenance/resource_validator.py",
+      "label": "resource_validator.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/research_pipeline.py",
+      "label": "research_pipeline.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/lazy_loader.py",
+      "label": "lazy_loader.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/rl/thompson.py",
+      "label": "thompson.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/rl/outcome_log.py",
+      "label": "outcome_log.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/cluster_classifier.py",
+      "label": "cluster_classifier.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/metrics/graded.py",
+      "label": "graded.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "core/server.py",
+      "label": "server.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/catalog_lifecycle.py",
+      "label": "catalog_lifecycle.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/harness_metrics.py",
+      "label": "harness_metrics.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/mcp_sync.py",
+      "label": "mcp_sync.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/ephemeral_mcp_proxy.py",
+      "label": "ephemeral_mcp_proxy.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/orchestrator.py",
+      "label": "orchestrator.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/plan_tracker.py",
+      "label": "plan_tracker.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/nexus_plan_executor.py",
+      "label": "nexus_plan_executor.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/learning_faithful.py",
+      "label": "learning_faithful.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/backend_protocol.py",
+      "label": "backend_protocol.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/disposer.py",
+      "label": "disposer.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/conftest.py",
+      "label": "conftest.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/test_v3.py",
+      "label": "test_v3.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/auto_close_routes.py",
+      "label": "auto_close_routes.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/models.py",
+      "label": "models.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/project_types.py",
+      "label": "project_types.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/channels/getdesign.py",
+      "label": "getdesign.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/fusion.py",
+      "label": "fusion.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/harness_engine/toolsets.py",
+      "label": "toolsets.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/router_v2/fts5.py",
+      "label": "fts5.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/phase_d_verify.py",
+      "label": "phase_d_verify.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/compute_centroids.py",
+      "label": "compute_centroids.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/compute_weighted_centroids.py",
+      "label": "compute_weighted_centroids.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/numpy_router.py",
+      "label": "numpy_router.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/rate_limited_http.py",
+      "label": "rate_limited_http.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/run_edge_learning.py",
+      "label": "run_edge_learning.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/run_ops_eval.py",
+      "label": "run_ops_eval.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/okf_sections.py",
+      "label": "okf_sections.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/run_okf_residual.py",
+      "label": "run_okf_residual.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/run_chunk_resource_link.py",
+      "label": "run_chunk_resource_link.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "skills/skill-builder/SKILL.md",
+      "label": "SKILL.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "artifacts/",
+      "label": "artifacts",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/service_layer.py",
+      "label": "service_layer.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "skills/nexus-eval/SKILL.md",
+      "label": "SKILL.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "skills/nexus-harness/SKILL.md",
+      "label": "SKILL.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "skills/README.md",
+      "label": "README.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "scripts/rebuild_faiss.py",
+      "label": "rebuild_faiss.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "tests/test_tool_session_broker.py",
+      "label": "test_tool_session_broker.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "tests/test_execution_plane_p4.py",
+      "label": "test_execution_plane_p4.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "docs/schema-migrations.md",
+      "label": "schema-migrations.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/connectivity/sse_reconnect.py",
+      "label": "sse_reconnect.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "docs/cordis-tutorial/02-lifecycle-and-effects.md",
+      "label": "02-lifecycle-and-effects.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/task_session.py",
+      "label": "task_session.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/tool_attention_v4.py",
+      "label": "tool_attention_v4.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/context_harness/content_router.py",
+      "label": "content_router.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/nexus-mcp.py",
+      "label": "nexus-mcp.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/nexus-mcp-v2.py",
+      "label": "nexus-mcp-v2.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/embed-single.py",
+      "label": "embed-single.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/ruflo_proxy.py",
+      "label": "ruflo_proxy.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/router_v2/cache_telemetry.py",
+      "label": "cache_telemetry.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/communication/notifier.py",
+      "label": "notifier.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/compute_cluster_centroids.py",
+      "label": "compute_cluster_centroids.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/fix_task1_sync_cluster_counts.py",
+      "label": "fix_task1_sync_cluster_counts.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/recluster_low_confidence.py",
+      "label": "recluster_low_confidence.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/cluster_config.py",
+      "label": "cluster_config.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/fix_task5_sync_strategy_kb.py",
+      "label": "fix_task5_sync_strategy_kb.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/fix_task6_purge_skill_shells.py",
+      "label": "fix_task6_purge_skill_shells.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/fix_task8_deduplicate.py",
+      "label": "fix_task8_deduplicate.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/fix_task9_upgrade_tier3.py",
+      "label": "fix_task9_upgrade_tier3.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/fix_task10_cold_storage.py",
+      "label": "fix_task10_cold_storage.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/audit_phase1_v2.py",
+      "label": "audit_phase1_v2.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/audit_phase5.py",
+      "label": "audit_phase5.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/audit_phase6.py",
+      "label": "audit_phase6.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/process_supervisor.py",
+      "label": "process_supervisor.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/cluster_router.py",
+      "label": "cluster_router.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/retrieval_router.py",
+      "label": "retrieval_router.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/embedder_registry.py",
+      "label": "embedder_registry.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/tool_attention.py",
+      "label": "tool_attention.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/trajectory_store.py",
+      "label": "trajectory_store.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/dashboard.py",
+      "label": "dashboard.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/scripts/calibrate_theta.py",
+      "label": "calibrate_theta.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/skill_distiller.py",
+      "label": "skill_distiller.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/lightning_adapter.py",
+      "label": "lightning_adapter.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/graph_store.py",
+      "label": "graph_store.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/start_nexus.py",
+      "label": "start_nexus.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/efc.py",
+      "label": "efc.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/densify_kg.py",
+      "label": "densify_kg.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "scripts/brain_health_gate.py",
+      "label": "brain_health_gate.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/migrate.py",
+      "label": "migrate.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_feedback_loop.py",
+      "label": "test_feedback_loop.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "server/unified_router.py",
+      "label": "unified_router.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/backfill_efc.py",
+      "label": "backfill_efc.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "scripts/verify_state.py",
+      "label": "verify_state.py",
+      "kind": "code",
+      "exists": true
+    },
+    {
+      "id": "core/ai.py",
+      "label": "ai.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/backends/scrapling_fetch.py",
+      "label": "scrapling_fetch.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/backends/sherlock_probe.py",
+      "label": "sherlock_probe.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "core/mixins.py",
+      "label": "mixins.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/backends/scrapecraft_pattern.py",
+      "label": "scrapecraft_pattern.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/backends/scrapling_spider.py",
+      "label": "scrapling_spider.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/context_harness/backend_cache.py",
+      "label": "backend_cache.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_fusion.py",
+      "label": "test_fusion.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_scrapling_fetch.py",
+      "label": "test_scrapling_fetch.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_sherlock_probe.py",
+      "label": "test_sherlock_probe.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_scrapecraft_pattern.py",
+      "label": "test_scrapecraft_pattern.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_spider.py",
+      "label": "test_spider.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_integration_rrf.py",
+      "label": "test_integration_rrf.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_fetch.py",
+      "label": "test_fetch.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_probe.py",
+      "label": "test_probe.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_pattern.py",
+      "label": "test_pattern.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "tests/test_rrf.py",
+      "label": "test_rrf.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/resource_contracts.md",
+      "label": "resource_contracts.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/deployment.md",
+      "label": "deployment.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/observability/metrics.py",
+      "label": "metrics.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/observability/tracing.py",
+      "label": "tracing.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/observability/logging_config.py",
+      "label": "logging_config.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/observability.md",
+      "label": "observability.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/auth/jwt_utils.py",
+      "label": "jwt_utils.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/auth/users.py",
+      "label": "users.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/auth/rbac.py",
+      "label": "rbac.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/resilience/breaker.py",
+      "label": "breaker.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "server/resilience/retry.py",
+      "label": "retry.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/resilience.md",
+      "label": "resilience.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/events/bus.py",
+      "label": "bus.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/routing_algo.md",
+      "label": "routing_algo.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/slos.md",
+      "label": "slos.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/migrations.md",
+      "label": "migrations.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/clustering.md",
+      "label": "clustering.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/db_performance.md",
+      "label": "db_performance.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "core/skill_health.py",
+      "label": "skill_health.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/skill_health.md",
+      "label": "skill_health.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/providers.md",
+      "label": "providers.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/realtime.md",
+      "label": "realtime.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "server/notifications/bus.py",
+      "label": "bus.py",
+      "kind": "code",
+      "exists": false
+    },
+    {
+      "id": "docs/notifications.md",
+      "label": "notifications.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/external_apis.md",
+      "label": "external_apis.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/async_patterns.md",
+      "label": "async_patterns.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/sherlock_maintenance.md",
+      "label": "sherlock_maintenance.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/architecture.md",
+      "label": "architecture.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/gateway.md",
+      "label": "gateway.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/dashboard.md",
+      "label": "dashboard.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/sessions.md",
+      "label": "sessions.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/skill_marketplace.md",
+      "label": "skill_marketplace.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/onboarding.md",
+      "label": "onboarding.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/rrf_weights.md",
+      "label": "rrf_weights.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/versioning.md",
+      "label": "versioning.md",
+      "kind": "doc",
+      "exists": false
+    },
+    {
+      "id": "docs/proxy.md",
+      "label": "proxy.md",
+      "kind": "doc",
+      "exists": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/router_cutover.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/context_harness/engine.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/maintenance/sleep_time.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/EXECUTION_ROADMAP.md",
+      "target": "server/forge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/WEEK1_EXECUTION_PLAN.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/EXECUTION_ROADMAP.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "tests/test_eval_scorer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/decisions/0001-turboquant.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/demo/dsh-demo.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "server/project_continuity.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "server/forge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/process_topology.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "server/router_cutover.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/FILE_EXECUTION_MAP.md",
+      "target": "docs/demo/dsh-demo-2026-08-23.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_ACADEMIC_GAP_ANALYSIS_v2.md",
+      "target": "scripts/cold_warm.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "scripts/cold_warm.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "scripts/benchmark_nexus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "scripts/kg_densify.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/context_harness/engine.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/ide_manager.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/dashboard/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/event_bridge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "server/feedback.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_COMPLETE_GAP_ANALYSIS_AND_PRODUCTION_TEAM.md",
+      "target": "docs/second-brain-execution-plan.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/iso_embedder.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/router_v2/lazy_embedder.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "scripts/cold_warm.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/kg_service.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/NEXUS_EXECUTION_PLAN_v2.md",
+      "target": "server/ops_metrics.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/UNIFIED_MCP_DESIGN.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/UNIFIED_MCP_DESIGN.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "docs/EXECUTION_ROADMAP.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/WEEK1_EXECUTION_PLAN.md",
+      "target": "docs/decisions/0001-turboquant.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/archify_adaptation.md",
+      "target": "docs/nexus_docs_code_graph.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "docs/nexus_cordis_tencent_evaluation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "core/config.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/harness_mcp_bridge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "docs/process_topology.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "scripts/init_db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "designs/nexus-remediation-plan-v1.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "designs/context-harness-execution-plan-v2.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/local_harness/session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/local_harness/context.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/local_harness/__init__.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/local_harness/loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "db/migrations/020_local_harness.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/reflection.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/cluster_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/hallucination.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/maintenance/resource_validator.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/research_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/lazy_loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/rl/thompson.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/rl/outcome_log.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/cluster_classifier.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/db_factory_migration.md",
+      "target": "server/metrics/graded.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/decisions/0002-okf-retrieval.md",
+      "target": "server/cluster_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/catalog_lifecycle.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/harness_metrics.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/harness_mcp_bridge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/mcp_sync.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/ephemeral_mcp_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/forge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/orchestrator.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/plan_tracker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/nexus_plan_executor.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/learning_faithful.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/00-HLD.md",
+      "target": "server/ops_metrics.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/01-LLD.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/test_v3.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "scripts/auto_close_routes.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/03-PLAN-MICRO.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/04-FEASIBILITY.md",
+      "target": "server/iso_embedder.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/04-FEASIBILITY.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/05-SITES-REGISTRY.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/05-SITES-REGISTRY.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/05-SITES-REGISTRY.md",
+      "target": "server/context_harness/models.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/05-SITES-REGISTRY.md",
+      "target": "server/context_harness/project_types.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/05-SITES-REGISTRY.md",
+      "target": "server/context_harness/channels/getdesign.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/README.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "server/context_harness/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "docs/design/00-HLD.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/00-EXEC-HLD.md",
+      "target": "docs/design/02-PLAN-MACRO.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/harness_engine/toolsets.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/01-EXEC-LLD.md",
+      "target": "server/ops_metrics.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "server/router_v2/fts5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "server/test_v3.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "scripts/auto_close_routes.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/02-EXEC-MACRO.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/router_v2/fts5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/test_v3.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "scripts/auto_close_routes.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/mcp_sync.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/03-EXEC-TICKETS.md",
+      "target": "server/harness_engine/toolsets.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "scripts/phase_d_verify.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "scripts/compute_centroids.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "scripts/compute_weighted_centroids.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "server/numpy_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/04-EXEC-FEASIBILITY.md",
+      "target": "server/disposer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/channels/getdesign.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/rate_limited_http.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/05-EXEC-SITES.md",
+      "target": "server/context_harness/project_types.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/06-CORRECTIONS.md",
+      "target": "server/context_harness/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/06-CORRECTIONS.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/06-CORRECTIONS.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/06-CORRECTIONS.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/07-PLAN-GRAPH.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/07-PLAN-GRAPH.md",
+      "target": "server/router_cutover.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/design/exec/README.md",
+      "target": "docs/design/README.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/dual_thompson_design.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/dual_thompson_design.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/dual_thompson_design.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/dual_thompson_design.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/dual_thompson_design.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/edge_learning.md",
+      "target": "scripts/run_edge_learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/edge_learning.md",
+      "target": "scripts/run_ops_eval.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/gaps_4_5_6.md",
+      "target": "server/okf_sections.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/gaps_4_5_6.md",
+      "target": "scripts/run_okf_residual.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/gaps_4_5_6.md",
+      "target": "scripts/run_chunk_resource_link.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/assistant_local_harness_design.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/nexus_cordis_tencent_evaluation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/local_harness/README.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/nexus_docs_code_graph.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/openresearch_adaptation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/archify_adaptation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "designs/NEXUS_SYSTEM_DESIGN_PLAN_v1.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/FILE_EXECUTION_MAP.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/process_topology.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "docs/execution_plane_contract.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "skills/skill-builder/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/__init__.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/context.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/local_harness/playbook.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "scripts/nexus_exp.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "db/migrations/020_local_harness.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "db/migrations/021_experiments.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "skills/nexus-router/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/integration_simulation_archify_openresearch.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A01-harness-registry.md",
+      "target": "server/local_harness/harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A01-harness-registry.md",
+      "target": "designs/NEXUS_SYSTEM_DESIGN_PLAN_v1.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A03-playbook.md",
+      "target": "server/local_harness/playbook.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A06b-nexus-exp.md",
+      "target": "scripts/nexus_exp.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A06b-nexus-exp.md",
+      "target": "scripts/benchmark_nexus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A06c-migration-021.md",
+      "target": "db/migrations/021_experiments.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A07-artifacts.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A07-artifacts.md",
+      "target": "artifacts/",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "skills/skill-builder/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "server/service_layer.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "skills/nexus-router/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "skills/nexus-eval/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "skills/nexus-harness/SKILL.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/A09-skill-packs.md",
+      "target": "skills/README.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/B01-runtime-map.md",
+      "target": "docs/process_topology.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/B01-runtime-map.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/B01-runtime-map.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M01-package-init.md",
+      "target": "server/local_harness/__init__.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M01-package-init.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M01-package-init.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M01-package-init.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M01-package-init.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M02-context-types.md",
+      "target": "server/local_harness/context.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M02-context-types.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M03-session.md",
+      "target": "server/local_harness/session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M04-loader.md",
+      "target": "server/local_harness/loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M04-loader.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M05-mcp-tools.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M05-mcp-tools.md",
+      "target": "tests/test_tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M06-execution-plane.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M06-execution-plane.md",
+      "target": "tests/test_execution_plane_p4.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M07-broker.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M07-broker.md",
+      "target": "tests/test_tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M08-opencode-adapter.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M08-opencode-adapter.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M08-opencode-adapter.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M08-opencode-adapter.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M09-preconditions.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M10-fusion.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M11-router-v5.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M12-redis-cache.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M13-context-cache.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M13-context-cache.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M13-context-cache.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M14-rate-proxy.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M14-rate-proxy.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M15-circuit-breaker.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M16-mcp-config.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M16-mcp-config.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M17-opencode-shell.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M17-opencode-shell.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M18-migration.md",
+      "target": "db/migrations/020_local_harness.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M18-migration.md",
+      "target": "scripts/init_db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/M19-tests.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "docs/assistant_local_harness_design.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "docs/nexus_cordis_tencent_evaluation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/local_harness/__init__.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/local_harness/context.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/local_harness/session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/local_harness/loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "db/migrations/020_local_harness.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/local_harness/README.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus-schema.md",
+      "target": "docs/schema-migrations.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_audit_execution_plan.md",
+      "target": "server/connectivity/sse_reconnect.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_audit_execution_plan.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_audit_execution_plan.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_audit_execution_plan.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "docs/cordis-tutorial/02-lifecycle-and-effects.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "core/config.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/nexus_http_daemon.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/task_session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/tool_attention_v4.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/iso_embedder.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/numpy_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "scripts/benchmark_nexus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "scripts/run_ops_eval.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "server/context_harness/content_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/tool_session_broker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/execution_plane.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/router_v2/v5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/context_harness/cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/local_harness/session.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/local_harness/context.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/local_harness/loader.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/local_harness/__init__.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "opencode-with-nexus.sh",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "db/migrations/020_local_harness.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "tests/test_local_harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "docs/assistant_local_harness_design.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "docs/nexus_cordis_tencent_evaluation.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_docs_code_graph.md",
+      "target": "docs/local_harness/README.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "server/nexus-mcp.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "server/nexus-mcp-v2.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "scripts/embed-single.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_gap16_state_analysis.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/resilience/circuit_breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/ruflo_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/maintenance/resource_validator.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/router_v2/cache_telemetry.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/integrations/rate_limited_proxy.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/connectivity/sse_reconnect.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/nexus_multidimensional_audit.md",
+      "target": "server/communication/notifier.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "server/opencode_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "server/local_harness/harness.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "server/local_harness/playbook.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "server/precondition.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "db/migrations/021_experiments.sql",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "scripts/nexus_exp.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/openresearch_adaptation.md",
+      "target": "artifacts/",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/ops_eval.md",
+      "target": "scripts/run_ops_eval.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues-DAG.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues-DAG.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues-DAG.md",
+      "target": "scripts/compute_cluster_centroids.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task1_sync_cluster_counts.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/recluster_low_confidence.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "server/cluster_config.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task5_sync_strategy_kb.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task6_purge_skill_shells.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task8_deduplicate.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task9_upgrade_tier3.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/fix_task10_cold_storage.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "server/reflection.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/compute_cluster_centroids.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/audit_phase1_v2.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/audit_phase5.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/plans/2026-05-17-nexus-fix-all-issues.md",
+      "target": "scripts/audit_phase6.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/process_topology.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/process_topology.md",
+      "target": "server/process_supervisor.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/process_topology.md",
+      "target": "server/harness_mcp_bridge.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/process_topology.md",
+      "target": "docs/execution_plane_contract.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/mcp_sync.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/cluster_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/cluster_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "docs/nexus-schema.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/iso_embedder.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/retrieval_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/embedder_registry.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/tool_attention.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/tool_attention_v4.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/trajectory_store.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "scripts/dashboard.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/broker_runtime.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/scripts/calibrate_theta.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/skill_distiller.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/lightning_adapter.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/graph_store.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/rag-plan.md",
+      "target": "server/start_nexus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/ADR-002-research-authority-second-brain-v2.md",
+      "target": "server/efc.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/ADR-002-research-authority-second-brain-v2.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/ADR-002-research-authority-second-brain-v2.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/efc.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/learning.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/numpy_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/tool_attention_v4.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/rebuild_faiss.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "tests/conftest.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/nexus-mcp-enhanced.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/cold_warm.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/auto_close_routes.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "core/learner.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "core/server.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/ide_manager.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/densify_kg.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "tests/test_unified.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "server/test_v3.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/brain_health_gate.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "scripts/migrate.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "tests/test_feedback_loop.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "docs/research/ADR-002-research-authority-second-brain-v2.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+      "target": "docs/second-brain-execution-plan.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/unified_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/numpy_router.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/router_v2/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "scripts/backfill_efc.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/autonomous_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/ide_manager.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "server/research_pipeline.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "scripts/cold_warm.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "scripts/verify_state.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "docs/second-brain-execution-plan.md",
+      "target": "scripts/benchmark_nexus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/NEXUS_SYSTEM_DESIGN_PLAN_v1.md",
+      "target": ".mcp.json",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "core/ai.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backend_protocol.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/engine.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backends/scrapling_fetch.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backends/sherlock_probe.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "core/mixins.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backends/scrapecraft_pattern.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backends/scrapling_spider.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "server/context_harness/backend_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_fusion.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_scrapling_fetch.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_sherlock_probe.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_scrapecraft_pattern.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_spider.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan-v2.md",
+      "target": "tests/test_integration_rrf.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan.md",
+      "target": "tests/test_fetch.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan.md",
+      "target": "tests/test_probe.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan.md",
+      "target": "tests/test_pattern.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan.md",
+      "target": "tests/test_spider.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/context-harness-execution-plan.md",
+      "target": "tests/test_rrf.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/resource_contracts.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/deployment.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/observability/metrics.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/observability/tracing.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/observability/logging_config.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/observability.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/auth/jwt_utils.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/auth/users.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/auth/rbac.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/resilience/breaker.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/resilience/retry.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/resilience.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/events/bus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/cache/redis_cache.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/routing_algo.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/slos.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/migrations.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/clustering.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/db.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/db_performance.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "core/skill_health.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/skill_health.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/providers.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/realtime.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "server/notifications/bus.py",
+      "relation": "documents",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/notifications.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/external_apis.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/async_patterns.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/sherlock_maintenance.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/architecture.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/gateway.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/dashboard.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/sessions.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/skill_marketplace.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/onboarding.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/rrf_weights.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/versioning.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "designs/nexus-remediation-plan-v1.md",
+      "target": "docs/proxy.md",
+      "relation": "links_doc",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "server/local_harness/__init__.py",
+      "target": "docs/local_harness/M01-package-init.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/context.py",
+      "target": "docs/local_harness/M02-context-types.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/session.py",
+      "target": "docs/local_harness/M03-session.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/loader.py",
+      "target": "docs/local_harness/M04-loader.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/nexus-mcp-enhanced.py",
+      "target": "docs/local_harness/M05-mcp-tools.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/execution_plane.py",
+      "target": "docs/local_harness/M06-execution-plane.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/tool_session_broker.py",
+      "target": "docs/local_harness/M07-broker.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/opencode_adapter.py",
+      "target": "docs/local_harness/M08-opencode-adapter.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/precondition.py",
+      "target": "docs/local_harness/M09-preconditions.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/router_v2/fusion.py",
+      "target": "docs/local_harness/M10-fusion.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/router_v2/v5.py",
+      "target": "docs/local_harness/M11-router-v5.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/cache/redis_cache.py",
+      "target": "docs/local_harness/M12-redis-cache.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/context_harness/cache.py",
+      "target": "docs/local_harness/M13-context-cache.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/integrations/rate_limited_proxy.py",
+      "target": "docs/local_harness/M14-rate-proxy.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/resilience/circuit_breaker.py",
+      "target": "docs/local_harness/M15-circuit-breaker.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": ".mcp.json",
+      "target": "docs/local_harness/M16-mcp-config.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "opencode-with-nexus.sh",
+      "target": "docs/local_harness/M17-opencode-shell.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "db/migrations/020_local_harness.sql",
+      "target": "docs/local_harness/M18-migration.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "tests/test_local_harness.py",
+      "target": "docs/local_harness/M19-tests.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/harness.py",
+      "target": "docs/local_harness/A01-harness-registry.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/playbook.py",
+      "target": "docs/local_harness/A03-playbook.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "scripts/nexus_exp.py",
+      "target": "docs/local_harness/A06b-nexus-exp.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "db/migrations/021_experiments.sql",
+      "target": "docs/local_harness/A06c-migration-021.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/execution_plane.py",
+      "target": "docs/local_harness/A07-artifacts.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "skills/nexus-router/SKILL.md",
+      "target": "docs/local_harness/A09-skill-packs.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/nexus-maps/nexus-runtime.architecture.json",
+      "target": "docs/local_harness/B01-runtime-map.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/nexus-maps/nexus-router-v5.workflow.json",
+      "target": "docs/local_harness/B03-flow-irs.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "docs/local_harness/README.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/nexus_cordis_tencent_evaluation.md",
+      "target": "docs/assistant_local_harness_design.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "server/local_harness/harness.py",
+      "target": "docs/openresearch_adaptation.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/nexus-maps/nexus-runtime.architecture.json",
+      "target": "docs/archify_adaptation.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "docs/assistant_local_harness_design.md",
+      "target": "docs/integration_simulation_archify_openresearch.md",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    }
+  ],
+  "loops": [
+    [
+      "docs/local_harness/M01-package-init.md",
+      "server/local_harness/__init__.py",
+      "docs/local_harness/M01-package-init.md"
+    ],
+    [
+      "docs/local_harness/M02-context-types.md",
+      "server/local_harness/context.py",
+      "docs/local_harness/M02-context-types.md"
+    ],
+    [
+      "docs/local_harness/M03-session.md",
+      "server/local_harness/session.py",
+      "docs/local_harness/M03-session.md"
+    ],
+    [
+      "docs/local_harness/M04-loader.md",
+      "server/local_harness/loader.py",
+      "docs/local_harness/M04-loader.md"
+    ],
+    [
+      "docs/local_harness/M05-mcp-tools.md",
+      "server/nexus-mcp-enhanced.py",
+      "docs/local_harness/M05-mcp-tools.md"
+    ],
+    [
+      "docs/local_harness/M06-execution-plane.md",
+      "server/execution_plane.py",
+      "docs/local_harness/M06-execution-plane.md"
+    ],
+    [
+      "docs/local_harness/M07-broker.md",
+      "server/tool_session_broker.py",
+      "docs/local_harness/M07-broker.md"
+    ],
+    [
+      "docs/local_harness/M08-opencode-adapter.md",
+      "server/opencode_adapter.py",
+      "docs/local_harness/M08-opencode-adapter.md"
+    ],
+    [
+      "docs/local_harness/M09-preconditions.md",
+      "server/precondition.py",
+      "docs/local_harness/M09-preconditions.md"
+    ],
+    [
+      "docs/local_harness/M10-fusion.md",
+      "server/router_v2/fusion.py",
+      "docs/local_harness/M10-fusion.md"
+    ],
+    [
+      "docs/local_harness/M11-router-v5.md",
+      "server/router_v2/v5.py",
+      "docs/local_harness/M11-router-v5.md"
+    ],
+    [
+      "docs/local_harness/M12-redis-cache.md",
+      "server/cache/redis_cache.py",
+      "docs/local_harness/M12-redis-cache.md"
+    ],
+    [
+      "docs/local_harness/M13-context-cache.md",
+      "server/context_harness/cache.py",
+      "docs/local_harness/M13-context-cache.md"
+    ],
+    [
+      "docs/local_harness/M14-rate-proxy.md",
+      "server/integrations/rate_limited_proxy.py",
+      "docs/local_harness/M14-rate-proxy.md"
+    ],
+    [
+      "docs/local_harness/M15-circuit-breaker.md",
+      "server/resilience/circuit_breaker.py",
+      "docs/local_harness/M15-circuit-breaker.md"
+    ],
+    [
+      "docs/local_harness/M16-mcp-config.md",
+      ".mcp.json",
+      "docs/local_harness/M16-mcp-config.md"
+    ],
+    [
+      "docs/local_harness/M17-opencode-shell.md",
+      "opencode-with-nexus.sh",
+      "docs/local_harness/M17-opencode-shell.md"
+    ],
+    [
+      "docs/local_harness/M18-migration.md",
+      "db/migrations/020_local_harness.sql",
+      "docs/local_harness/M18-migration.md"
+    ],
+    [
+      "docs/local_harness/M19-tests.md",
+      "tests/test_local_harness.py",
+      "docs/local_harness/M19-tests.md"
+    ],
+    [
+      "docs/local_harness/A01-harness-registry.md",
+      "server/local_harness/harness.py",
+      "docs/local_harness/A01-harness-registry.md"
+    ],
+    [
+      "docs/local_harness/A03-playbook.md",
+      "server/local_harness/playbook.py",
+      "docs/local_harness/A03-playbook.md"
+    ],
+    [
+      "docs/local_harness/A06b-nexus-exp.md",
+      "scripts/nexus_exp.py",
+      "docs/local_harness/A06b-nexus-exp.md"
+    ],
+    [
+      "docs/local_harness/A06c-migration-021.md",
+      "db/migrations/021_experiments.sql",
+      "docs/local_harness/A06c-migration-021.md"
+    ],
+    [
+      "docs/local_harness/A07-artifacts.md",
+      "server/execution_plane.py",
+      "docs/local_harness/A07-artifacts.md"
+    ],
+    [
+      "docs/local_harness/A09-skill-packs.md",
+      "skills/nexus-router/SKILL.md",
+      "docs/local_harness/A09-skill-packs.md"
+    ],
+    [
+      "docs/local_harness/B01-runtime-map.md",
+      "docs/nexus-maps/nexus-runtime.architecture.json",
+      "docs/local_harness/B01-runtime-map.md"
+    ],
+    [
+      "docs/local_harness/B03-flow-irs.md",
+      "docs/nexus-maps/nexus-router-v5.workflow.json",
+      "docs/local_harness/B03-flow-irs.md"
+    ],
+    [
+      "docs/local_harness/README.md",
+      "docs/assistant_local_harness_design.md",
+      "docs/local_harness/README.md"
+    ],
+    [
+      "docs/assistant_local_harness_design.md",
+      "docs/nexus_cordis_tencent_evaluation.md",
+      "docs/assistant_local_harness_design.md"
+    ],
+    [
+      "docs/openresearch_adaptation.md",
+      "server/local_harness/harness.py",
+      "docs/openresearch_adaptation.md"
+    ],
+    [
+      "docs/archify_adaptation.md",
+      "docs/nexus-maps/nexus-runtime.architecture.json",
+      "docs/archify_adaptation.md"
+    ],
+    [
+      "docs/integration_simulation_archify_openresearch.md",
+      "docs/assistant_local_harness_design.md",
+      "docs/integration_simulation_archify_openresearch.md"
+    ]
+  ],
+  "stats": {
+    "docs": 125,
+    "code": 170,
+    "edges": 575,
+    "loops": 32,
+    "planned_missing": [],
+    "top_doc_out": [
+      [
+        "designs/nexus-remediation-plan-v1.md",
+        38
+      ],
+      [
+        "docs/integration_simulation_archify_openresearch.md",
+        36
+      ],
+      [
+        "docs/assistant_local_harness_design.md",
+        31
+      ],
+      [
+        "docs/research/PRODUCTION_EXECUTION_PLAN.md",
+        25
+      ],
+      [
+        "docs/nexus_docs_code_graph.md",
+        23
+      ],
+      [
+        "docs/nexus_cordis_tencent_evaluation.md",
+        22
+      ],
+      [
+        "docs/local_harness/README.md",
+        21
+      ],
+      [
+        "docs/design/00-HLD.md",
+        20
+      ]
+    ],
+    "top_target_in": [
+      [
+        ".mcp.json",
+        23
+      ],
+      [
+        "server/nexus-mcp-enhanced.py",
+        18
+      ],
+      [
+        "server/learning.py",
+        15
+      ],
+      [
+        "server/router_v2/v5.py",
+        13
+      ],
+      [
+        "server/unified.py",
+        9
+      ],
+      [
+        "server/db.py",
+        9
+      ],
+      [
+        "server/router_v2/fusion.py",
+        9
+      ],
+      [
+        "core/learner.py",
+        9
+      ],
+      [
+        "server/precondition.py",
+        9
+      ],
+      [
+        "server/execution_plane.py",
+        8
+      ]
+    ]
+  }
+}

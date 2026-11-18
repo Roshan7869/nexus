@@ -55,3 +55,10 @@ artifacts/
 
 # UI-managed harness sites (dashboard writes this)
 config/harness_sites.local.yaml
+
+# Bulky local-only data (excluded from push 2026-11-18)
+_research/
+third_party/
+evals/results/*.json
+evals/results/*.jsonl
+!evals/results/.gitkeep
