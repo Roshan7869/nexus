@@ -67,8 +67,12 @@ measured evidence into binding rules; execute the top of the queue.
 **Baseline registry** (update only with a receipt):
 
 ```
-tests        : 59 failed / 771 passed / 24 skipped / 15 errors   @ d75d217 (full run, 409 s)
-               chain: 90F/714P/14E @ 6ab89a3 -> 77F/730P/15E @ 2871c6d -> 65F/765P @ f7f4591 -> 59F/771P (SIGALRM fix e15f29c)
+tests        : 33 failed / 797 passed / 28 skipped / 11 errors   @ 2513ec0 (full run, 408 s)
+               chain: 90F/714P/14E @ 6ab89a3 -> 77F/730P/15E @ 2871c6d -> 65F/765P @ f7f4591
+               -> 59F/771P @ d75d217 (SIGALRM fix e15f29c) -> 33F/797P (G5 fixture parity 6333f8a/f82e85f)
+               new-failure register (G2): test_unified::test_get_learning_stats_when_disabled
+               passes in isolation - order-dependent pollution of the shared import-time
+               E2E DB, exposed by the import-time bootstrap. Registered, not reverted.
 accuracy     : hit@k 0.286  top-1 0.131  MRR 0.1954  pass 0.276  @ ref-current
                (frozen reference, 3 seeds, cross-seed spread 0.000)
 reference    : D:\nexus-data\db\nexus_eval_reference.db  (NEXUS_EVAL_REFERENCE)
@@ -218,7 +222,7 @@ follow-up (profile the 1,659 ms prompts).
 
 | Risk | Severity | Note |
 |---|---|---|
-| 59 failing tests make G2 partial | **medium** | buckets classified in validation: 33× fixture schema drift in self-built test DBs (`no such table: cluster_membership`), ~26 file-lock/WinError/Permission, 10 AssertionError, 3 ModuleNotFoundError, 1 NameError; SIGALRM bucket closed by `e15f29c` |
+| 33 failing tests make G2 partial | **medium** | remaining: 15 E2E assertion/order failures in test_unified + test_feedback_loop (S-lane flows, incl. 1 registered order-pollution new-failure), 6 graph_lane, 5 capability_catalog file-lock/symlink-privilege, 7 scattered (epsilon, degradation, db_refuses_unwritable, site_registry, mcp_bridge); 11 errors = site_outcome_learning 10 + degradation 1; the fixture-schema-drift bucket is fully closed (`6333f8a`/`f82e85f`) |
 | Latency on certain query shapes (2×) | medium | unidentified branch; needs a profile of mid-set prompts |
 | `chunks_fts` holds 3,997 orphan rows | low | stale FTS entries from an earlier ingestion; unhydratable so skipped, but wasted I/O |
 | Two agents, no automated ownership check | medium | protocol is cultural until a pre-commit scope check exists |
