@@ -67,7 +67,8 @@ measured evidence into binding rules; execute the top of the queue.
 **Baseline registry** (update only with a receipt):
 
 ```
-tests        : 90 failed / 714 passed / 24 skipped / 14 errors   @ 6ab89a3
+tests        : 59 failed / 771 passed / 24 skipped / 15 errors   @ d75d217 (full run, 409 s)
+               chain: 90F/714P/14E @ 6ab89a3 -> 77F/730P/15E @ 2871c6d -> 65F/765P @ f7f4591 -> 59F/771P (SIGALRM fix e15f29c)
 accuracy     : hit@k 0.286  top-1 0.131  MRR 0.1954  pass 0.276  @ ref-current
                (frozen reference, 3 seeds, cross-seed spread 0.000)
 reference    : D:\nexus-data\db\nexus_eval_reference.db  (NEXUS_EVAL_REFERENCE)
@@ -147,8 +148,11 @@ drift again.
 
 Measured: **90F/714P/14E → 77F/730P/15E** (+16 passing, −13 failing). Errors 14→15 is
 a re-classification, not a new break (total collected changed with the other lane's
-new tests). Remaining buckets: Windows console `UnicodeEncodeError` (20, cosmetic),
-file-lock/permission (12), real `AttributeError` gaps (12).
+new tests). Remaining buckets: Windows console `UnicodeEncodeError` (20, cosmetic — did
+not reproduce in the validation environment), file-lock/permission (12), `AttributeError`
+(12 exception *lines* = **6 tests**; one root cause: `signal.SIGALRM` is POSIX-only,
+`server/context_harness/compression.py:121`). **Post-cycle: fixed in `e15f29c` — all 6
+now pass (65F/765P → 59F/771P, zero new failures).**
 
 ### W4 result — recovery done, effect UNMEASURED (confounded)
 
@@ -214,7 +218,7 @@ follow-up (profile the 1,659 ms prompts).
 
 | Risk | Severity | Note |
 |---|---|---|
-| 90 failing tests make G2 weak | **high** | "no new failures" is enforceable only against a known list; the buckets are unclassified |
+| 59 failing tests make G2 partial | **medium** | buckets classified in validation: 33× fixture schema drift in self-built test DBs (`no such table: cluster_membership`), ~26 file-lock/WinError/Permission, 10 AssertionError, 3 ModuleNotFoundError, 1 NameError; SIGALRM bucket closed by `e15f29c` |
 | Latency on certain query shapes (2×) | medium | unidentified branch; needs a profile of mid-set prompts |
 | `chunks_fts` holds 3,997 orphan rows | low | stale FTS entries from an earlier ingestion; unhydratable so skipped, but wasted I/O |
 | Two agents, no automated ownership check | medium | protocol is cultural until a pre-commit scope check exists |
