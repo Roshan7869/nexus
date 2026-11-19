@@ -325,6 +325,25 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 """
 
 
+# Production-only columns on tables SCHEMA_SQL declares in a narrower shape.
+# schema_production.sql skips conftest-declared tables, so these must be added
+# explicitly or code querying them fails on 'no such column'.
+_PROD_COLUMN_PARITY = (
+    ("resources", "absorbed_at_commit", "TEXT"),
+    ("resources", "absorbed_at_date", "TEXT"),
+    ("resources", "invalidated_at", "TEXT"),
+    ("cluster_definitions", "resource_count", "INTEGER NOT NULL DEFAULT 0"),
+)
+
+
+def _ensure_column_parity(conn: sqlite3.Connection) -> None:
+    for tbl, col, ddl in _PROD_COLUMN_PARITY:
+        try:
+            conn.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {ddl}")
+        except sqlite3.OperationalError:
+            pass  # already present
+
+
 def _init_test_database(db_path: Path) -> None:
     """Initialize a test database with baseline schema."""
     conn = sqlite3.connect(str(db_path))
@@ -344,6 +363,7 @@ def _init_test_database(db_path: Path) -> None:
             conn.executescript(prod_schema.read_text(encoding="utf-8"))
         except sqlite3.OperationalError:
             pass  # partial overlap with SCHEMA_SQL is expected and harmless
+    _ensure_column_parity(conn)
 
     baseline_file = NEXUS_ROOT / "db" / "migrations" / "BASELINE.sql"
     if baseline_file.exists():
@@ -355,6 +375,31 @@ def _init_test_database(db_path: Path) -> None:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.commit()
     conn.close()
+
+
+# ── Import-time DB bootstrap (2026-11-19) ──────────────────────────────────
+# Legacy/E2E suites (test_feedback_loop, test_unified, kg_service calls)
+# resolve the DB at MODULE IMPORT time, before any per-test fixture runs;
+# whatever DB that resolves to must not be schema-less or every test in the
+# file dies on 'no such table'. Guarded: only touches a DB that lacks even
+# the conftest baseline tables, so a real production DB is never modified.
+try:
+    import server.db as _sdb
+    _import_db = Path(_sdb.get_db_path())
+    _probe = sqlite3.connect(str(_import_db))
+    _has_base = _probe.execute(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' "
+        "AND name='cluster_membership'").fetchone()[0]
+    if _has_base:
+        try:
+            _probe.execute("SELECT resource_count FROM cluster_definitions LIMIT 1")
+        except sqlite3.Error:
+            _has_base = False  # older bootstrap, missing column parity
+    _probe.close()
+    if not _has_base:
+        _init_test_database(_import_db)
+except Exception:
+    pass
 
 
 # ── DB Isolation autouse fixture ─────────────────────────────────────────
@@ -452,6 +497,17 @@ def make_db(extra_schema: str = "") -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(SCHEMA_SQL)
+    # W3-parity (2026-11-19): apply the generated production schema so make_db
+    # matches what the autouse per-test DB gets; without it the `db` fixture
+    # lacks note_ledger/hygiene_flags and tests touching them fail.
+    prod_schema = Path(__file__).resolve().parent / "schema_production.sql"
+    if prod_schema.exists():
+        try:
+            conn.executescript(prod_schema.read_text(encoding="utf-8"))
+        except sqlite3.OperationalError:
+            pass  # partial overlap with SCHEMA_SQL is expected and harmless
+    # Column parity for tables SCHEMA_SQL declares narrower than production.
+    _ensure_column_parity(conn)
     baseline_file = NEXUS_ROOT / "db" / "migrations" / "BASELINE.sql"
     if baseline_file.exists():
         try:
