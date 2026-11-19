@@ -255,6 +255,49 @@ class SupersessionTests(unittest.TestCase):
         self.assertEqual(row["status"], "active")
         self.assertIsNone(row["invalidated_at"])
 
+    def _ghost(self, name: str, file_path: str) -> int:
+        """Insert an active row whose name never appears in discovery, so the
+        tombstone pass (not _upsert) is what judges it."""
+        con = sqlite3.connect(str(self.db))
+        cur = con.execute(
+            "INSERT INTO resources(name, resource_type, repo_name, file_path, "
+            "description, body_text, status, tier) "
+            "VALUES(?,?,?,?,?,?, 'active', 2)",
+            (name, "skill", "repo-alpha", file_path, "ghost", "ghost body text"),
+        )
+        con.commit()
+        con.close()
+        return int(cur.lastrowid)
+
+    def test_foreign_path_rows_never_tombstoned(self) -> None:
+        # enrichment/recovery scripts write rows with Linux-absolute file_paths
+        # outside absorb; a name the upsert cannot match flows to the tombstone
+        # pass, where such tombstones are UNPROVABLE and must be skipped
+        absorb(self.repo, self.db)
+        gid = self._ghost("ghost-foreign", "/home/roshan/.claude/hooks/legacy-thing.md")
+        s = absorb(self.repo, self.db)
+        self.assertEqual(s["tombstoned"], 0)
+        self.assertEqual(s["foreign_path_skipped"], 1)
+        row = self._rows("SELECT status, invalidated_at FROM resources "
+                         "WHERE id=?", gid)[0]
+        self.assertEqual(row["status"], "active")
+        self.assertIsNone(row["invalidated_at"])
+
+    def test_suffix_match_selfheals_foreign_path(self) -> None:
+        # a ghost row whose foreign path tail maps onto a discovered file
+        # heals to the discovered literal instead of skip or tombstone
+        absorb(self.repo, self.db)
+        gid = self._ghost(
+            "ghost-heal",
+            "/home/roshan/repos/deepseek-harness/repo-alpha/skills/alpha-one/SKILL.md")
+        s = absorb(self.repo, self.db)
+        self.assertEqual(s["tombstoned"], 0)
+        self.assertEqual(s["selfhealed_paths"], 1)
+        row = self._rows("SELECT file_path, status FROM resources "
+                         "WHERE id=?", gid)[0]
+        self.assertEqual(row["file_path"], "skills/alpha-one/SKILL.md")
+        self.assertEqual(row["status"], "active")
+
     # ── pack filters ──────────────────────────────────────────────────────
 
     def test_drop_superseded_and_fail_open(self) -> None:

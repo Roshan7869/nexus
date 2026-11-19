@@ -307,26 +307,59 @@ def absorb(
         # a missing file is tombstoned only when its layout group still has
         # discovered survivors; a group that vanished wholesale means a partial
         # checkout / broken pull -> skip that group (fail-open, logged).
+        # Foreign path conventions (Linux-absolute '/home/.../x' rows written by
+        # enrichment/recovery scripts outside absorb) are UNPROVABLE tombstones:
+        # never archive what you cannot prove gone. When the row's path suffix
+        # matches a discovered file, self-heal the row's file_path to the
+        # discovered literal so future absorbs compare exactly.
         summary["tombstoned"] = summary.get("tombstoned", 0)
+        summary["selfhealed_paths"] = summary.get("selfhealed_paths", 0)
+        summary["foreign_path_skipped"] = summary.get("foreign_path_skipped", 0)
         active = con.execute(
             "SELECT id, file_path FROM resources "
             "WHERE repo_name=? AND status='active' AND invalidated_at IS NULL",
             (repo,),
         ).fetchall()
         if active and resources:
+            def _clean(fp: str) -> tuple[str, ...]:
+                return tuple(
+                    p for p in fp.replace("\\", "/").split("/")
+                    if p and p not in ("home", "roshan")
+                )
+
             seen_paths = {r.file_path for r in resources}
-            seen_groups = {
-                p.replace("\\", "/").split("/")[0]
-                for p in seen_paths if p.replace("\\", "/").count("/") > 0
-            }
+            seen_keys = {_clean(p): p for p in seen_paths}
+            seen_groups = {dk[0] for dk in seen_keys if dk}
             now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             skipped_groups: set[str] = set()
             for row in active:
                 fp = row["file_path"]
                 if fp in seen_paths:
                     continue
-                group = fp.replace("\\", "/").split("/")[0] \
-                    if fp.replace("\\", "/").count("/") > 0 else ""
+                key = _clean(fp)
+                # suffix self-heal: the file exists upstream; the row's stored
+                # path is just a foreign/absolute convention
+                healed = None
+                for dk, literal in seen_keys.items():
+                    if len(dk) < 2 or len(key) < 2:
+                        continue
+                    if key == dk or key[-len(dk):] == dk or dk[-len(key):] == key:
+                        healed = literal
+                        break
+                if healed is not None and healed != fp:
+                    con.execute(
+                        "UPDATE resources SET file_path=? WHERE id=?",
+                        (healed, row["id"]),
+                    )
+                    summary["selfhealed_paths"] += 1
+                    continue
+                if healed is not None:
+                    continue
+                norm = fp.replace("\\", "/")
+                if norm.startswith("/") or "home/roshan" in norm or ":" in norm[:3]:
+                    summary["foreign_path_skipped"] += 1
+                    continue
+                group = norm.split("/")[0] if norm.count("/") > 0 else ""
                 if group and group not in seen_groups:
                     skipped_groups.add(group)
                     continue
@@ -388,11 +421,19 @@ def _upsert(con: sqlite3.Connection, r: DiscoveredResource, *, repo: str,
             "WHERE resource_id=? AND invalidated_at IS NULL",
             (version_stamp, rid),
         )
-        con.execute(
-            "INSERT INTO resource_versions(resource_id, body_hash, "
-            "absorbed_at_commit, absorbed_at_date, valid_from) VALUES(?,?,?,?,?)",
-            (rid, body_hash, sha, stamp_date, version_stamp),
-        )
+        stamp = version_stamp
+        for attempt in range(6):
+            try:
+                con.execute(
+                    "INSERT INTO resource_versions(resource_id, body_hash, "
+                    "absorbed_at_commit, absorbed_at_date, valid_from) VALUES(?,?,?,?,?)",
+                    (rid, body_hash, sha, stamp_date, stamp),
+                )
+                return
+            except sqlite3.IntegrityError:
+                # same resource absorbed twice inside one OS clock tick
+                # (duplicate frontmatter names across files): bump the stamp
+                stamp = f"{version_stamp}#{attempt + 1}"
 
     content_hash = hashlib.sha256(r.body.encode("utf-8", "replace")).hexdigest()[:16]
 

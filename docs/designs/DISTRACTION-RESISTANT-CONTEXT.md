@@ -235,9 +235,13 @@ What changed between design v2 and the shipped code, with reasons:
    component) still has discovered survivors; a group that vanished wholesale
    (sparse checkout / broken pull) is skipped and logged. Conservative bias:
    wholesale-erased groups are not tombstoned (fail-open, measured quarterly).
-3. **Microsecond version stamps.** Second-resolution `valid_from` collided on
-   `UNIQUE(resource_id, valid_from)` when two absorbs ran in the same wall-clock
-   second (caught by tests, fixed).
+3. **Microsecond version stamps, plus collision bump.** Second-resolution
+   `valid_from` collided on `UNIQUE(resource_id, valid_from)` when two absorbs
+   ran in the same wall-clock second (caught by tests, fixed). The live-data
+   dry-run then caught a second, subtler case: Windows' ~15.6 ms clock tick
+   makes identical millisecond stamps for duplicate frontmatter names absorbed
+   back-to-back (ruflo has 3 same-named files) — fixed with a bump-on-IntegrityError
+   retry (`stamp#1`, `stamp#2`, …), verified clean over a 671-update absorb.
 4. **Provenance backfill, honestly split:** 4,718 rows stamped from their repo's
    HEAD (`absorbed_at_commit` + date) + 350 rows from API-absorbed repos (no
    local clone exists) stamped from vault git history — `absorbed_at_date` =
@@ -246,6 +250,18 @@ What changed between design v2 and the shipped code, with reasons:
 5. **Absorb no longer early-returns on zero discovery** — the tombstone pass
    must run so a broken pull can never mass-archive and legit deletions still
    close intervals.
+6. **Foreign path conventions are unprovable tombstones (hardened after the
+   W4 recovery interacted with S1).** 352 active rows carry Linux-absolute
+   `file_path`s written by enrichment/recovery scripts outside absorb. Under
+   the original tombstone logic those rows would have been mass-archived at
+   the first refresh. Shipped: (a) rows whose name is rediscovered heal
+   automatically via the upsert's unchanged-check; (b) name-drifted rows
+   whose path TAIL suffix-matches a discovered file self-heal to the
+   discovered literal (24 in ruflo alone); (c) remaining absolute/foreign
+   paths are skipped as unprovable and counted (`foreign_path_skipped`);
+   only provable deletions tombstone — verified on an isolated live-DB copy:
+   ruflo absorb → 24 healed, 8 skipped, 9 tombstoned, and all 9 files
+   confirmed absent on disk.
 
 Shipped verification: `tests/test_supersession.py` 8/8 (stamps, version closure,
 tombstone, group guard, flag/resolve, consistency reopen, note-ledger filter,
