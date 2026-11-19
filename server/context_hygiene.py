@@ -26,10 +26,19 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# S2 flag semantics: pack-blocking vs tracked-only. A flag proves nothing by
+# itself — 'stale_marker_pending' is suspicion (budget exhausted, offline,
+# unresolvable ref) and must NEVER hide a resource; the pack-blocking types
+# are backed by confirmed evidence (tracker-closed, title-only body, aged
+# date-claim).
+PACK_BLOCKING = ("stale_marker", "stub", "unresolved_claim")
+PENDING_FLAG = "stale_marker_pending"
+
 HYGIENE_SQL = (
     "r.invalidated_at IS NULL "
     "AND NOT EXISTS (SELECT 1 FROM hygiene_flags hf "
-    "                WHERE hf.resource_id = r.id AND hf.resolved_at IS NULL)"
+    "                WHERE hf.resource_id = r.id AND hf.resolved_at IS NULL "
+    f"                  AND hf.flag IN ({','.join(repr(f) for f in PACK_BLOCKING)}))"
 )
 
 NOTE_HYGIENE_SQL = (
@@ -151,6 +160,34 @@ def attach_provenance(con: sqlite3.Connection, entries: list[dict],
                     e["provenance"] = stamp
     except Exception:
         logger.warning("context_hygiene: attach_provenance failed; unstamped")
+
+
+def drop_pack_blocked(con: sqlite3.Connection, entries: list[dict],
+                      name_key: str = "name") -> list[dict]:
+    """Drop entries carrying unresolved PACK-BLOCKING flags from a routed list.
+
+    Tracked-only flags (stale_marker_pending) keep packing — suspicion never
+    hides a resource. Fail-open on any error.
+    """
+    if not entries:
+        return entries
+    try:
+        names = [e.get(name_key) for e in entries if e.get(name_key)]
+        if not names:
+            return entries
+        ph = ",".join("?" * len(names))
+        rows = con.execute(
+            f"SELECT r.name FROM resources r JOIN hygiene_flags hf "
+            f"ON hf.resource_id = r.id "
+            f"WHERE r.name IN ({ph}) AND hf.resolved_at IS NULL "
+            f"AND hf.flag IN ({','.join(repr(f) for f in PACK_BLOCKING)})",
+            names,
+        ).fetchall()
+        blocked = {row[0] for row in rows}
+        return [e for e in entries if e.get(name_key) not in blocked]
+    except Exception:
+        logger.warning("context_hygiene: drop_pack_blocked failed; passing through")
+        return entries
 
 
 def reopen_orphaned_invalidations(db_path: str | Path) -> dict:

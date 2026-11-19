@@ -374,11 +374,15 @@ def route_for_task(
 
     # S4: honest provenance stamp on every routed skill entry — 'repo @sha ·
     # absorbed <date>' (fail-open; one batched name lookup, ~1-3 ms).
+    # S2: drop pack-blocked entries (confirmed-stale/stub/aged-claim) from the
+    # routed list before the caller LLM reads it.
     try:
-        from server.context_hygiene import attach_provenance
+        from server.context_hygiene import attach_provenance, drop_pack_blocked
         from server.db import db_conn
         with db_conn() as conn:
             attach_provenance(conn, result.get("skills") or [])
+            result["skills"] = drop_pack_blocked(
+                conn, result.get("skills") or [])
     except Exception:
         pass
 

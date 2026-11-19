@@ -46,7 +46,9 @@ def search_resources(query: str, max_results: int = 10) -> list[dict]:
             WHERE r.status='active' AND r.invalidated_at IS NULL
               AND NOT EXISTS (SELECT 1 FROM hygiene_flags hf
                               WHERE hf.resource_id = r.id
-                                AND hf.resolved_at IS NULL)
+                                AND hf.resolved_at IS NULL
+                                AND hf.flag IN ('stale_marker', 'stub',
+                                                'unresolved_claim'))
               AND ({where})
             GROUP BY r.id
             ORDER BY section_count DESC, r.times_correct DESC, r.times_triggered DESC

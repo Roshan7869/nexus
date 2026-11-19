@@ -375,6 +375,10 @@ def main() -> int:
 
     stage_pull(status, check_only=args.check)
     stage_absorb(status, check_only=args.check)
+    # S2: ingestion-time stale-marker lint (budgeted tracker resolution,
+    # cached; offline-safe — flags pending, never blocks the pipeline)
+    if not args.check:
+        run_script("lint_stale_markers.py", [], status, "lint")
     if args.check:
         status["finished_at"] = _now()
         status["elapsed_s"] = round(time.time() - _t0, 1)
