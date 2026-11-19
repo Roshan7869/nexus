@@ -94,7 +94,7 @@ class _TimeoutError(Exception):
     """Raised when a regex pattern exceeds the per-pattern time budget."""
 
 
-_HAS_SIGNAL = threading.current_thread() is threading.main_thread()
+_HAS_SIGNAL = threading.current_thread() is threading.main_thread() and hasattr(signal, "SIGALRM")
 
 
 def _regex_finditer_with_timeout(
