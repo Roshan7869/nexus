@@ -103,16 +103,23 @@ def restore_backup_edges(
         conn = _connect()
     try:
         before = get_kg_status(conn)
-        pending = conn.execute(
-            "SELECT b.source_id, b.target_id, b.edge_type, b.weight, "
-            "b.co_trigger_count, b.created_at, b.updated_at "
-            "FROM resource_edges_backup b "
-            "WHERE NOT EXISTS ("
-            "  SELECT 1 FROM resource_edges e "
-            "  WHERE (e.source_id=b.source_id AND e.target_id=b.target_id) "
-            "     OR (e.source_id=b.target_id AND e.target_id=b.source_id)"
-            ")"
-        ).fetchall()
+        # The backup table is transient (created ad hoc during a past repair;
+        # no migration ever adds it). Guard like get_kg_status does so a
+        # missing table means "nothing to restore", not a crash.
+        pending = []
+        try:
+            pending = conn.execute(
+                "SELECT b.source_id, b.target_id, b.edge_type, b.weight, "
+                "b.co_trigger_count, b.created_at, b.updated_at "
+                "FROM resource_edges_backup b "
+                "WHERE NOT EXISTS ("
+                "  SELECT 1 FROM resource_edges e "
+                "  WHERE (e.source_id=b.source_id AND e.target_id=b.target_id) "
+                "     OR (e.source_id=b.target_id AND e.target_id=b.source_id)"
+                ")"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            pass
         ts = time.strftime("%Y-%m-%d %H:%M:%S")
         inserted = 0
         if not dry_run and pending:
