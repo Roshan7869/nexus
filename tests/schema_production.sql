@@ -312,6 +312,8 @@ CREATE TABLE IF NOT EXISTS local_harness_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_lhs_project_status ON local_harness_sessions(project, status);
 
+CREATE TABLE IF NOT EXISTS marker_cache (    ref TEXT PRIMARY KEY,    state TEXT NOT NULL,    checked_at TEXT NOT NULL);
+
 CREATE TABLE IF NOT EXISTS mcp_sync_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     operation TEXT,
