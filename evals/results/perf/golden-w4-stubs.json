@@ -1,0 +1,164 @@
+{
+  "tag": "w4-stubs",
+  "generated_at": "2026-11-19T09:12:11",
+  "n_cases": 105,
+  "seeds": [
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "top1": [
+        0.0833,
+        0.0238,
+        0.1429
+      ],
+      "top3": [
+        0.2381,
+        0.1429,
+        0.3333
+      ],
+      "mrr": 0.1567,
+      "cluster_ok": [
+        0.381,
+        0.2857,
+        0.4881
+      ],
+      "passed": [
+        0.2381,
+        0.1619,
+        0.3238
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1114.2,
+      "latency_p95_ms": 1795.4,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "top1": [
+        0.0833,
+        0.0238,
+        0.1429
+      ],
+      "top3": [
+        0.2381,
+        0.1429,
+        0.3333
+      ],
+      "mrr": 0.1567,
+      "cluster_ok": [
+        0.381,
+        0.2857,
+        0.4881
+      ],
+      "passed": [
+        0.2381,
+        0.1619,
+        0.3238
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1178.7,
+      "latency_p95_ms": 1790.0,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.2619,
+        0.1667,
+        0.3571
+      ],
+      "top1": [
+        0.0833,
+        0.0238,
+        0.1429
+      ],
+      "top3": [
+        0.2381,
+        0.1429,
+        0.3333
+      ],
+      "mrr": 0.1567,
+      "cluster_ok": [
+        0.381,
+        0.2857,
+        0.4881
+      ],
+      "passed": [
+        0.2381,
+        0.1619,
+        0.3238
+      ],
+      "healthy": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "latency_p50_ms": 1128.2,
+      "latency_p95_ms": 1745.5,
+      "errors": 0
+    }
+  ],
+  "cross_seed_hit_spread": "0.262-0.262 (spread 0.000)",
+  "worst_cases": [
+    {
+      "id": "coding-frontend-001",
+      "misses": 3
+    },
+    {
+      "id": "qa-security-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-dark-mode-toggle-001",
+      "misses": 3
+    },
+    {
+      "id": "coding-dashboard-responsive-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-scaffold-skill-004",
+      "misses": 3
+    },
+    {
+      "id": "coding-jwt-auth-middleware-007",
+      "misses": 3
+    },
+    {
+      "id": "coding-slow-booking-query-009",
+      "misses": 3
+    },
+    {
+      "id": "coding-invoicing-schema-010",
+      "misses": 3
+    },
+    {
+      "id": "coding-payments-coverage-012",
+      "misses": 3
+    },
+    {
+      "id": "coding-review-notification-pr-017",
+      "misses": 3
+    }
+  ]
+}

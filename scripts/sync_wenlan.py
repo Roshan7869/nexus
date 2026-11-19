@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Sync NEXUS resources into Wenlan so they are *recallable*.
+"""RETIRED 2026-11-19 — Wenlan was uninstalled; wenlan-mcp.exe no longer exists.
+
+Kept only as a reference implementation (the capture-based sync learned real
+lessons: `write_page` is invisible to `recall`, `capture` is the working
+primitive). Do NOT re-register it without reinstalling the app and re-running a
+probe. Obsidian is the sole surviving mirror. See
+docs/plans/W6-WENLAN-RETIREMENT.md.
+
+Sync NEXUS resources into Wenlan so they are *recallable*.
 
 Why this exists
 ---------------

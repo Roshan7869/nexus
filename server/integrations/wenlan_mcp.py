@@ -1,4 +1,11 @@
-"""Wenlan MCP client — drive `wenlan-mcp.exe` over stdio JSON-RPC.
+"""RETIRED 2026-11-19 — Wenlan was uninstalled; `wenlan-mcp.exe` no longer exists.
+
+Nothing imports this module any more. It is kept as the reference for the MCP
+stdio JSON-RPC client shape (and the capture-based memory contract) in case the
+app is ever reinstalled. Do not add it back to a profile without a live probe.
+See docs/plans/W6-WENLAN-RETIREMENT.md.
+
+Wenlan MCP client — drive `wenlan-mcp.exe` over stdio JSON-RPC.
 
 Wenlan ships an MCP server (verified live: `wenlan-mcp` v0.22.1, 59 tools) that talks
 to the local `wenlan-server` daemon. Rather than reverse-engineering the daemon's own

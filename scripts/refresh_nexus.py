@@ -10,7 +10,7 @@ Stages (each skippable):
   3. embed     backfill any missing/changed vectors
   4. reindex   re-cluster + rebuild graph edges
   5. obsidian  publish the full corpus to the vault
-  6. wenlan    capture changed resources as memories (incremental)
+  6. wenlan    RETIRED 2026-11-19 (MCP mirror removed) — stage keeps its name but no-ops
   7. commit    git commit the vault if anything changed
 
     python scripts/refresh_nexus.py --dry-run
@@ -123,9 +123,11 @@ def main() -> int:
         report["obsidian"] = " | ".join(k.strip() for k in keep)
 
     if want("wenlan"):
-        rc, out = run("sync_wenlan.py", [])
-        keep = [l for l in out.splitlines() if "captured" in l or "nothing to sync" in l]
-        report["wenlan"] = " | ".join(k.strip() for k in keep)
+        # RETIRED 2026-11-19: the Wenlan app was uninstalled; wenlan-mcp.exe no
+        # longer exists, so this step would fail on every scheduled run. Kept as
+        # an explicit no-op (not silently dropped) so --skip lists and operator
+        # expectations still resolve. See docs/plans/W6-WENLAN-RETIREMENT.md.
+        report["wenlan"] = "retired: MCP mirror removed (Obsidian is the sole mirror)"
 
     if want("commit") and (VAULT / ".git").is_dir():
         add = subprocess.run(["git", "add", "-A"], cwd=str(VAULT), capture_output=True, text=True)

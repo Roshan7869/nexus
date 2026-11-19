@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Configure NEXUS skills into Obsidian and Wenlan.
+"""RETIRED for the Wenlan half (2026-11-19) — Wenlan was uninstalled.
+
+The Obsidian half still works; `publish_resources.py --only obsidian` is the
+supported publisher and `refresh_nexus.py` drives it. Do not run this script's
+Wenlan path — the binary is gone. See docs/plans/W6-WENLAN-RETIREMENT.md.
+
+Configure NEXUS skills into Obsidian and Wenlan.
 
 Reads NEXUS `resources` (resource_type='skill') from the live DB and publishes each
 one into both knowledge systems:

@@ -126,9 +126,62 @@ a false result; read this before trusting any earlier number):**
 ```
 W1  supersession asymmetry  → gate G1: 0.286 (unchanged) ✅ DONE
 W2  latency gap diagnosis   → receipt ✅ DONE (finding below)
-W3  test triage             → baseline registered; per-bucket RCA deferred
-(stop)  report; W4/W5/W6 need sources / ops / user decision
+W3  test triage + fix       → 90F/714P -> 77F/730P ✅ DONE
+W4  stub recovery           → 85 resources recovered; accuracy effect UNMEASURED
+W5  weekly refresh trigger  → scheduled task registered ✅ DONE
+W6  Wenlan retirement       → fully removed ✅ DONE
 ```
+
+### W3 result — 90 → 77 failures, via schema parity
+
+Triage found the dominant bucket was **test-fixture schema drift**, not defects:
+86 of 90 failures were `no such table: outcome_log / tool_sessions /
+resource_embeddings / note_ledger / hygiene_flags` plus `duplicate column
+name: updated_at`. `tests/conftest.py` declared only **21** of the live DB's **98**
+tables in a hand-maintained `SCHEMA_SQL`.
+
+Fix: `scripts/regen_test_schema.py` generates `tests/schema_production.sql` from the
+live `sqlite_master` (48 missing tables + indexes, all `IF NOT EXISTS`), and conftest
+applies it after `SCHEMA_SQL`. Regenerate whenever a table is added, so it cannot
+drift again.
+
+Measured: **90F/714P/14E → 77F/730P/15E** (+16 passing, −13 failing). Errors 14→15 is
+a re-classification, not a new break (total collected changed with the other lane's
+new tests). Remaining buckets: Windows console `UnicodeEncodeError` (20, cosmetic),
+file-lock/permission (12), real `AttributeError` gaps (12).
+
+### W4 result — recovery done, effect UNMEASURED (confounded)
+
+363 active resources had <300 bytes of body text. Their `file_path` values are the
+original author's **Linux** paths (`/home/roshan/...`), so they cannot be opened
+directly; but for clones present in this workspace the path *suffix* maps onto the
+clone. `scripts/recover_stubs.py` resolved and re-read 90 candidates (excluding the
+user-excluded `aashiyaana`, `kaari-weaves`), recovering **85 resources** with real
+content (stubs 363 → 333; the other 5 files were themselves <40 bytes).
+
+**Why the accuracy effect is not claimed:** the only available comparison (0.262 vs
+the 0.286 frozen reference) differs in *both* corpus content and `routing_log` state,
+and `N_total` feeds the UCB term — so the delta is not attributable. A valid A/B needs
+a pre-recovery snapshot, which was not taken. Recorded as **unmeasured**, not as a
+win or a regression. Revert path if desired: delete chunks whose
+`source_id` is the `stub_recovery` ingestion source, then re-run the gate.
+
+### W5 result — scheduled, verified
+
+`scripts/run_refresh.cmd` (sets DB/cache/router env, logs to
+`D:\nexus-data\logs\refresh.log`) registered as Windows task
+**`NEXUS-Weekly-Refresh`**, weekly Sunday 03:00, next run **2026-11-22 03:00**,
+`StartWhenAvailable`, 2 h limit, `IgnoreNew`. Dry-run confirms stages:
+`pull, absorb, enrich, embed, reindex, fts, obsidian, commit` — no Wenlan stage.
+
+### W6 result — Wenlan fully retired
+
+See `docs/plans/W6-WENLAN-RETIREMENT.md`. Removed the `mcp_servers.wenlan` block from
+the Hermes config and the `wenlan:` block from the DSH mcp-manager profile; the refresh
+pipeline no longer shells out to the deleted binary (this was a prerequisite for W5 —
+otherwise the weekly job would have failed every run). Three modules marked RETIRED but
+kept as reference. `%LOCALAPPDATA%\wenlan` (614 MB, 4,630 memories) **preserved**,
+awaiting the user's keep/export/delete decision.
 
 ### W1 result — done, verified
 

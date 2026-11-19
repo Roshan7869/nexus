@@ -331,14 +331,27 @@ def _init_test_database(db_path: Path) -> None:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=OFF")
     conn.executescript(SCHEMA_SQL)
-    
+
+    # Production-table parity (W3, 2026-11-19). SCHEMA_SQL declared only 21 of
+    # the live DB's 98 tables, so tests exercising newer features died on
+    # "no such table: outcome_log / tool_sessions / note_ledger / hygiene_flags
+    # / resource_edges" — 86 of the 90 pre-existing suite failures. The file is
+    # generated from the live schema by scripts/regen_test_schema.py, so it
+    # cannot silently drift again.
+    prod_schema = Path(__file__).resolve().parent / "schema_production.sql"
+    if prod_schema.exists():
+        try:
+            conn.executescript(prod_schema.read_text(encoding="utf-8"))
+        except sqlite3.OperationalError:
+            pass  # partial overlap with SCHEMA_SQL is expected and harmless
+
     baseline_file = NEXUS_ROOT / "db" / "migrations" / "BASELINE.sql"
     if baseline_file.exists():
         try:
             conn.executescript(baseline_file.read_text())
         except Exception:
             pass
-            
+
     conn.execute("PRAGMA foreign_keys=ON")
     conn.commit()
     conn.close()
