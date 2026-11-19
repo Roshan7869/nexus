@@ -29,6 +29,15 @@ This is the user's data and was **not deleted**. Options:
 - export to Obsidian as a `Wenlan-legacy/` folder, then delete,
 - delete outright.
 
+## Decision (2026-11-19, executed)
+
+Export-then-delete: 292 personal memories (`source_agent != 'nexus'`) exported
+to `Wenlan-legacy/` in the vault (vault commit `b692a5c`); `%LOCALAPPDATA%\wenlan`
+(613.6 MB) and `Programs\Wenlan` (~464 MB, incl. the four `.retired` binaries) then
+deleted — **1.05 GiB freed**. The 6,859 nexus-agent rows were a duplicate of the
+git-tracked vault and were not exported. The lingering `WenlanServer` scheduled
+task was also removed. Wenlan is now fully gone from this machine.
+
 ## Verification
 
 - `wenlan-mcp.exe` not resolvable on PATH; binary directory contains only `uninstall.exe`.
