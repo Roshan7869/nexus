@@ -286,6 +286,32 @@ def _hydrate_sections(con: sqlite3.Connection, section_ids: list[int],
     return out
 
 
+def _has_supersession(con: sqlite3.Connection) -> bool:
+    """True when `resources.invalidated_at` exists (S1 ledger applied to this DB).
+
+    Test fixtures build their own schema and older DBs predate migration S1, so
+    the supersession filter must be schema-defensive (GOVERNANCE invariant I1).
+    """
+    try:
+        con.execute("SELECT invalidated_at FROM resources LIMIT 0")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+def _invalidated_rids(con: sqlite3.Connection, rids: list[int]) -> set[int]:
+    """Resource ids tombstoned by the S1 supersession ledger (empty when absent)."""
+    if not rids or not _has_supersession(con):
+        return set()
+    ph = ",".join("?" * len(rids))
+    try:
+        return {int(r[0]) for r in con.execute(
+            f"SELECT id FROM resources WHERE invalidated_at IS NOT NULL "
+            f"AND id IN ({ph})", tuple(rids))}
+    except sqlite3.OperationalError:
+        return set()
+
+
 def retrieve_chunks(query: str, top_k: int = 10, clusters: list[str] | None = None,
                     db_path: str | Path = DB_PATH, vec: bool = True,
                     snippet_len: int = 240, corpus: str = "chunks",
@@ -439,6 +465,11 @@ def retrieve_chunks(query: str, top_k: int = 10, clusters: list[str] | None = No
 
     rids = [m["resource_id"] for m in meta.values() if m["resource_id"] is not None]
     rmeta = _hydrate_resources(con, rids)
+    # GOVERNANCE I1: a resource tombstoned by the S1 supersession ledger must not
+    # be retrievable through the v5 chunk lane. v4 (`server/router.py`) filters
+    # `invalidated_at IS NULL`; without this the ledger is silently defeated for
+    # every v5 consumer. No-op while the ledger is empty (0 invalidated today).
+    _dead = _invalidated_rids(con, rids)
 
     results = []
     # E4b: one result per RESOURCE — its best-ranked chunk. Without this, a
@@ -452,6 +483,8 @@ def retrieve_chunks(query: str, top_k: int = 10, clusters: list[str] | None = No
         if m is None:
             continue
         rid = m["resource_id"]
+        if rid is not None and rid in _dead:
+            continue          # superseded/invalidated — never surface (I1)
         if _dedupe and rid is not None:
             if rid in _seen_rids:
                 continue

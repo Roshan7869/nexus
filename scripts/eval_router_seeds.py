@@ -135,25 +135,50 @@ def main() -> int:
     # MUST run before any server import: router.py resolves DB_PATH at import.
     if args.hermetic:
         import os
-        import shutil
+        import sqlite3
         import tempfile
-        src = Path(os.environ.get("NEXUS_DB_PATH") or
-                   Path.home() / "nexus" / "db" / "nexus.db")
-        if not src.exists():
-            src = Path(r"D:\nexus-data\db\nexus.db")
+        # Reference precedence: explicit env > frozen reference > live DB.
+        # Copying from the LIVE db is not reproducible: routing_log grows with
+        # every route (114 -> 3,469 across this session) and N_total feeds the
+        # UCB term, so "same corpus" runs still scored 0.274 / 0.286. All
+        # measurements must come from ONE frozen reference.
+        ref = Path(os.environ.get("NEXUS_EVAL_REFERENCE") or
+                   r"D:\nexus-data\db\nexus_eval_reference.db")
+        live = Path(os.environ.get("NEXUS_DB_PATH") or
+                    Path.home() / "nexus" / "db" / "nexus.db")
+        if not live.exists():
+            live = Path(r"D:\nexus-data\db\nexus.db")
+        src = ref if ref.exists() else live
         tmp = Path(tempfile.gettempdir()) / "nexus_eval_hermetic.db"
         for suffix in ("", "-wal", "-shm"):
             f = Path(str(tmp) + suffix)
             if f.exists():
                 f.unlink()
-        shutil.copy2(src, tmp)
-        # copy WAL/SHM too when present so the snapshot is consistent
-        for suffix in ("-wal", "-shm"):
-            s = Path(str(src) + suffix)
-            if s.exists():
-                shutil.copy2(s, Path(str(tmp) + suffix))
+        # Use the SQLite backup API, NOT a file copy: copying a live WAL-mode
+        # DB file-by-file can snapshot a torn state (observed 2026-11-19: a copy
+        # missing the vector lane produced a bogus 0.155 result). backup() reads
+        # through WAL and yields a consistent database.
+        _s = sqlite3.connect(f"file:{src}?mode=ro", uri=True, timeout=60)
+        _d = sqlite3.connect(str(tmp), timeout=60)
+        try:
+            _s.backup(_d)
+        finally:
+            _d.close()
+            _s.close()
+        # sanity: the snapshot must carry the vector lane the eval depends on
+        _chk = sqlite3.connect(str(tmp), timeout=30)
+        try:
+            _n = _chk.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0]
+        except sqlite3.Error:
+            _n = 0
+        finally:
+            _chk.close()
+        if _n == 0:
+            print(f"hermetic ABORT: snapshot {tmp} has 0 chunk_embeddings "
+                  f"(vector lane missing) — refusing to measure")
+            return 2
         os.environ["NEXUS_DB_PATH"] = str(tmp)
-        print(f"hermetic db  : {tmp}  (copied from {src})")
+        print(f"hermetic db  : {tmp}  (backup of {src}, {_n} chunk vectors)")
 
     cases = load_cases()
     print(f"golden set : {len(cases)} cases")

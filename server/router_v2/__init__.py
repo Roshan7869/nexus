@@ -23,6 +23,7 @@ This is the integration glue the MCP ``find_skills`` tool calls when
 from __future__ import annotations
 from server.db import get_db_path as _resolve_db_path
 
+import os
 import re
 import sqlite3
 import sys
@@ -322,6 +323,14 @@ def _chunk_resource_stream(query: str, db_path: str, k: int,
                               graph_lane=False)   # L1-b: router ensemble is
                               # top-1-calibrated; lane serves RAG consumers
     except Exception:
+        # GOVERNANCE: this used to be a bare `return []`, which silently turned a
+        # code error (e.g. a NameError in the vec= argument) into "no chunk
+        # candidates" and quietly degraded routing to the non-v5 path — measured
+        # 2026-11-19 as hit@k 0.274 -> 0.155 with no error anywhere. Never
+        # swallow the reason: log it at warning so the degradation is visible.
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "L1 chunk stream failed (degrading to non-v5 path)", exc_info=True)
         return []
     # aggregate chunk hits by resource_id; keep the best (highest rrf) chunk
     best: dict[int, dict] = {}

@@ -1,0 +1,164 @@
+{
+  "tag": "w1-retry",
+  "generated_at": "2026-11-19T05:19:44",
+  "n_cases": 105,
+  "seeds": [
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "top1": [
+        0.0714,
+        0.0238,
+        0.131
+      ],
+      "top3": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "mrr": 0.1071,
+      "cluster_ok": [
+        0.3452,
+        0.25,
+        0.4524
+      ],
+      "passed": [
+        0.1905,
+        0.1238,
+        0.2667
+      ],
+      "healthy": [
+        0.981,
+        0.9524,
+        1.0
+      ],
+      "latency_p50_ms": 1129.1,
+      "latency_p95_ms": 1920.9,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "top1": [
+        0.0714,
+        0.0238,
+        0.131
+      ],
+      "top3": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "mrr": 0.1071,
+      "cluster_ok": [
+        0.3452,
+        0.25,
+        0.4524
+      ],
+      "passed": [
+        0.1905,
+        0.1238,
+        0.2667
+      ],
+      "healthy": [
+        0.981,
+        0.9524,
+        1.0
+      ],
+      "latency_p50_ms": 1067.7,
+      "latency_p95_ms": 1746.5,
+      "errors": 0
+    },
+    {
+      "n_cases": 105,
+      "n_skill_cases": 84,
+      "hit_at_k": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "top1": [
+        0.0714,
+        0.0238,
+        0.131
+      ],
+      "top3": [
+        0.1548,
+        0.0833,
+        0.2381
+      ],
+      "mrr": 0.1071,
+      "cluster_ok": [
+        0.3452,
+        0.25,
+        0.4524
+      ],
+      "passed": [
+        0.1905,
+        0.1238,
+        0.2667
+      ],
+      "healthy": [
+        0.981,
+        0.9524,
+        1.0
+      ],
+      "latency_p50_ms": 1106.7,
+      "latency_p95_ms": 1730.2,
+      "errors": 0
+    }
+  ],
+  "cross_seed_hit_spread": "0.155-0.155 (spread 0.000)",
+  "worst_cases": [
+    {
+      "id": "coding-frontend-001",
+      "misses": 3
+    },
+    {
+      "id": "qa-security-002",
+      "misses": 3
+    },
+    {
+      "id": "backend-api-004",
+      "misses": 3
+    },
+    {
+      "id": "coding-dark-mode-toggle-001",
+      "misses": 3
+    },
+    {
+      "id": "coding-dashboard-responsive-002",
+      "misses": 3
+    },
+    {
+      "id": "coding-webhook-subscriptions-006",
+      "misses": 3
+    },
+    {
+      "id": "coding-jwt-auth-middleware-007",
+      "misses": 3
+    },
+    {
+      "id": "coding-slow-booking-query-009",
+      "misses": 3
+    },
+    {
+      "id": "coding-invoicing-schema-010",
+      "misses": 3
+    },
+    {
+      "id": "coding-tdd-discount-engine-011",
+      "misses": 3
+    }
+  ]
+}

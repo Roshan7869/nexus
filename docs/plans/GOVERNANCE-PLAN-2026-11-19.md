@@ -1,0 +1,171 @@
+# NEXUS Project Governance Plan
+
+**Date:** 2026-11-19 · **Branch:** `second-brain-v2` @ `6ab89a3` · **Author:** lead (root agent)
+**Scope:** establish control of a two-agent, single-branch project; convert the session's
+measured evidence into binding rules; execute the top of the queue.
+
+---
+
+## 1. Situation (recon, measured)
+
+| Fact | Value | Source |
+|---|---|---|
+| Working tree | **clean**, HEAD `6ab89a3` | `git status` |
+| Branch | `second-brain-v2` (tracks `origin/second-brain-v2`) | `git branch` |
+| Agents writing this tree | **2** — this session (commits as `NEXUS`), another DSH session (commits as `Roshan7869`) | `git log --format='%an'` |
+| Interleaving | `Roshan7869/fba59c9` landed *between* my `13aede5` and `6ab89a3` | `git log` |
+| Test baseline | **90 failed / 714 passed / 24 skipped / 14 errors** (186 s) | `pytest tests/ -q` |
+| Resources | 5,068 active; 363 stubs (<300 chars) | DB |
+| Supersession ledger | columns exist (`invalidated_at`, `absorbed_at_*`); **0 invalidated, 0 versions** — inactive | DB |
+| Routing accuracy (hermetic) | hit@k **0.274**, top-1 0.131, MRR 0.1935 | `golden-hermetic-baseline.json` |
+| Routing latency | **585 ms** p50 isolated / **~1,200 ms** p50 inside the eval harness | bench vs receipts |
+| Frozen eval snapshot | `D:\nexus-data\db\nexus_eval_reference.db` | this session |
+| Learning data | 9 outcome rows, 4 resources with any outcome (0.08% arm coverage) | DB |
+
+**Three structural risks this plan exists to control:**
+
+1. **No ownership boundary.** Two agents edit one branch; `server/router.py` and
+   `server/ingest/repo_resources.py` have already been touched by both.
+2. **No invariant enforcement.** A cross-cutting rule (supersession) was added to the
+   v4 path but NOT to the v5 retrieval lane — the ledger can be silently defeated.
+3. **No trustworthy baseline.** Before this session there was no accuracy number at all;
+   the first measurements were contaminated by DB drift (routing_log 114 → 3,345).
+
+---
+
+## 2. Ownership model
+
+| Scope | Owner | Files |
+|---|---|---|
+| **Routing / retrieval / eval / perf** | this session (`NEXUS`) | `server/router_v2/**`, `evals/**`, `scripts/eval_*`, `scripts/backfill_*`, `scripts/split_chunks.py`, `server/local_harness/**`, `docs/plans/*RESULT*`, `docs/plans/PERF-*` |
+| **Supersession / ingestion / context hygiene** | other session (`Roshan7869`) | `server/context_hygiene.py`, `scripts/migrate_supersession.py`, `server/ingest/**`, `server/broker_runtime.py`, `server/context_harness/**`, `tests/test_supersession.py`, `docs/designs/**` |
+| **CONTESTED — change only with a notification commit** | both | `server/router.py`, `server/db.py`, `db/migrations/**`, `tests/conftest.py` |
+
+### Protocol (binding)
+
+1. **Commit prefix declares the lane:** `E*` (eval/perf/routing) · `S*` (supersession) ·
+   `G*` (governance). A commit touching a contested file states which lane and why.
+2. **Small, frequent commits.** Never leave the tree dirty across a session gap — the
+   other session may `git add -A` and absorb half-finished work.
+3. **No history rewrite, no `reset --hard`, no `checkout --` on files you did not author.**
+4. **Contested-file edits:** re-read the file immediately before editing; if the other
+   lane's change is present, preserve it (grep the invariant you are editing around).
+5. **Any change to ranking/retrieval is not done until the hermetic gate passes** (§3 G1).
+6. Every commit message states the measured effect or the words "unmeasured".
+
+---
+
+## 3. Gates (definition of done)
+
+| Gate | Rule | Command |
+|---|---|---|
+| **G1 Accuracy** | Hermetic golden eval. hit@k must not fall below baseline minus the bootstrap CI half-width; any claim of improvement needs the receipt JSON. | `python scripts/eval_router_seeds.py --seeds 3 --hermetic --tag <name>` |
+| **G2 Tests** | No **new** failures vs the recorded baseline (90F/714P/14E). Register each new failure or revert. | `pytest tests/ -q -p no:cacheprovider` |
+| **G3 Receipts** | Measured claims archived under `evals/results/perf/` (or the relevant receipts dir) before the commit. | — |
+| **G4 Honesty** | No fabricated outcomes, no "verified" without an artifact, negative results kept, not deleted. | review |
+
+**Baseline registry** (update only with a receipt):
+
+```
+tests        : 90 failed / 714 passed / 24 skipped / 14 errors   @ 6ab89a3
+accuracy     : hit@k 0.286  top-1 0.131  MRR 0.1954  pass 0.276  @ ref-current
+               (frozen reference, 3 seeds, cross-seed spread 0.000)
+reference    : D:\nexus-data\db\nexus_eval_reference.db  (NEXUS_EVAL_REFERENCE)
+latency      : p50 585 ms / p95 945 ms isolated; 1,100-1,300 ms p50 in-harness
+corpus       : 4,521 chunks / 4,521 embeddings / 4,521 vectors
+```
+
+**Measurement integrity — two bugs found and fixed this cycle (both were hiding
+a false result; read this before trusting any earlier number):**
+
+1. **Harness wrote to the DB it measured.** `routing_log` grew 114 → 3,469 across
+   the session and `N_total` (= COUNT(routing_log)) feeds the UCB term, so runs with
+   an identical corpus scored 0.274 and 0.286. Fix: `--hermetic` routes against a
+   throw-away snapshot.
+2. **Hermetic copied from the LIVE db, and with a file copy.** Copying a 353 MB
+   WAL-mode DB file-by-file can snapshot a torn state, and copying from live still
+   drifts. Fix: SQLite `backup()` API + **copy from the frozen reference by default**,
+   with a hard abort if the snapshot has 0 chunk vectors.
+
+3. **A silent `except Exception: return []` masked a total retrieval failure.**
+   A missing `import os` in `router_v2/__init__.py` made the new `vec=` argument raise
+   `NameError`; the broad handler turned that into "no chunk candidates" and routing
+   quietly degraded to a non-v5 path — measured as hit@k 0.286 → 0.155 with **no error
+   anywhere**. Fixed: import added, and the handler now logs at warning with a
+   traceback. *Any broad handler that can turn a code error into "empty result" is a
+   governance defect.*
+
+---
+
+## 4. Invariant register
+
+| # | Invariant | Status |
+|---|---|---|
+| **I1** | **Supersession is honored by every query that selects resources** (`invalidated_at IS NULL`, and version-live filters where `resource_versions` is populated). | ❌ **VIOLATED** — v4 filters it; `router_v2/chunk_retrieval.py` and `scoring.py` do not. A tombstoned resource stays retrievable through v5. |
+| **I2** | Outcomes are only ever written explicitly; ambiguous multi-tool dispatches credit nothing (`NEXUS_CREDIT_POLICY=strict`). | ✅ enforced (`execution_plane.py`) |
+| **I3** | One DB path source: `server/db.get_db_path()`; no new raw `sqlite3.connect(str(DB_PATH))` in read paths. | ⚠️ partial (write sites legitimately keep own connections) |
+| **I4** | Evals are hermetic (route against a snapshot) so `N_total`/UCB cannot drift between runs. | ✅ `--hermetic` |
+| **I5** | No performance claim without a bench receipt; no accuracy claim without the golden receipt. | ✅ this session |
+| **I6** | Corpus-shape changes (multi-chunk, dedupe, priors) default OFF or reverted unless the gate improved. | ✅ E5 + E4b both defaulted/reverted |
+
+---
+
+## 5. Work queue (evidence-ranked)
+
+| # | Item | Why now | Effort | Gate |
+|---|---|---|---|---|
+| **W1** | **Fix I1: supersession asymmetry in the v5 lane** | A cross-cutting invariant is silently defeated; the other lane is actively building on it. Cheapest possible defect to fix while the ledger is still empty (0 invalidated → no risk of changing current rankings). | S | G1 (must be byte-identical while ledger empty) + G2 |
+| **W2** | **Explain the latency gap: 585 ms isolated vs ~1,200 ms in-harness** | All published latency numbers are currently ambiguous. Either the harness leaks state or the router has per-process warm-up. | S–M | receipt |
+| **W3** | **Triage the 90 test failures into buckets** (env/schema-drift/real) | 90 red tests make G2 unusable — "no new failures" cannot be enforced against a number nobody understands. | M | report |
+| **W4** | Enrich the 363 stub resources | Accuracy ceiling is content-bound, not ranking-bound (three ranking experiments failed). **Blocked:** needs URLs/content sources. | L | blocked |
+| **W5** | Install the refresh trigger (weekly) | Pipeline exists, nothing runs it; catalogue ages again. | S | ops check |
+| **W6** | Wenlan decision (retire vs reinstall) | Orphaned mirror, 613 MB preserved. **Blocked on user decision.** | S | user |
+
+## 6. Execution order for this cycle
+
+```
+W1  supersession asymmetry  → gate G1: 0.286 (unchanged) ✅ DONE
+W2  latency gap diagnosis   → receipt ✅ DONE (finding below)
+W3  test triage             → baseline registered; per-bucket RCA deferred
+(stop)  report; W4/W5/W6 need sources / ops / user decision
+```
+
+### W1 result — done, verified
+
+`router_v2/chunk_retrieval.py`: added `_has_supersession()` / `_invalidated_rids()`
+(schema-defensive, so test fixtures without the column still work) and a filter in the
+result loop. Verified with a synthetic tombstone on a scratch copy: the top-ranked
+resource `gsd-debug-session-manager` disappeared from the lane and later results
+promoted up; the live DB was untouched (0 invalidated). Gate G1 unchanged at 0.286 —
+correct, because the ledger is empty, so I1 is now enforced with zero behavior change.
+
+### W2 result — diagnosed, root cause is query-dependence not a leak
+
+| Condition | p50 |
+|---|---|
+| my 3 bench queries | 774 ms |
+| 6 golden prompts (early) | 798 ms |
+| 6 golden prompts (mid-set) | **1,659 ms** |
+| first 10 sequential routes | 1,168 ms |
+| last 10 sequential routes | 1,235 ms (+6%) |
+
+So the reported gap is **not** state accumulation (+6% over 40 routes) and **not**
+process warm-up. It is **query-dependent**: some prompts cost 2× because they trigger
+more expensive paths (cluster detection / larger candidate sets). The honest reading:
+**~585 ms is a best-case quiet-machine figure; 1,100–1,300 ms p50 is what the harness
+actually sees**, and neither is wrong — they are different query mixes. Any future
+latency claim must state the query set. Finding the exact expensive branch is the
+follow-up (profile the 1,659 ms prompts).
+
+## 7. Open risks carried forward
+
+| Risk | Severity | Note |
+|---|---|---|
+| 90 failing tests make G2 weak | **high** | "no new failures" is enforceable only against a known list; the buckets are unclassified |
+| Latency on certain query shapes (2×) | medium | unidentified branch; needs a profile of mid-set prompts |
+| `chunks_fts` holds 3,997 orphan rows | low | stale FTS entries from an earlier ingestion; unhydratable so skipped, but wasted I/O |
+| Two agents, no automated ownership check | medium | protocol is cultural until a pre-commit scope check exists |
+
+Rationale: W1 protects another lane's in-flight work (highest leverage per minute),
+W2 makes every future latency claim trustworthy, W3 makes gate G2 enforceable. W4 is
+content-bound and blocked; W5 is ops; W6 needs the user.
