@@ -379,6 +379,8 @@ def main() -> int:
     # cached; offline-safe — flags pending, never blocks the pipeline)
     if not args.check:
         run_script("lint_stale_markers.py", [], status, "lint")
+        # S6: shadow telemetry watchdog (writes watchdog_events only)
+        run_script("watchdog_audit.py", ["--eval"], status, "watchdog")
     if args.check:
         status["finished_at"] = _now()
         status["elapsed_s"] = round(time.time() - _t0, 1)

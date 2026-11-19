@@ -140,6 +140,26 @@ def _shape_v2(task: str, project: str, max_results: int) -> dict[str, Any]:
     }
 
 
+def _pack_slots(result: dict[str, Any], max_results: int = 5,
+                default_pack: int = 5) -> int:
+    """S3 competition budget: default packs shrink to 3 entries (top-3+trim
+    evidence, SWE-Pruner -23-38% tokens at +accuracy); an EXPLICIT caller
+    request (any max_results != the tool default) is honored as asserted.
+
+    Negative result, recorded (audit 2026-11-19): the intent-aware expansion
+    ("+1 slot per detected facet") FAILED measurement — the cluster decider's
+    payload carries no discriminative signal (confidence p75=0.34, margin
+    p75=0.09, alternatives list constant at 7 across 20 probe queries), so
+    widened/low-conf rules fire on ~every route and the cap never bites.
+    Revisit when a real intent-count signal exists (JEV classification once
+    labeled). The decider's always-populated alternatives are informational
+    runner-ups, not a widening signal.
+    """
+    if max_results != default_pack:
+        return max(1, int(max_results))
+    return 3
+
+
 def _shape_v5(task: str, project: str, max_results: int) -> dict[str, Any]:
     from router_v2.v5 import unified_route_v5
 
@@ -238,8 +258,9 @@ def log_session_open(
                 """
                 INSERT INTO routing_log(
                     task_summary, project, matched_tier, matched_model,
-                    matched_skills, outcome, skill_name, ide
-                ) VALUES (?,?,?,?,?,?,?,?)
+                    matched_skills, outcome, skill_name, ide,
+                    latency_ms, intent
+                ) VALUES (?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     (task or "")[:200],
@@ -250,6 +271,14 @@ def log_session_open(
                     "routed",
                     top,
                     ide,
+                    # S6 instrumentation: populate the telemetry the watchdog
+                    # needs (was: 6/3469 latency rows, 0 intent). Route cost
+                    # from the result payload; intent from the cluster/task
+                    # decision. tokens_used/injected_ctx_len stay for the
+                    # execution side to report.
+                    result.get("route_latency_ms")
+                    or result.get("latency_ms"),
+                    (result.get("task_type") or result.get("cluster") or ""),
                 ),
             )
             rowid = cur.lastrowid
@@ -332,6 +361,7 @@ def route_for_task(
             logging.getLogger(__name__).warning("Shared capability serve routing failed, falling back: %s", e)
 
     active = flag if flag is not None else get_router_flag()
+    _t0 = time.perf_counter()
     if active == "2":
         result = _shape_v5(task, project, max_results)
     elif active == "1":
@@ -385,6 +415,21 @@ def route_for_task(
                 conn, result.get("skills") or [])
     except Exception:
         pass
+
+    # S3 competition budget: default packs shrink to top-3; explicit caller
+    # requests honored (see _pack_slots for the measured negative on the
+    # intent-aware expansion).
+    result["skills"] = (result.get("skills") or [])[
+        :_pack_slots(result, max_results)]
+    result["pack_slots"] = _pack_slots(result, max_results)
+
+    # S5: caller goal restated at the tail of the result (after skills —
+    # JSON key order: the reader sees the goal last; design §3).
+    result["user_goal"] = task
+
+    # S6 instrumentation: the route's own wall-clock cost, for the shadow
+    # watchdog's baselines (populated into routing_log by log_session_open).
+    result["route_latency_ms"] = round((time.perf_counter() - _t0) * 1000, 1)
 
     if open_session:
         rowid = log_session_open(task, project, result, ide=ide)
