@@ -293,4 +293,32 @@ set, Wilson CI) runs its deterministic presence half green; the LLM-judged
 half is PENDING until a judge key is set (`NEXUS_JUDGE_KEY`/`OPENAI_API_KEY`)
 — no numbers fabricated without it.
 
+## 11. S2 shipped (2026-11-19)
+
+`server/ingest/stale_lint.py` + `scripts/lint_stale_markers.py`, wired as the
+`lint` stage of `update_all` after absorb (offline-safe; never blocks).
+
+**Flag semantics (pack filter is flag-type-aware — suspicion never hides a
+resource):** `stale_marker` (tracker-confirmed closed) / `stub` /
+`unresolved_claim` (aged date claim, >180d) are pack-blocking; everything
+unproven is `stale_marker_pending` — tracked, never pack-excluded. Open
+issues resolve clean. Placeholder refs (e.g. literal `owner/repo#42` example
+text) cache as `not_found` so weekly runs make zero tracker calls.
+
+**Live corpus results (5,068 rows):** 13 issue-URL lookups, **10 of 12
+unique refs CLOSED (77%** — the Google closed-ticket finding in miniature);
+9 `stale_marker` (typescript-expert → TypeScript#47663 closed, hunt-csrf →
+DuendeArchive#972 closed, …), 9 aged claims (186–778 days old), 121 stubs,
+16 pending; **139 resources pack-excluded = 2.7%** of the corpus.
+
+Verified: 43/43 tests (10 new linter cases incl. budget-exhaustion,
+buganizer-by-design, cache reuse, placeholder-not_found); acceptance run —
+56 routes including queries that HUNT the flagged resources ("hunt csrf",
+"typescript strict mode", "supply chain recon") → 182 routed entries,
+**0 pack-blocked leaks**; parity identical (top-5 96.0%, cluster 20/20,
+task_type 20/20) — no golden-set answer was a flagged resource. The 9
+confirmed-stale rows carry curation-queue notes (trace-verify-delete; never
+auto-deleted).
+
+
 
