@@ -1,0 +1,16 @@
+{
+  "tag": "w2-latency",
+  "archived_at": "2026-11-19T15:17+05:30",
+  "measured_at": "2026-11-19 (W2 cycle, pre-2871c6d)",
+  "provenance": "GOVERNANCE-PLAN-2026-11-19.md, section 'W2 result - diagnosed, root cause is query-dependence not a leak'. Archived post-hoc: the W2 diagnosis was recorded only in the plan doc (G3 receipt gap found in post-cycle validation). Numbers were measured during the W2 cycle by the lead session and are NOT re-measured here.",
+  "conditions_ms_p50": {
+    "bench_3_queries": 774,
+    "golden_6_prompts_early": 798,
+    "golden_6_prompts_mid_set": 1659,
+    "first_10_sequential_routes": 1168,
+    "last_10_sequential_routes": 1235
+  },
+  "sequential_drift_first_to_last_10": "+6% over 40 routes (not state accumulation, not process warm-up)",
+  "finding": "Query-dependent: some prompts cost ~2x (cluster detection / larger candidate sets). ~585 ms is a best-case quiet-machine figure; 1,100-1,300 ms p50 is what the eval harness actually sees. Neither is wrong - they are different query mixes. Any future latency claim must state the query set.",
+  "follow_up": "profile the 1659 ms mid-set prompts to find the expensive branch"
+}
